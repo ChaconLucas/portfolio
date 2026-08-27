@@ -6535,16 +6535,20 @@ if(mount){
 .cc-head{display:flex;align-items:flex-start;gap:12px;margin:10px 0 12px;
   opacity:0;animation:twShow .26s ease .86s both}
 .cc-mark{
-  position:relative;flex:0 0 auto;width:38px;height:34px;
+  position:relative;flex:0 0 auto;width:40px;height:27px;
   background:#d97757;
-  clip-path:polygon(11% 0,89% 0,100% 12%,100% 75%,78% 75%,78% 100%,61% 100%,61% 75%,39% 75%,39% 100%,22% 100%,22% 75%,0 75%,0 12%);
+  clip-path:polygon(
+    17% 0,83% 0,83% 27%,100% 27%,100% 58%,83% 58%,83% 100%,
+    68.5% 100%,68.5% 58%,57.5% 58%,57.5% 100%,
+    42.5% 100%,42.5% 58%,31.5% 58%,31.5% 100%,
+    17% 100%,17% 58%,0 58%,0 27%,17% 27%);
 }
 /* os olhos sao recortes na cor do terminal, nao pontos desenhados por cima */
 .cc-mark::before,.cc-mark::after{
-  content:'';position:absolute;top:31%;width:17%;height:21%;background:#080a11;
+  content:'';position:absolute;top:15%;width:10%;height:18%;background:#080a11;
 }
-.cc-mark::before{left:22%}
-.cc-mark::after{right:22%}
+.cc-mark::before{left:29%}
+.cc-mark::after{right:29%}
 .cc-meta{font-size:12px;line-height:1.55;color:rgba(186,180,206,.75)}
 .cc-meta b{color:#f0ece0;font-weight:600}
 .cc-meta u{color:rgba(186,180,206,.7);text-decoration:none}
