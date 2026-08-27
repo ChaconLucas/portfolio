@@ -4795,7 +4795,6 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
 </div>
 </div>
 </article>
-<div class="project-seam seam-a"><i></i><b></b><span>PRÓXIMO · 02 — WSL GAMES</span><i></i></div>
 <article class="project-chapter project-chapter-wsl" data-project="wsl" id="project-wsl">
 <div class="project-chapter-sticky">
 <div class="project-chapter-info">
@@ -4821,7 +4820,6 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
 </div>
 </div>
 </article>
-<div class="project-seam seam-b"><i></i><b></b><span>PRÓXIMO · 03 — RARE7</span><i></i></div>
 <article class="project-chapter project-chapter-rare" data-project="rare7" id="project-rare7">
 <div class="project-chapter-sticky">
 <div class="project-chapter-info">
@@ -6378,6 +6376,39 @@ if(mount){
   #brandHome::before{width:26px;height:26px;font-size:9.5px;border-radius:8px}
 }
 
+/* Indice de dominios: os botoes se dimensionavam pelo texto (130, 100, 151px...)
+   e como a divisoria e o border-bottom de cada um, cada linha tinha um
+   comprimento — a escadinha. E o ativo ganhava 8px a mais de recuo, saindo do
+   alinhamento da coluna. */
+.vault-nav{align-items:stretch}
+.stack-nav-btn{
+  width:100%!important;
+  align-self:stretch!important;
+  position:relative;
+  padding-left:22px!important;
+  border-bottom:1px solid color-mix(in srgb,var(--ink) 7%,transparent)!important;
+  border-radius:0!important;
+}
+.stack-nav-btn::before{
+  content:"";
+  position:absolute;
+  left:0;top:22%;bottom:22%;
+  width:2px;
+  border-radius:99px;
+  background:var(--accent);
+  transform:scaleY(0);
+  transform-origin:center;
+  transition:transform .32s cubic-bezier(.16,1,.3,1);
+}
+/* ativo: filete de acento no lugar da caixa deslocada */
+.stack-nav-btn.active{
+  background:color-mix(in srgb,var(--accent) 11%,transparent)!important;
+  color:#f6f2ff!important;
+}
+.stack-nav-btn.active::before{transform:scaleY(1)}
+.stack-nav-btn.active span{color:var(--accent)!important}
+.stack-nav-btn:hover:not(.active){background:color-mix(in srgb,var(--ink) 4%,transparent)!important}
+
 /* O driver do Arquivo Tecnico gera <strong>, mas o CSS so tratava <b> como
    bloco — por isso "CASO" ficava colado no titulo do caso. */
 .stack-mini-case small{display:block;margin-bottom:6px}
@@ -6972,8 +7003,12 @@ html{
     // DECK EM PROFUNDIDADE: a tela atual fica na frente e as seguintes ficam
     // empilhadas atrás, visíveis. Antes todas moravam no mesmo lugar com
     // crossfade, então não dava para perceber que existem 4 (ou 7) telas.
+    // No ultimo passo nao existe proxima tela: se deixar o crossfade correr, a
+    // ultima desliza para fora e sobra a moldura vazia. Guard que eu tinha
+    // apagado ao reescrever isto como deck.
+    const crossEff = (step===n-1) ? 0 : cross;
     views.forEach((view,i)=>{
-      const rel=i-step-cross;              // 0 = frente, 1 = proxima, negativo = ja saiu
+      const rel=i-step-crossEff;           // 0 = frente, 1 = proxima, negativo = ja saiu
       let o,x,y,z,sc,blur;
 
       if(key==='wsl'){
