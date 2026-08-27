@@ -24,6 +24,23 @@ Portfólio pessoal cinematográfico para recrutadores e clientes, com identidade
 - Não adicionar blur forte, transições que escondam conteúdo ou scroll morto.
 - Não inventar dados profissionais/projetos.
 
+## Estado em 26/08/2026
+- No ar: https://portfolio-delta-five-78.vercel.app (Vercel, todo push na `main` republica).
+- Site nasce em **português**; botão EN no header troca por dicionário PT→EN.
+- Abertura em terminal, duas variantes (`hack` padrão e `ai`) — ver `INTRO_ANIMATION.md`.
+- Screenshots reais nos três capítulos: GateCheck (4), Rare7 (5), WSL (7, em totem retrato).
+- Favicon, título e imagem de compartilhamento (`og.png`) prontos.
+
+## Em aberto (próxima sessão)
+1. **Mobile** — três partes apontadas e ainda não resolvidas: a Trajetória (Experience),
+   os capítulos de Projetos, e o fim do Arquivo Técnico. Lembrar que a Experience voltou a
+   ser linear no mobile por limite físico de largura, não por escolha estética.
+2. Coluna de texto dos capítulos de projeto com ~55% de vazio — falta **conteúdo**
+   (o que foi construído, números, links), não layout. Só o Lucas pode fornecer.
+3. Link da demo da WSL (`https://wsl-sportv-games.vercel.app`) ainda não está no site.
+4. Modularizar `index.html` (~6.500 linhas, 1.439 `!important`). O acúmulo de `!important`
+   já causou bug de especificidade no grid do mobile e no skip da abertura.
+
 ## Prioridade de evolução
 1. Estabilizar e modularizar sem alterar aparência.
 2. Testar desktop 1440x900, 1920x1080 e mobile.

@@ -231,3 +231,45 @@ declara que nenhuma variável de ambiente é necessária, e não há chamada de 
 - `.claude/` (400 arquivos, 4,5 MB do ferramental GSD) fica fora do repo via .gitignore.
 - Vercel detecta Vite sozinho: build `npm run build`, saída `dist`. Sem vercel.json —
   é página única sem router, então não precisa de rewrites.
+
+## Abertura — três bugs com a mesma raiz: tempo chumbado em dois lugares (26/08/2026)
+Detalhes da abertura em `INTRO_ANIMATION.md`. Aqui só as causas técnicas.
+
+### 1. `both` preenche PARA TRÁS e mata a animação anterior da lista
+A linha do contador tinha duas animações:
+```css
+.ai4b{animation:twShow .16s ease 2.62s both, twHide .2s ease 3.40s both}
+```
+O `both` da segunda aplica o `from{opacity:1}` desde o tempo 0 (fill backwards), então a
+linha **nascia visível com o contador zerado**, em vez de aparecer aos 2,62 s.
+Corrigido com `forwards` na segunda: segura só o estado final, não invade o início.
+Regra geral: numa lista de animações, a última vence — e `both` faz ela vencer desde t=0.
+
+### 2. `.skip` e `[data-intro]` têm a MESMA especificidade
+```css
+#energyBurst.skip{animation:ebOut .22s ease both}          /* 1 id + 1 classe */
+#energyBurst[data-intro="ai"]{animation-delay:4.86s}       /* 1 id + 1 atributo */
+```
+Empate de especificidade → vence quem vem depois. Como a regra da variante estava depois,
+ela reimpunha o atraso de 4,86 s no `ebOut` do skip: a cortina nunca rodava e o JS removia o
+overlay em 240 ms. Resultado: **corte seco em vez de pular**.
+Corrigido invertendo a ordem e travando com `animation-delay:0s!important` no `.skip`.
+
+### 3. Atraso do nome do hero casado na mão com o fim da abertura
+```css
+.hero-name-block h1{animation:nameRise .95s … 4.75s both}   /* número chumbado */
+```
+Dois efeitos, os dois já estavam no ar:
+- ao **pular**, ninguém mexia nesse 4,75 s — o overlay sumia e o nome ainda demorava ~3,5 s.
+- ao acelerar a abertura com `VEL=1.14`, a cortina passou a abrir em 3,88 s e o nome
+  continuou em 4,75 s: ~0,9 s de tela sem o nome. Esse é o sintoma que chegou como
+  "o site parece que ainda está carregando".
+
+Corrigido: o atraso virou `var(--nome-atraso)`; o driver da abertura escreve o valor real
+(`FIM/VEL + .10`), o skip zera para `.06s` e `prefers-reduced-motion` zera para `0s`.
+**Nenhum tempo do hero deve voltar a ser um número fixo no CSS** — ele tem que derivar do
+fim real da abertura, senão qualquer mudança de ritmo abre a brecha de novo.
+
+### Lição
+Os três são a mesma falha: um tempo escrito em dois lugares que precisam concordar.
+Uma fonte só (variável CSS ou constante JS), e os outros derivam dela.
