@@ -20,11 +20,12 @@ npm run preview
 
 ## Ordem de leitura para IA
 
-2. `docs/HANDOFF.md`
-3. `docs/ARCHITECTURE.md`
-4. `docs/MOTION_SYSTEM.md`
-5. `docs/DESIGN_SYSTEM.md`
-6. `docs/KNOWN_ISSUES.md`
+1. `docs/HANDOFF.md`
+2. `docs/ARCHITECTURE.md`
+3. `docs/MOTION_SYSTEM.md`
+4. `docs/DESIGN_SYSTEM.md`
+5. `docs/KNOWN_ISSUES.md`
+6. `docs/INTRO_ANIMATION.md`
 
 ## Regra principal
 
