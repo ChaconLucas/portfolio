@@ -4559,6 +4559,7 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
 </style>
 </head>
 <body class="theme-editorial dark universe-theme">
+<div aria-hidden="true" id="bootIgnition"><i class="boot-halo"></i><i class="boot-core"></i><i class="boot-ring r1"></i><i class="boot-ring r2"></i><b class="boot-label">INICIANDO UNIVERSO</b><i class="boot-line"></i></div>
 <div class="noise"></div><div class="progress"><i></i></div>
 <div aria-hidden="true" class="universe-nebula"></div>
 <div aria-hidden="true" class="universe-tech"></div>
@@ -6433,6 +6434,77 @@ if(mount){
   .hero-name-block h1{max-width:100%;overflow-wrap:break-word}
 }
 
+/* ENTRADA: ignicao. Preto absoluto, um ponto de luz floresce virando o sol e
+   o site se revela atras. O desaparecimento e por CSS, nao por JS: se o script
+   falhar o overlay some do mesmo jeito e nao tranca a pagina. */
+#bootIgnition{
+  position:fixed;
+  inset:0;
+  z-index:9999;
+  display:grid;
+  place-items:center;
+  background:#04050a;
+  animation:bootOut .55s ease 1.05s both;
+  pointer-events:none;
+}
+#bootIgnition.skip{animation:bootOut .28s ease both}
+#bootIgnition i,#bootIgnition b{position:absolute}
+.boot-core{
+  width:10px;height:10px;
+  border-radius:50%;
+  background:radial-gradient(circle,#fff 0 34%,#e7d6ff 58%,#a274ff 82%,rgba(126,91,255,0) 100%);
+  animation:bootCore 1.25s cubic-bezier(.22,1,.28,1) both;
+}
+.boot-halo{
+  width:12px;height:12px;
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(176,140,255,.55),rgba(126,91,255,0) 70%);
+  animation:bootHalo 1.35s cubic-bezier(.22,1,.28,1) both;
+}
+.boot-ring{
+  border-radius:50%;
+  border:1px solid rgba(176,140,255,.34);
+  width:60px;height:60px;
+  opacity:0;
+  animation:bootRing 1.15s cubic-bezier(.22,1,.28,1) both;
+}
+.boot-ring.r2{animation-delay:.14s;border-color:rgba(150,110,255,.20)}
+.boot-label{
+  bottom:calc(50% - 96px);
+  font-size:8px;
+  letter-spacing:.30em;
+  color:rgba(198,176,255,.62);
+  opacity:0;
+  animation:bootLabel 1.1s ease .18s both;
+}
+.boot-line{
+  bottom:calc(50% - 118px);
+  width:120px;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(176,140,255,.75),transparent);
+  transform:scaleX(0);
+  animation:bootLine .9s cubic-bezier(.16,1,.3,1) .22s both;
+}
+@keyframes bootCore{
+  0%{transform:scale(.4);opacity:0}
+  16%{opacity:1}
+  62%{transform:scale(9);opacity:1}
+  100%{transform:scale(34);opacity:0}
+}
+@keyframes bootHalo{
+  0%{transform:scale(1);opacity:0}
+  22%{opacity:.9}
+  100%{transform:scale(46);opacity:0}
+}
+@keyframes bootRing{
+  0%{transform:scale(.2);opacity:0}
+  30%{opacity:.85}
+  100%{transform:scale(7);opacity:0}
+}
+@keyframes bootLabel{0%,12%{opacity:0}42%{opacity:1}100%{opacity:0}}
+@keyframes bootLine{0%{transform:scaleX(0)}55%{transform:scaleX(1)}100%{transform:scaleX(1);opacity:0}}
+@keyframes bootOut{to{opacity:0;visibility:hidden}}
+@media(prefers-reduced-motion:reduce){#bootIgnition{display:none}}
+
 /* As regras por projeto (.project-chapter-gate .project-chapter-sticky) tem
    especificidade maior E !important, entao venciam o 1fr do bloco mobile
    generico. Precisam ser sobrescritas com a mesma especificidade. */
@@ -7400,6 +7472,24 @@ html{
       layout();
       addEventListener('resize',layout);
       requestAnimationFrame(frame);
+    }
+  }
+
+  // Entrada: uma vez por sessao, e qualquer interacao pula.
+  {
+    const boot=document.getElementById('bootIgnition');
+    if(boot){
+      const reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      let visto=false;
+      try{ visto=sessionStorage.getItem('lc-boot')==='1'; sessionStorage.setItem('lc-boot','1'); }catch(e){}
+      const sair=()=>{ if(boot.isConnected) boot.remove(); };
+      if(visto||reduce){ sair(); }
+      else{
+        const pular=()=>{ boot.classList.add('skip'); setTimeout(sair,300); };
+        ['pointerdown','wheel','touchstart','keydown'].forEach(ev=>
+          addEventListener(ev,pular,{once:true,passive:true}));
+        setTimeout(sair,1900);   // rede de seguranca: nunca fica preso
+      }
     }
   }
 
