@@ -6477,7 +6477,7 @@ if(mount){
 }
 .wsl-totem-screen{
   position:relative;
-  height:min(60vh,540px);
+  height:min(74vh,660px);
   aspect-ratio:.575;
   padding:11px;
   background:linear-gradient(165deg,#18202a,#090c11 48%,#141a23);
@@ -6927,14 +6927,33 @@ html{
     // empilhadas atrás, visíveis. Antes todas moravam no mesmo lugar com
     // crossfade, então não dava para perceber que existem 4 (ou 7) telas.
     views.forEach((view,i)=>{
-      const rel=i-step-cross;              // 0 = frente, 1 = próxima, negativo = já saiu
+      const rel=i-step-cross;              // 0 = frente, 1 = proxima, negativo = ja saiu
       let o,x,y,z,sc,blur;
-      if(rel<-0.92){                        // já passou: sai pela esquerda
+
+      if(key==='wsl'){
+        // Dentro da tela de um dispositivo o deck vira sobreposicao suja: as
+        // camadas nao tem para onde se espalhar. Aqui e uma tela por vez,
+        // deslizando lateralmente como quem passa o dedo no totem.
+        const k=Math.max(-1,Math.min(1,rel));
+        o=Math.abs(k)>=1?0:1;
+        x=k*100;y=0;z=0;sc=1;blur=0;
+        view.style.opacity=String(o);
+        view.style.visibility=Math.abs(rel)<1?'visible':'hidden';
+        view.style.transform=`translate3d(${x}%,0,0)`;
+        view.style.filter='none';
+        view.style.zIndex=String(o>0?3:1);
+        return;
+      }
+
+      // DECK EM PROFUNDIDADE (GateCheck / Rare7): a tela atual na frente e as
+      // seguintes empilhadas atras, visiveis. Antes todas moravam no mesmo
+      // lugar com crossfade e nao dava para perceber que existem varias.
+      if(rel<-0.92){
         o=0;x=-90;y=-14;z=60;sc=1.03;blur=6;
-      }else if(rel<0){                      // saindo
+      }else if(rel<0){
         const k=-rel;
         o=1-k;x=-k*90;y=-k*14;z=k*60;sc=1+k*.03;blur=k*6;
-      }else{                                // frente e as de trás
+      }else{
         const d=Math.min(rel,3);
         o=d<=2?1-d*0.34:0;
         x=d*46;y=d*26;z=-d*130;sc=1-d*.055;blur=d*1.5;
