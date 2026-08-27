@@ -4782,11 +4782,6 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
 <div class="real-project-stage gate-real-stage">
 <div class="real-stage-glow"></div>
 <div class="real-browser">
-<div class="real-browser-top">
-<div class="real-dots"><i></i><i></i><i></i></div>
-<span>GATECHECK / PRODUCTION UI</span>
-<b id="gateRoute">/empresa/dashboard</b>
-</div>
 <div class="real-shot-stack">
 <figure class="real-shot active" data-shot="0"><img alt="GateCheck dashboard" src="/assets/projects/gatecheck-1.webp"/></figure>
 <figure class="real-shot" data-shot="1"><img alt="GateCheck event management" src="/assets/projects/gatecheck-2.webp"/></figure>
@@ -4837,7 +4832,7 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
 <div class="chapter-stack"><span>PHP</span><span>MySQL</span><span>JavaScript</span><span>Mercado Pago</span></div>
 <div class="chapter-screen-label"><b id="rareShotIndex">01</b><span id="rareShotLabel">Store</span></div>
 </div>
-<div class="real-project-stage rare-real-stage"><div class="real-stage-glow rare-stage-glow"></div><div class="real-browser rare-real-browser"><div class="real-browser-top"><div class="real-dots"><i></i><i></i><i></i></div><span>RARE7 / REAL PRODUCT UI</span><b id="rareRoute">/</b></div><div class="rare-real-shot-stack"><figure class="rare-real-shot active" data-rare-shot="0"><img alt="Rare7 Home / Hero" src="/assets/projects/rare7-1.webp"/></figure><figure class="rare-real-shot" data-rare-shot="1"><img alt="Rare7 Ligas e clubes" src="/assets/projects/rare7-2.webp"/></figure><figure class="rare-real-shot" data-rare-shot="2"><img alt="Rare7 Produto em destaque" src="/assets/projects/rare7-3.webp"/></figure><figure class="rare-real-shot" data-rare-shot="3"><img alt="Rare7 Página do produto" src="/assets/projects/rare7-4.webp"/></figure><figure class="rare-real-shot" data-rare-shot="4"><img alt="Rare7 Carrinho / Checkout" src="/assets/projects/rare7-5.webp"/></figure></div><div class="real-scan-line rare-scan-line"></div></div><div class="chapter-progress"><i></i></div><div class="chapter-hint">ROLE / EXPLORE A LOJA</div></div>
+<div class="real-project-stage rare-real-stage"><div class="real-stage-glow rare-stage-glow"></div><div class="real-browser rare-real-browser"><div class="rare-real-shot-stack"><figure class="rare-real-shot active" data-rare-shot="0"><img alt="Rare7 Home / Hero" src="/assets/projects/rare7-1.webp"/></figure><figure class="rare-real-shot" data-rare-shot="1"><img alt="Rare7 Ligas e clubes" src="/assets/projects/rare7-2.webp"/></figure><figure class="rare-real-shot" data-rare-shot="2"><img alt="Rare7 Produto em destaque" src="/assets/projects/rare7-3.webp"/></figure><figure class="rare-real-shot" data-rare-shot="3"><img alt="Rare7 Página do produto" src="/assets/projects/rare7-4.webp"/></figure><figure class="rare-real-shot" data-rare-shot="4"><img alt="Rare7 Carrinho / Checkout" src="/assets/projects/rare7-5.webp"/></figure></div><div class="real-scan-line rare-scan-line"></div></div><div class="chapter-progress"><i></i></div><div class="chapter-hint">ROLE / EXPLORE A LOJA</div></div>
 </div>
 </article>
 </section>
@@ -6383,6 +6378,43 @@ if(mount){
   #brandHome::before{width:26px;height:26px;font-size:9.5px;border-radius:8px}
 }
 
+/* DECK: as telas viram cartões empilhados em profundidade. Exige perspectiva no
+   palco e overflow visível — antes tudo era recortado pela moldura de browser,
+   que saiu porque as tres bolinhas e a rota falsa liam como template. */
+.project-chapter-gate .real-browser,
+.project-chapter-rare .rare-real-browser{
+  background:none!important;
+  border:0!important;
+  box-shadow:none!important;
+  overflow:visible!important;
+  perspective:1700px;
+  transform-style:preserve-3d;
+}
+.project-chapter-gate .real-shot-stack,
+.project-chapter-rare .rare-shot-stack{
+  top:0!important;
+  inset:0!important;
+  overflow:visible!important;
+  background:none!important;
+  transform-style:preserve-3d;
+}
+.project-chapter-gate .real-shot,
+.project-chapter-rare .rare-real-shot{
+  border-radius:14px!important;
+  overflow:hidden!important;
+  border:1px solid rgba(255,255,255,.10)!important;
+  box-shadow:0 34px 80px rgba(0,0,0,.62),0 2px 0 rgba(255,255,255,.05) inset!important;
+  will-change:transform,opacity,filter;
+}
+/* o palco cresce e sangra na borda: a captura era pequena demais para o espaço */
+.project-chapter-gate .real-project-stage,
+.project-chapter-rare .real-project-stage{
+  max-height:82vh!important;
+  margin-right:-5vw;
+}
+.project-chapter-gate .real-scan-line,
+.project-chapter-rare .real-scan-line{display:none!important}
+
 /* WSL: as telas reais são RETRATO (~0.57), ao contrário de GateCheck (2.09) e
    Rare7 (1.95). Usar a moldura de browser desktop dos outros capítulos cortaria
    tudo, então aqui a moldura é de dispositivo em pé — que também é mais fiel:
@@ -6891,24 +6923,28 @@ html{
     const raw=frac<blendStart?0:(frac-blendStart)/(1-blendStart);
     const cross=raw*raw*(3-2*raw);
 
+    // DECK EM PROFUNDIDADE: a tela atual fica na frente e as seguintes ficam
+    // empilhadas atrás, visíveis. Antes todas moravam no mesmo lugar com
+    // crossfade, então não dava para perceber que existem 4 (ou 7) telas.
     views.forEach((view,i)=>{
-      let o=0,x=0,y=0,z=-70,sc=.97,blur=3;
-      if(i===step){
-        o=1-cross;
-        x=-cross*30;y=-cross*5;z=-cross*80;sc=1-cross*.025;blur=cross*2.4;
-      }else if(i===step+1){
-        o=cross;
-        x=(1-cross)*38;y=(1-cross)*7;z=(1-cross)*-105;sc=.965+cross*.035;blur=(1-cross)*2.8;
-      }else if(step===n-1 && i===n-1){
-        o=1;x=0;y=0;z=0;sc=1;blur=0;
+      const rel=i-step-cross;              // 0 = frente, 1 = próxima, negativo = já saiu
+      let o,x,y,z,sc,blur;
+      if(rel<-0.92){                        // já passou: sai pela esquerda
+        o=0;x=-90;y=-14;z=60;sc=1.03;blur=6;
+      }else if(rel<0){                      // saindo
+        const k=-rel;
+        o=1-k;x=-k*90;y=-k*14;z=k*60;sc=1+k*.03;blur=k*6;
+      }else{                                // frente e as de trás
+        const d=Math.min(rel,3);
+        o=d<=2?1-d*0.34:0;
+        x=d*46;y=d*26;z=-d*130;sc=1-d*.055;blur=d*1.5;
       }
-      view.style.opacity=String(o);
+      view.style.opacity=String(Math.max(0,o));
       view.style.visibility=o>.01?'visible':'hidden';
       view.style.transform=`translate3d(${x}px,${y}px,${z}px) scale(${sc})`;
-      view.style.filter=`blur(${blur}px) brightness(${.88+o*.12})`;
-      view.style.zIndex=o>.5?'3':'2';
+      view.style.filter=`blur(${blur}px) brightness(${.52+Math.max(0,o)*.48})`;
+      view.style.zIndex=String(40-Math.round(Math.max(0,rel)*10));
 
-      // Continuous micro-parallax for the real GateCheck screenshots.
       if(key==='gatecheck' || key==='rare7'){
         const img=view.querySelector('img');
         if(img){
