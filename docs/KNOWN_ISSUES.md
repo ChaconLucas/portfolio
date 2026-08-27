@@ -221,3 +221,13 @@ Verificado: `--r` vai de 0 a 190px ao entrar e a posição acompanha o ponteiro.
 - CORREÇÃO: o `drop-shadow` da camada de brilho desenhava um retângulo visível atrás do nome.
   Combinado com `background-clip:text`, o filtro é calculado sobre a caixa do elemento e não
   sobre os glifos. Removido. Raio da revelação também reduzido (0.26 → 0.17 da largura, 130–240px).
+
+## Deploy (26/08/2026)
+O projeto é 100% estático: dependências são só `three` (runtime) e `vite` (build), `.env.example`
+declara que nenhuma variável de ambiente é necessária, e não há chamada de rede nenhuma
+(as ocorrências de "axios" numa busca são texto dentro do SVG de código do hero, não código executado).
+`npm run build` gera `dist/` com ~1,9 MB.
+- Repositório: https://github.com/ChaconLucas/portfolio (público, branch main)
+- `.claude/` (400 arquivos, 4,5 MB do ferramental GSD) fica fora do repo via .gitignore.
+- Vercel detecta Vite sozinho: build `npm run build`, saída `dist`. Sem vercel.json —
+  é página única sem router, então não precisa de rewrites.
