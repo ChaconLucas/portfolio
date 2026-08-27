@@ -4559,14 +4559,12 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
 </style>
 </head>
 <body class="theme-editorial dark universe-theme">
-<div aria-hidden="true" id="energyBurst"><div class="nf-hack"><span class="hk h1"><i>$</i>./init --target lucaschacon.dev</span><span class="hk h2"><b>[*]</b>bruteforce<u class="hk-bar"><s></s></u></span><span class="hk h3"><b>[<em>✓</em>]</b>ACCESS GRANTED</span></div><div class="nf-win"><div class="nf-bar"><i></i><i></i><i></i><span>lucas@portfolio: ~</span></div><div class="nf-body"><pre class="nf-art">██╗      ██████╗
-██║     ██╔════╝
-██║     ██║     
-██║     ██║     
-███████╗╚██████╗
-╚══════╝ ╚═════╝
-
-  full stack · sec</pre><div class="nf-info"><span class="nf-l nf-1 nf-head">lucas@portfolio</span><span class="nf-l nf-2 nf-head">---------------</span><span class="nf-l nf-3"><b>Role</b><em class="">Full Stack Developer</em></span><span class="nf-l nf-4"><b>Stack</b><em class="">React · Next.js · FastAPI · PostgreSQL</em></span><span class="nf-l nf-5"><b>Security</b><em class="">JWT · RBAC · Audit logs · Pentest</em></span><span class="nf-l nf-6"><b>Projects</b><em class="">GateCheck · WSL Games · Rare7</em></span><span class="nf-l nf-7"><b>Runtime</b><em class="">Vite 7.1.3 · Three.js 0.180</em></span><span class="nf-l nf-8"><b>Location</b><em class="">Rio de Janeiro, BR</em></span><span class="nf-l nf-9"><b>Email</b><em class="ok">lucaschacon79@gmail.com</em></span><span class="nf-l nf-10"><b>$</b><em>_</em></span></div></div></div></div></div>
+<div aria-hidden="true" id="energyBurst"><div class="tw-win"><div class="tw-bar"><i></i><i></i><i></i><span>lucas@portfolio: ~</span></div><div class="tw-body"><span class="tw-cmd c1"><b>lucas@portfolio</b>:<u>~</u>$&nbsp;<em>nmap -sV -p 443 lucaschacon.dev</em></span><span class="tw-out o1">443/tcp  open  https   <i>vercel</i></span><span class="tw-cmd c2"><b>lucas@portfolio</b>:<u>~</u>$&nbsp;<em>./lc --exploit portfolio --payload rev</em></span><pre class="tw-banner">  ██╗      ██████╗
+  ██║     ██╔════╝
+  ██║     ██║     
+  ██║     ██║     
+  ███████╗╚██████╗
+  ╚══════╝ ╚═════╝</pre><span class="tw-out ob">lc v1.0 &mdash; lucas chacon exploit kit</span><span class="tw-out o2">[*] handshake ......... <i>ok</i></span><span class="tw-out o3">[ATTEMPT] <u class="tw-bar-p"><s></s></u></span><span class="tw-out o4">[SUCCESS] key accepted</span><span class="tw-out o5 granted">[<i>&#10003;</i>] ACCESS GRANTED</span><span class="tw-caret"></span></div></div></div></div></div>
 <div class="noise"></div><div class="progress"><i></i></div>
 <div aria-hidden="true" class="universe-nebula"></div>
 <div aria-hidden="true" class="universe-tech"></div>
@@ -6462,130 +6460,102 @@ if(mount){
   .hero-name-block h1{max-width:100%;overflow-wrap:break-word}
 }
 
-/* ENTRADA — neofetch do perfil. Janela de terminal com arte ASCII e as infos
-   reais do Lucas. E portfolio de dev, entao a abertura fala terminal.
-   Acento lavanda, nao verde: verde de terminal e o clichê Matrix que o
-   DESIGN_SYSTEM veta. Some por CSS: se o JS falhar o overlay desaparece igual. */
+.c1{--n:31}
+.c2{--n:38}
+/* ENTRADA — sessao de terminal invadindo o proprio projeto. So os comandos:
+   as infos de perfil sairam porque o site inteiro ja as tem, e o terminal e
+   para parecer que se esta digitando. Tudo carrega DENTRO da janela. */
 #energyBurst{
   position:fixed;inset:0;z-index:9999;
   display:grid;place-items:center;
-  background:
-    radial-gradient(ellipse 80% 60% at 50% 45%,#0d1020,#05060d 62%,#030409 100%);
+  background:radial-gradient(ellipse 80% 60% at 50% 45%,#0c0f1c,#05060d 64%,#030409 100%);
   pointer-events:none;
-  animation:ebOut .42s ease 2.62s both;
+  animation:ebOut .52s ease 5.10s both;
 }
 #energyBurst.skip{animation:ebOut .22s ease both}
-.nf-hack{
-  position:absolute;
-  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  font-size:13px;line-height:2.2;
-  color:rgba(200,192,222,.9);
-  white-space:nowrap;
-  animation:hkOut .3s ease .92s both;
-}
-.hk{display:block;opacity:0;transform:translateY(4px);animation:nfLine .24s cubic-bezier(.16,1,.3,1) both}
-.hk i{font-style:normal;margin-right:9px;color:#a274ff}
-.hk b{font-weight:400;margin-right:9px;color:rgba(160,140,205,.7)}
-.hk b em{font-style:normal;color:#7fd8b8}
-.h1{animation-delay:.06s}
-.h2{animation-delay:.30s}
-.h3{animation-delay:.72s;color:#d9c6ff;letter-spacing:.15em}
-.hk-bar{display:inline-block;width:120px;height:6px;margin-left:12px;vertical-align:-1px;
-  border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden}
-.hk-bar s{display:block;height:100%;width:0;text-decoration:none;
-  background:linear-gradient(90deg,#7a4fd8,#c3a6ff);
-  animation:hkCrack .40s cubic-bezier(.5,0,.2,1) .32s both}
-@keyframes hkCrack{0%{width:0}70%{width:78%}100%{width:100%}}
-@keyframes hkOut{to{opacity:0;transform:translateY(-6px)}}
-
-.nf-win{
+.tw-win{
   position:relative;
-  width:min(740px,90vw);
-  border-radius:15px;
+  width:min(620px,90vw);
+  border-radius:12px;
   overflow:hidden;
-  background:linear-gradient(168deg,#131728 0%,#0c0f1b 42%,#0a0c15 100%);
-  border:1px solid rgba(176,140,255,.16);
-  box-shadow:
-    0 46px 120px rgba(0,0,0,.78),
-    0 0 90px rgba(112,72,214,.16),
-    inset 0 1px rgba(255,255,255,.07);
-  animation:nfWin .46s cubic-bezier(.16,1,.3,1) .96s both;
+  background:#080a11;
+  border:1px solid rgba(255,255,255,.09);
+  box-shadow:0 44px 110px rgba(0,0,0,.8),0 0 70px rgba(112,72,214,.13),inset 0 1px rgba(255,255,255,.06);
+  animation:twWin .34s cubic-bezier(.16,1,.3,1) both;
 }
-/* brilho suave atras da janela, para ela nao boiar no preto chapado */
-.nf-win::after{
-  content:"";
-  position:absolute;
-  inset:-42% -12%;
-  border-radius:50%;
-  background:radial-gradient(ellipse,rgba(126,91,255,.16),transparent 62%);
-  filter:blur(52px);
-  z-index:-1;
-  pointer-events:none;
-}
-.nf-bar{
+.tw-bar{
   display:flex;align-items:center;gap:7px;
-  padding:11px 15px;
-  background:linear-gradient(180deg,rgba(30,35,56,.95),rgba(20,24,40,.92));
-  border-bottom:1px solid rgba(255,255,255,.045);
-  box-shadow:inset 0 1px rgba(255,255,255,.05);
+  padding:10px 14px;
+  background:linear-gradient(180deg,#20243a,#171a2a);
+  border-bottom:1px solid rgba(0,0,0,.5);
 }
-.nf-bar i{width:10px;height:10px;border-radius:50%;background:#4a4560;box-shadow:inset 0 1px rgba(255,255,255,.22)}
-.nf-bar i:first-child{background:#c86a6a}
-.nf-bar i:nth-child(2){background:#c8a76a}
-.nf-bar i:nth-child(3){background:#7fbf8a}
-.nf-bar span{
-  flex:1;text-align:center;
+.tw-bar i{width:10px;height:10px;border-radius:50%;background:#4a4560}
+.tw-bar i:first-child{background:#e05a52}
+.tw-bar i:nth-child(2){background:#e0a83c}
+.tw-bar i:nth-child(3){background:#5cc86a}
+.tw-bar span{flex:1;text-align:center;margin-right:34px;
   font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  font-size:11px;color:rgba(198,190,220,.62);
-  margin-right:34px;
-}
-.nf-body{
-  display:flex;gap:34px;align-items:center;
-  padding:26px 26px 26px 30px;
+  font-size:11.5px;color:rgba(200,194,220,.6)}
+.tw-body{
+  padding:16px 18px 18px;
   font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:12.5px;line-height:1.95;
+  color:rgba(198,192,214,.86);
+  min-height:298px;
 }
-.nf-art{
-  margin:0;
-  align-self:center;
-  font-size:13px;
-  line-height:1.06;
-  letter-spacing:-.5px;
+/* comandos: digitados, revelando caractere por caractere */
+.tw-cmd{display:block;white-space:nowrap;opacity:0;animation:twShow .01s linear both}
+.tw-cmd b{color:#7fd8b8;font-weight:400}
+.tw-cmd u{color:#8ab4ff;text-decoration:none}
+.tw-cmd em{
+  font-style:normal;color:#e8e3f5;
+  display:inline-block;overflow:hidden;white-space:nowrap;vertical-align:bottom;
+  width:0;
+  animation:twType .78s steps(var(--n,30),end) both;
+}
+/* saidas: aparecem prontas, como resposta do processo */
+.tw-out{display:block;white-space:nowrap;opacity:0;
+  animation:twShow .16s ease both;color:rgba(178,172,198,.82)}
+.tw-out i{font-style:normal;color:#7fd8b8}
+.tw-out.granted{color:#dcccff;letter-spacing:.14em;margin-top:6px}
+.tw-out.granted i{color:#7fd8b8}
+.c1{animation-delay:.16s}
+.c1 em{animation-delay:.16s}
+.o1{animation-delay:1.04s}
+.c2{animation-delay:1.28s}
+.c2 em{animation-delay:1.28s}
+.ob{animation-delay:2.48s}
+.o2{animation-delay:2.76s}
+.o3{animation-delay:2.98s}
+.o4{animation-delay:3.66s}
+.o5{animation-delay:3.92s}
+.tw-banner{
+  margin:8px 0 2px;
+  font-size:10.5px;
+  line-height:1.14;
   color:#a97fff;
   white-space:pre;
   opacity:0;
-  animation:nfLine .44s ease 1.02s both;
-  text-shadow:0 0 18px rgba(146,104,240,.55),0 0 44px rgba(120,80,220,.28);
+  animation:twShow .26s ease 2.20s both;
+  text-shadow:0 0 16px rgba(150,108,244,.5);
 }
-.nf-info{display:flex;flex-direction:column;justify-content:center;min-width:0}
-.nf-l{
-  display:block;font-size:12px;line-height:1.95;white-space:nowrap;
-  opacity:0;transform:translateX(-6px);
-  animation:nfLine .28s cubic-bezier(.16,1,.3,1) both;
-}
-.nf-l b{display:inline-block;min-width:78px;font-weight:400;color:#a274ff}
-.nf-l em{font-style:normal;color:rgba(214,208,232,.92)}
-.nf-l em.ok{color:#7fd8b8}
-.nf-head{color:#c3a6ff;letter-spacing:.04em}
-.nf-1{animation-delay:1.12s}
-.nf-2{animation-delay:1.23s}
-.nf-3{animation-delay:1.33s}
-.nf-4{animation-delay:1.43s}
-.nf-5{animation-delay:1.54s}
-.nf-6{animation-delay:1.65s}
-.nf-7{animation-delay:1.75s}
-.nf-8{animation-delay:1.86s}
-.nf-9{animation-delay:1.96s}
-.nf-10{animation-delay:2.06s}
-.nf-10 em{animation:nfCaret .9s steps(1) infinite}
-@keyframes nfWin{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
-@keyframes nfLine{to{opacity:1;transform:none}}
-@keyframes nfCaret{0%,49%{opacity:1}50%,100%{opacity:0}}
+.tw-bar-p{display:inline-block;width:96px;height:6px;margin-left:8px;vertical-align:-1px;
+  border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+.tw-bar-p s{display:block;height:100%;width:0;text-decoration:none;
+  background:linear-gradient(90deg,#7a4fd8,#c3a6ff);
+  animation:twFill .58s cubic-bezier(.5,0,.2,1) 3.02s both}
+.tw-caret{display:inline-block;width:7px;height:14px;vertical-align:-2px;
+  background:#c3a6ff;animation:twBlink .9s steps(1) infinite}
+@keyframes twWin{from{opacity:0;transform:translateY(8px) scale(.99)}to{opacity:1;transform:none}}
+@keyframes twShow{to{opacity:1}}
+@keyframes twType{from{width:0}to{width:100%}}
+@keyframes twFill{from{width:0}to{width:100%}}
+@keyframes twBlink{0%,49%{opacity:1}50%,100%{opacity:0}}
 @keyframes ebOut{to{opacity:0;visibility:hidden}}
 @media(max-width:700px){
-  .nf-art{display:none}
-  .nf-win{width:94vw}
-  .nf-l{font-size:10.5px}
-  .nf-l b{min-width:64px}
+  .tw-win{width:94vw}
+  .tw-body{font-size:10.5px;min-height:190px;padding:13px 13px 15px}
+  .tw-bar span{font-size:10px}
 }
 @media(prefers-reduced-motion:reduce){#energyBurst{display:none}}
 
@@ -6965,10 +6935,10 @@ html{
 /* NOME: entrada por linha e um brilho que atravessa as letras de tempos em tempos */
 .hero-name-block h1{
   opacity:0;
-  animation:nameRise .95s cubic-bezier(.16,1,.3,1) 2.8s both;
+  animation:nameRise .95s cubic-bezier(.16,1,.3,1) 5.45s both;
 }
 .hero-name-block .hero-name-meta{
-  animation:nameRise .8s cubic-bezier(.16,1,.3,1) 3.05s both;
+  animation:nameRise .8s cubic-bezier(.16,1,.3,1) 5.7s both;
 }
 @keyframes nameRise{
   from{opacity:0;transform:translateY(26px);filter:blur(4px)}
@@ -7572,7 +7542,7 @@ html{
             eb.classList.add('skip'); window.__lcSkip=true; setTimeout(sair,240);
           },{once:true,passive:true}));
         },300);
-        setTimeout(sair,3800);
+        setTimeout(sair,6600);
       }
     }
   }
