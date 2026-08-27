@@ -4559,12 +4559,12 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
 </style>
 </head>
 <body class="theme-editorial dark universe-theme">
-<div aria-hidden="true" data-intro="hack" id="energyBurst"><div class="tw-win"><div class="tw-bar"><i></i><i></i><i></i><span>lucas@portfolio: ~</span></div><div class="tw-body"><span class="tw-cmd c1"><b>lucas@portfolio</b>:<u>~</u>$&nbsp;<em>nmap -sV -p 443 lucaschacon.dev</em></span><span class="tw-out o1">443/tcp  open  https   <i>vercel</i></span><span class="tw-cmd c2"><b>lucas@portfolio</b>:<u>~</u>$&nbsp;<em>./lc --exploit portfolio --payload rev</em></span><pre class="tw-banner">  ██╗      ██████╗
+<div aria-hidden="true" data-intro="hack" id="energyBurst"><button type="button" id="introSkip" aria-label="Pular animacao">pular animacao <b>esc</b></button><div class="tw-win"><div class="tw-bar"><i></i><i></i><i></i><span>lucas@portfolio: ~</span></div><div class="tw-body"><span class="tw-cmd c1"><b>lucas@portfolio</b>:<u>~</u>$&nbsp;<em>nmap -sV -p 443 lucaschacon.dev</em></span><span class="tw-out o1">443/tcp  open  https   <i>vercel</i></span><span class="tw-cmd c2"><b>lucas@portfolio</b>:<u>~</u>$&nbsp;<em>./lc --exploit portfolio --payload rev</em></span><pre class="tw-banner">  ██╗      ██████╗
   ██║     ██╔════╝
   ██║     ██║     
   ██║     ██║     
   ███████╗╚██████╗
-  ╚══════╝ ╚═════╝</pre><span class="tw-out ob">lc v1.0 &mdash; lucas chacon exploit kit</span><span class="tw-out o2">[*] handshake ......... <i>ok</i></span><span class="tw-out o3">[ATTEMPT] <u class="tw-bar-p"><s></s></u></span><span class="tw-out o4">[SUCCESS] key accepted</span><span class="tw-out o5 granted">[<i>&#10003;</i>] ACCESS GRANTED</span><span class="tw-caret"></span></div><div class="tw-body ai"><span class="tw-cmd a1"><b class="ps">PS C:\Users\lucas&gt;</b>&nbsp;<em>claude</em></span><div class="cc-head ab"><span class="cc-mark"></span><span class="cc-meta"><b>Claude Code</b> <u>v2.1.246</u><br/><i>Opus 5 (1M context) with medium effort &middot; Claude Team</i><br/><i>D:\portfolio</i></span></div><span class="tw-out ai1"><em class="cc-p">&rsaquo;</em> melhora a secao de projetos</span><span class="tw-out ai2"><i>&#9679;</i> Read <b>index.html</b> (6.5k lines)</span><span class="tw-out ai3"><i>&#9679;</i> Edit <b>project chapters</b></span><span class="tw-out ai4"><i>&#9679;</i> Bash <b>npm run build</b> <u class="tw-bar-p"><s></s></u></span><span class="tw-out ai5 granted">&#10003; 7 modules transformed &middot; DEPLOY READY</span><span class="tw-caret"></span></div></div></div></div></div>
+  ╚══════╝ ╚═════╝</pre><span class="tw-out ob">lc v1.0 &mdash; lucas chacon exploit kit</span><span class="tw-out o2">[*] handshake ......... <i>ok</i></span><span class="tw-out o3">[ATTEMPT] <u class="tw-bar-p"><s></s></u></span><span class="tw-out o4">[SUCCESS] key accepted</span><span class="tw-out o5 granted">[<i>&#10003;</i>] ACCESS GRANTED</span><span class="tw-caret"></span></div><div class="tw-body ai"><span class="tw-cmd a1"><b class="ps">PS C:\Users\lucas&gt;</b>&nbsp;<em>claude</em></span><div class="cc-head ab"><span class="cc-mark"></span><span class="cc-meta"><b>Claude Code</b> <u>v2.1.246</u><br/><i>Opus 5 (1M context) with medium effort &middot; Claude Team</i><br/><i>D:\portfolio</i></span></div><span class="tw-out ai1"><em class="cc-p">&rsaquo;</em> melhora a secao de projetos</span><span class="tw-out ai2"><i>&#9679;</i> Read <b>index.html</b> (6.5k lines)</span><span class="tw-out ai3"><i>&#9679;</i> Edit <b>project chapters</b></span><span class="tw-out ai4"><i>&#9679;</i> Bash <b>npm run build</b> <u class="tw-bar-p"><s></s></u></span><span class="tw-out ai4b"><i>&#10038;</i> Trabalhando&hellip; <u class="cc-tok">&uarr; 0 tokens</u> &middot; esc to interrupt</span><span class="tw-out ai5 granted">&#10003; 7 modules transformed &middot; DEPLOY READY &middot; <u class="cc-tok-fim">&uarr; 18.4k tokens</u></span><span class="tw-caret"></span></div></div></div></div></div>
 <div class="noise"></div><div class="progress"><i></i></div>
 <div aria-hidden="true" class="universe-nebula"></div>
 <div aria-hidden="true" class="universe-tech"></div>
@@ -6473,8 +6473,24 @@ if(mount){
   pointer-events:none;
   animation:ebOut .52s ease 4.42s both;
 }
-#energyBurst.skip{animation:ebOut .22s ease both}
+/* o overlay e pointer-events:none; o botao precisa reativar so para si */
+#introSkip{
+  position:absolute;top:22px;right:24px;pointer-events:auto;cursor:pointer;
+  display:flex;align-items:center;gap:8px;
+  padding:8px 14px;border-radius:99px;
+  border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  color:rgba(198,192,214,.62);
+  opacity:0;animation:twShow .4s ease .9s both;
+  transition:color .2s ease,border-color .2s ease,background .2s ease;
+}
+#introSkip b{font-weight:400;color:rgba(198,192,214,.4);
+  border:1px solid rgba(255,255,255,.12);border-radius:4px;padding:1px 5px}
+#introSkip:hover{color:#e8e3f5;border-color:rgba(255,255,255,.3);background:rgba(255,255,255,.08)}
+@media(max-width:700px){#introSkip{top:14px;right:14px;padding:7px 11px;font-size:10px}}
 #energyBurst[data-intro="ai"]{animation-delay:4.86s}
+#energyBurst.skip{animation:ebOut .26s ease both;animation-delay:0s!important}
 .tw-win{
   position:relative;
   width:min(620px,90vw);
@@ -6574,6 +6590,11 @@ if(mount){
 .ai2{animation-delay:1.86s}
 .ai3{animation-delay:2.18s}
 .ai4{animation-delay:2.50s}
+.ai4b{animation:twShow .16s ease 2.62s both,twHide .2s ease 3.40s both}
+.tw-body.ai .ai4b{color:rgba(168,162,190,.6)}
+.tw-body.ai .ai4b i{color:#d97757}
+.cc-tok-fim{color:rgba(198,192,214,.55);text-decoration:none;letter-spacing:.04em}
+.cc-tok{color:rgba(198,192,214,.9);text-decoration:none;font-variant-numeric:tabular-nums}
 .ai5{animation-delay:3.44s;animation-duration:.34s}
 
 .tw-banner{
@@ -6595,6 +6616,7 @@ if(mount){
   background:#c3a6ff;animation:twBlink .9s steps(1) infinite}
 @keyframes twWin{from{opacity:0;transform:translateY(8px) scale(.99)}to{opacity:1;transform:none}}
 @keyframes twShow{to{opacity:1}}
+@keyframes twHide{from{opacity:1}to{opacity:0}}
 @keyframes twType{from{width:0}to{width:100%}}
 @keyframes twFill{from{width:0}to{width:100%}}
 @keyframes twBlink{0%,49%{opacity:1}50%,100%{opacity:0}}
@@ -7580,6 +7602,7 @@ html{
   // (a escolha fica salva). As duas ficam no arquivo: nenhuma foi descartada.
   {
     const INTRO_PADRAO='hack';          // 'hack' | 'ai'
+    const VEL=1.14;                     // >1 acelera a abertura inteira
     const eb0=document.getElementById('energyBurst');
     if(eb0){
       let modo=INTRO_PADRAO;
@@ -7589,6 +7612,25 @@ html{
         else { const sv=localStorage.getItem('lc-intro'); if(sv==='ai'||sv==='hack') modo=sv; }
       }catch(e){}
       eb0.setAttribute('data-intro',modo);
+      // ritmo global: um so numero acelera as duas aberturas sem mexer em cada delay
+      if(eb0.getAnimations) requestAnimationFrame(()=>{
+        try{ eb0.getAnimations({subtree:true}).forEach(a=>a.updatePlaybackRate(VEL)); }catch(e){}
+      });
+    }
+  }
+
+  // Contador de tokens da abertura de IA: numero real subindo, nao texto fixo.
+  {
+    const tok=document.querySelector('#energyBurst[data-intro="ai"] .cc-tok');
+    if(tok&&!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)){
+      const VEL=1.14,INICIO=2620/VEL,DUR=800/VEL,TOTAL=18400,t0=performance.now();
+      const passo=now=>{
+        const t=Math.max(0,Math.min(1,(now-t0-INICIO)/DUR));
+        const n=Math.round(TOTAL*(1-Math.pow(1-t,2))/100)*100;
+        tok.textContent='↑ '+(n>=1000?(n/1000).toFixed(1)+'k':n)+' tokens';
+        if(t<1&&tok.isConnected) requestAnimationFrame(passo);
+      };
+      requestAnimationFrame(passo);
     }
   }
 
@@ -7602,10 +7644,14 @@ html{
       else{
         setTimeout(()=>{
           ['pointerdown','keydown'].forEach(ev=>addEventListener(ev,()=>{
-            eb.classList.add('skip'); window.__lcSkip=true; setTimeout(sair,240);
+            eb.classList.add('skip'); window.__lcSkip=true; setTimeout(sair,280);
           },{once:true,passive:true}));
         },300);
-        setTimeout(sair,7400);
+        const pular=()=>{ eb.classList.add('skip'); window.__lcSkip=true; setTimeout(sair,280); };
+        const bt=document.getElementById('introSkip');
+        if(bt) bt.addEventListener('click',pular);
+        addEventListener('keydown',e=>{ if(e.key==='Escape') pular(); });
+        setTimeout(sair,7400/1.14);
       }
     }
   }
