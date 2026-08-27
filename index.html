@@ -6378,6 +6378,29 @@ if(mount){
   #brandHome::before{width:26px;height:26px;font-size:9.5px;border-radius:8px}
 }
 
+/* Sem moldura. O site trabalha com objetos iluminados no espaço (os planetas,
+   o glow, a profundidade) e a seção de projetos estava usando hardware
+   desenhado — coroa, bezel, entalhe, barra de navegador. Isso é linguagem de
+   catálogo de mockup e destoava do resto. Agora a captura É o objeto: cantos
+   arredondados, sombra real e a luz da própria tela vazando no ambiente. */
+.wsl-totem-crown,
+.wsl-totem-foot,
+.wsl-device-notch{display:none!important}
+.wsl-totem-screen{
+  padding:0!important;
+  background:none!important;
+  border:0!important;
+  border-radius:18px!important;
+  overflow:hidden!important;
+  box-shadow:0 48px 110px rgba(0,0,0,.66),0 0 0 1px rgba(150,235,220,.14)!important;
+}
+.wsl-shot-stack{border-radius:18px!important}
+.project-chapter-gate .real-shot,
+.project-chapter-rare .rare-real-shot{
+  border:0!important;
+  box-shadow:0 44px 100px rgba(0,0,0,.66),0 0 0 1px rgba(255,255,255,.07)!important;
+}
+
 /* DECK: as telas viram cartões empilhados em profundidade. Exige perspectiva no
    palco e overflow visível — antes tudo era recortado pela moldura de browser,
    que saiu porque as tres bolinhas e a rota falsa liam como template. */
@@ -6477,7 +6500,7 @@ if(mount){
 }
 .wsl-totem-screen{
   position:relative;
-  height:min(74vh,660px);
+  height:min(80vh,720px);
   aspect-ratio:.575;
   padding:11px;
   background:linear-gradient(165deg,#18202a,#090c11 48%,#141a23);
