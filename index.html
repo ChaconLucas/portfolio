@@ -4559,7 +4559,7 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
 </style>
 </head>
 <body class="theme-editorial dark universe-theme">
-<div aria-hidden="true" id="bootIgnition"><i class="boot-halo"></i><i class="boot-core"></i><i class="boot-ring r1"></i><i class="boot-ring r2"></i><b class="boot-label">INICIANDO UNIVERSO</b><i class="boot-line"></i></div>
+<div aria-hidden="true" id="energyBurst"><div class="eb-term"><span class="eb-l l1"><i>$</i>npm run build</span><span class="eb-l l2"><i></i>vite v7.1.3  building for production...</span><span class="eb-l l3"><i>ok</i>7 modules transformed</span><span class="eb-l l4"><i>ok</i>built in 1.21s</span><span class="eb-l l5"><i>$</i>git push origin main</span><span class="eb-l l6"><i>ok</i>deploy ready</span><span class="eb-caret"></span></div><i class="eb-flash"></i></div>
 <div class="noise"></div><div class="progress"><i></i></div>
 <div aria-hidden="true" class="universe-nebula"></div>
 <div aria-hidden="true" class="universe-tech"></div>
@@ -5060,10 +5060,26 @@ function handleScroll(){
 
  // UNIVERSE arrives before Hero fully disappears: no empty frame.
  const orbitIn=ease(ip,.25,.50);
+ // CORTINA DE ABERTURA: o universo de verdade entra em tela cheia e recua para
+ // o lugar dele enquanto o hero surge por cima. Sem overlay: e o proprio
+ // conteudo se posicionando.
+ // O tempo e ancorado aqui dentro, na primeira execucao do proprio driver:
+ // depender de uma global definida em outro <script> criava corrida de ordem.
+ if(window.__lcT0===undefined) window.__lcT0=performance.now();
+ const cT=window.__lcSkip?1:Math.min(1,(performance.now()-window.__lcT0)/2400);
+ const curtain={t:cT};
  // UNIVERSE exit: dissolves and recedes into depth at the tail of the intro, so it is
  // never sliced by the bottom edge of the sticky. Same idiom as heroExit above.
  const orbitExit=ease(ip,.82,1);
- if(orbitLayer){
+ if(orbitLayer && curtain && curtain.t<1){
+   const c=curtain.t, e=c*c*(3-2*c);            // suaviza a saída
+   orbitLayer.style.opacity=String(Math.max(orbitIn,(1-e*e)*.95));
+   orbitLayer.style.transform=`translate3d(0,${e*1.5}vh,0) scale(${2.35-e*1.23})`;
+   // sem blur: era ele que deixava a abertura com cara de borrao
+   orbitLayer.style.filter=`brightness(${1.08-e*.28})`;
+   orbitLayer.classList.remove('is-interactive');
+   orbitLayer.style.pointerEvents='none';
+ }else if(orbitLayer){
    orbitLayer.style.opacity=String(orbitIn*(1-orbitExit*.94));
    orbitLayer.style.transform=`translate3d(${(1-orbitIn)*7.0}vw,${(1-orbitIn)*1.2-orbitExit*2.6}vh,${(1-orbitIn)*120-orbitExit*300}px) scale(${1.12-orbitIn*.12-orbitExit*.06})`;
    orbitLayer.style.filter=`blur(${(1-orbitIn)*5.5+orbitExit*3.2}px) brightness(${(.75+orbitIn*.25)*(1-orbitExit*.35)})`;
@@ -5089,6 +5105,13 @@ function handleScroll(){
  // Export a 0..1 scrub value specifically for the Three.js universe.
  // The universe begins reacting before it is fully visible and keeps moving until the intro ends.
  window.__portfolioUniverseScroll=Math.max(0,Math.min(1,(ip-.30)/.70));
+ // Durante a abertura o sistema gira de verdade: sem isto o universo aparece
+ // parado e a cortina parece uma foto sumindo. O modulo do Three le esta
+ // variavel para girar o sistema inteiro.
+ if(cT<1){
+   const e=cT*cT*(3-2*cT);
+   window.__portfolioUniverseScroll=1.55*(1-e);
+ }
  if(orbitLayer) orbitLayer.style.setProperty('--universe-s',String(window.__portfolioUniverseScroll));
 }
 
@@ -6434,76 +6457,67 @@ if(mount){
   .hero-name-block h1{max-width:100%;overflow-wrap:break-word}
 }
 
-/* ENTRADA: ignicao. Preto absoluto, um ponto de luz floresce virando o sol e
-   o site se revela atras. O desaparecimento e por CSS, nao por JS: se o script
-   falhar o overlay some do mesmo jeito e nao tranca a pagina. */
-#bootIgnition{
+/* ENTRADA — o build de verdade do projeto rodando, e na linha de sucesso a luz
+   estoura e o site entra. E portfolio de dev: a abertura fala codigo, nao espaco.
+   Some por CSS: se o JS falhar o overlay desaparece igual e nao tranca a pagina. */
+#energyBurst{
   position:fixed;
   inset:0;
   z-index:9999;
   display:grid;
   place-items:center;
   background:#04050a;
-  animation:bootOut .55s ease 1.05s both;
   pointer-events:none;
+  animation:ebOut .40s ease 1.62s both;
 }
-#bootIgnition.skip{animation:bootOut .28s ease both}
-#bootIgnition i,#bootIgnition b{position:absolute}
-.boot-core{
-  width:10px;height:10px;
-  border-radius:50%;
-  background:radial-gradient(circle,#fff 0 34%,#e7d6ff 58%,#a274ff 82%,rgba(126,91,255,0) 100%);
-  animation:bootCore 1.25s cubic-bezier(.22,1,.28,1) both;
+#energyBurst.skip{animation:ebOut .22s ease both}
+.eb-term{
+  position:relative;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:13px;
+  line-height:2.05;
+  color:rgba(206,198,224,.92);
+  min-width:min(360px,82vw);
 }
-.boot-halo{
-  width:12px;height:12px;
-  border-radius:50%;
-  background:radial-gradient(circle,rgba(176,140,255,.55),rgba(126,91,255,0) 70%);
-  animation:bootHalo 1.35s cubic-bezier(.22,1,.28,1) both;
-}
-.boot-ring{
-  border-radius:50%;
-  border:1px solid rgba(176,140,255,.34);
-  width:60px;height:60px;
+.eb-l{
+  display:block;
   opacity:0;
-  animation:bootRing 1.15s cubic-bezier(.22,1,.28,1) both;
+  transform:translateY(5px);
+  animation:ebLine .34s cubic-bezier(.16,1,.3,1) both;
+  white-space:nowrap;
 }
-.boot-ring.r2{animation-delay:.14s;border-color:rgba(150,110,255,.20)}
-.boot-label{
-  bottom:calc(50% - 96px);
-  font-size:8px;
-  letter-spacing:.30em;
-  color:rgba(198,176,255,.62);
+.eb-l i{font-style:normal;margin-right:9px;color:#a274ff}
+.eb-l i:empty{margin-right:0}
+.eb-l.l1{animation-delay:0.24s}
+.eb-l.l2{animation-delay:0.37s}
+.eb-l.l3{animation-delay:0.51s}
+.eb-l.l4{animation-delay:0.64s}
+.eb-l.l5{animation-delay:0.78s}
+.eb-l.l6{animation-delay:0.91s}
+.eb-caret{
+  display:inline-block;
+  width:7px;height:14px;
+  vertical-align:-2px;
+  background:#c3a6ff;
+  animation:ebCaret .9s steps(1) infinite,ebLine .2s ease .10s both;
+}
+.eb-flash{
+  position:absolute;
+  width:36px;height:36px;
+  border-radius:50%;
+  background:radial-gradient(circle,#fff 0 42%,rgba(206,180,255,.82) 64%,rgba(126,91,255,0) 80%);
   opacity:0;
-  animation:bootLabel 1.1s ease .18s both;
+  animation:ebFlash .72s cubic-bezier(.2,.75,.15,1) 1.10s both;
 }
-.boot-line{
-  bottom:calc(50% - 118px);
-  width:120px;height:1px;
-  background:linear-gradient(90deg,transparent,rgba(176,140,255,.75),transparent);
-  transform:scaleX(0);
-  animation:bootLine .9s cubic-bezier(.16,1,.3,1) .22s both;
+@keyframes ebLine{to{opacity:1;transform:none}}
+@keyframes ebCaret{0%,49%{opacity:1}50%,100%{opacity:0}}
+@keyframes ebFlash{
+  0%{opacity:0;transform:scale(.4)}
+  20%{opacity:1;transform:scale(5)}
+  100%{opacity:0;transform:scale(52)}
 }
-@keyframes bootCore{
-  0%{transform:scale(.4);opacity:0}
-  16%{opacity:1}
-  62%{transform:scale(9);opacity:1}
-  100%{transform:scale(34);opacity:0}
-}
-@keyframes bootHalo{
-  0%{transform:scale(1);opacity:0}
-  22%{opacity:.9}
-  100%{transform:scale(46);opacity:0}
-}
-@keyframes bootRing{
-  0%{transform:scale(.2);opacity:0}
-  30%{opacity:.85}
-  100%{transform:scale(7);opacity:0}
-}
-@keyframes bootLabel{0%,12%{opacity:0}42%{opacity:1}100%{opacity:0}}
-@keyframes bootLine{0%{transform:scaleX(0)}55%{transform:scaleX(1)}100%{transform:scaleX(1);opacity:0}}
-@keyframes bootOut{to{opacity:0;visibility:hidden}}
-@media(prefers-reduced-motion:reduce){#bootIgnition{display:none}}
+@keyframes ebOut{to{opacity:0;visibility:hidden}}
+@media(prefers-reduced-motion:reduce){#energyBurst{display:none}}
 
 /* As regras por projeto (.project-chapter-gate .project-chapter-sticky) tem
    especificidade maior E !important, entao venciam o 1fr do bloco mobile
@@ -6881,10 +6895,10 @@ html{
 /* NOME: entrada por linha e um brilho que atravessa as letras de tempos em tempos */
 .hero-name-block h1{
   opacity:0;
-  animation:nameRise .9s cubic-bezier(.16,1,.3,1) .15s both;
+  animation:nameRise 1.05s cubic-bezier(.16,1,.3,1) 1.05s both;
 }
 .hero-name-block .hero-name-meta{
-  animation:nameRise .8s cubic-bezier(.16,1,.3,1) .42s both;
+  animation:nameRise .9s cubic-bezier(.16,1,.3,1) 1.32s both;
 }
 @keyframes nameRise{
   from{opacity:0;transform:translateY(26px);filter:blur(4px)}
@@ -7475,20 +7489,35 @@ html{
     }
   }
 
-  // Entrada: uma vez por sessao, e qualquer interacao pula.
+  // Entrada por estouro: pulavel, e com rede de seguranca para nunca prender.
   {
-    const boot=document.getElementById('bootIgnition');
-    if(boot){
+    const eb=document.getElementById('energyBurst');
+    if(eb){
       const reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      // roda em todo carregamento, a pedido — sem trava de sessao
-      const sair=()=>{ if(boot.isConnected) boot.remove(); };
-      if(reduce){ sair(); }
+      const sair=()=>{ if(eb.isConnected) eb.remove(); };
+      if(reduce) sair();
       else{
-        const pular=()=>{ boot.classList.add('skip'); setTimeout(sair,300); };
-        ['pointerdown','wheel','touchstart','keydown'].forEach(ev=>
-          addEventListener(ev,pular,{once:true,passive:true}));
-        setTimeout(sair,1900);   // rede de seguranca: nunca fica preso
+        setTimeout(()=>{
+          ['pointerdown','keydown'].forEach(ev=>addEventListener(ev,()=>{
+            eb.classList.add('skip'); window.__lcSkip=true; setTimeout(sair,240);
+          },{once:true,passive:true}));
+        },300);
+        setTimeout(sair,2500);
       }
+    }
+  }
+
+  // Cortina: so marca quando pular. O tempo vive dentro do driver do intro.
+  {
+    const reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(reduce){ window.__lcSkip=true; }
+    else{
+      // so interacao real pula, e nao nos primeiros 300ms — automacao e scroll
+      // restaurado disparavam evento no load e matavam a abertura na hora
+      setTimeout(()=>{
+        ['pointerdown','keydown'].forEach(ev=>
+          addEventListener(ev,()=>{window.__lcSkip=true;},{once:true,passive:true}));
+      },300);
     }
   }
 
