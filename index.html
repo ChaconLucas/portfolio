@@ -3813,12 +3813,17 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
 @media(max-width:900px){
   .projects-v11-header{grid-template-columns:1fr;min-height:auto;padding-top:120px}
   .projects-v11-header p{margin-top:30px}
-  .project-chapter{height:auto!important}
+  /* mesmo comportamento do desktop no celular, a pedido: capitulo alto com
+     sticky, para o deck avancar com o scroll em vez de virar lista */
+  .project-chapter{height:300vh!important}
   .project-chapter-sticky{
-    position:relative!important;
-    height:auto!important;min-height:100vh;
+    position:sticky!important;
+    top:0;
+    height:100vh!important;min-height:0;
     grid-template-columns:1fr!important;
-    padding:110px 22px 80px;
+    grid-template-rows:auto 1fr;
+    padding:78px 20px 30px;
+    align-content:start;
   }
   .project-chapter-info{padding:0 6px 20px}
   .real-project-stage,.concept-project-stage{height:62vh;min-height:470px}
@@ -4348,8 +4353,8 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
   box-shadow:0 0 16px rgba(167,132,255,.30);
 }
 @media(max-width:900px){
-  .experience-v14{height:auto}
-  .experience-v14-sticky{position:relative;height:auto;min-height:100vh;padding:100px 22px 60px;display:block}
+  .experience-v14{height:280vh}
+  .experience-v14-sticky{position:sticky;top:0;height:100vh;min-height:0;padding:74px 20px 28px;display:grid}
   .experience-v14-head{display:block;min-height:0}
   .experience-v14-head h2{margin:22px 0}
   .experience-v14-map{height:auto;min-height:0;margin-top:50px}
@@ -6425,67 +6430,43 @@ if(mount){
   .hero-name-block h1{max-width:100%;overflow-wrap:break-word}
 }
 
-/* MOBILE: o driver dos capitulos sai em `if(innerWidth<=900) return`, entao as
-   telas nunca recebiam estilo inline e ficavam no opacity:0 do CSS — os tres
-   projetos eram INVISIVEIS no celular. Aqui elas viram uma lista vertical,
-   que e o padrao natural no telefone e o que o KNOWN_ISSUES ja pedia
-   ("sticky longo deve cair para layout linear"). */
+/* As regras por projeto (.project-chapter-gate .project-chapter-sticky) tem
+   especificidade maior E !important, entao venciam o 1fr do bloco mobile
+   generico. Precisam ser sobrescritas com a mesma especificidade. */
 @media(max-width:900px){
-  .project-chapter-gate .real-browser,
-  .project-chapter-rare .rare-real-browser,
-  .wsl-totem-screen,
-  .project-chapter-gate .real-shot-stack,
-  .project-chapter-rare .rare-shot-stack,
-  .wsl-shot-stack{
-    position:relative!important;
-    height:auto!important;
-    inset:auto!important;
-    aspect-ratio:auto!important;
-    display:flex!important;
-    flex-direction:column;
-    gap:12px;
-    perspective:none!important;
-    overflow:visible!important;
-    background:none!important;
-    box-shadow:none!important;
-  }
-  .project-chapter-gate .real-shot,
-  .project-chapter-rare .rare-real-shot,
-  .wsl-real-shot{
-    position:relative!important;
-    inset:auto!important;
-    opacity:1!important;
-    visibility:visible!important;
-    transform:none!important;
-    filter:none!important;
-    height:auto!important;
-    border-radius:12px!important;
-    overflow:hidden!important;
-    box-shadow:0 18px 40px rgba(0,0,0,.55)!important;
-  }
-  .project-chapter-gate .real-shot img,
-  .project-chapter-rare .rare-real-shot img,
-  .wsl-real-shot img{
-    position:relative!important;
-    width:100%!important;
-    height:auto!important;
-    object-fit:contain!important;
-    transform:none!important;
+  .project-chapter-gate .project-chapter-sticky,
+  .project-chapter-rare .project-chapter-sticky,
+  .project-chapter-wsl .project-chapter-sticky{
+    grid-template-columns:1fr!important;
+    grid-template-rows:auto 1fr!important;
+    gap:16px!important;
+    align-content:start!important;
   }
   .project-chapter-gate .real-project-stage,
   .project-chapter-rare .real-project-stage,
-  .wsl-real-stage{
-    height:auto!important;
-    max-height:none!important;
+  .project-chapter-wsl .wsl-real-stage{
     aspect-ratio:auto!important;
+    height:auto!important;
+    max-height:44vh!important;
     margin-right:0!important;
-    display:block!important;
+    width:100%!important;
   }
-  .wsl-totem{height:auto!important;width:100%!important}
-  .project-chapter,
-  .project-chapter-sticky{height:auto!important;min-height:0!important}
-  .project-chapter-sticky{position:relative!important;display:block!important;padding:60px 22px 40px!important}
-  .chapter-progress,.chapter-hint,.real-stage-glow,.wsl-stage-glow{display:none!important}
+  .project-chapter-gate .real-browser,
+  .project-chapter-rare .rare-real-browser{height:44vh!important}
+  .wsl-totem{height:44vh!important}
+  .project-chapter-info h3{font-size:clamp(38px,12vw,64px)!important}
+  .project-chapter-info p{font-size:12px!important}
+}
+
+/* no celular o overlap cheio joga a headline por cima dos planetas e fica
+   ilegivel; overlap menor mantem a continuidade sem sobrepor texto */
+@media(max-width:900px){
+  #experience.experience-v14{margin-top:-24vh;z-index:2;height:280vh}
+  .experience-v14-map{height:auto;min-height:0}
+  .experience-stop{width:min(210px,26vw)}
+  .experience-stop h3{font-size:22px}
+  .experience-stop p{font-size:10px}
+  .experience-stop-tags span{font-size:7px;padding:4px 6px}
 }
 
 /* Indice de dominios: os botoes se dimensionavam pelo texto (130, 100, 151px...)
@@ -7067,7 +7048,7 @@ html{
   }
 
   function renderChapter(ch){
-    if(innerWidth<=900) return;
+    // o Lucas prefere o mesmo comportamento do desktop no celular
     const p=chapterProgress(ch);
     const key=ch.dataset.project;
     const stage=ch.querySelector('.real-project-stage,.concept-project-stage');
@@ -7149,7 +7130,8 @@ html{
       }else{
         const d=Math.min(rel,3);
         o=d<=2?1-d*0.34:0;
-        x=d*46;y=d*26;z=-d*130;sc=1-d*.055;blur=Math.min(2,d*0.9);
+        const k=Math.min(1,innerWidth/1200);   // deck menor em tela estreita
+        x=d*46*k;y=d*26*k;z=-d*130*k;sc=1-d*.055;blur=Math.min(2,d*0.9);
       }
       view.style.opacity=String(Math.max(0,o));
       view.style.visibility=o>.01?'visible':'hidden';
@@ -7220,7 +7202,6 @@ html{
   const ease=(a,b,p)=>{const t=clamp((p-a)/(b-a));return t*t*(3-2*t)};
 
   function getP(){
-    if(innerWidth<=900) return 1;
     const r=section.getBoundingClientRect();
     return clamp((-r.top)/Math.max(1,section.offsetHeight-innerHeight));
   }
@@ -7309,7 +7290,7 @@ html{
 
     // Saída: dissolve e recua antes de chegar na borda do sticky, para a emenda
     // com Projects não cortar a headline no meio da letra.
-    const exit=innerWidth<=900?0:ease(.90,1,p);
+    const exit=ease(.90,1,p);
     sticky.style.opacity=String(1-exit*.95);
     sticky.style.transform=exit?`translate3d(0,${-exit*2.6}vh,0) scale(${1-exit*.03})`:'none';
 
@@ -7329,7 +7310,7 @@ html{
       const clamp=v=>v<0?0:v>1?1:v;
 
       // precisa caber pinado, senão o rodapé do painel ficaria inalcançável
-      const fits=()=>innerWidth>1100&&vault.offsetHeight<=innerHeight-120;
+      const fits=()=>vault.offsetHeight<=innerHeight-120;
 
       function layout(){
         const want=fits();
@@ -7380,7 +7361,7 @@ html{
       const clamp=v=>v<0?0:v>1?1:v;
 
       // precisa caber pinado, senão o rodapé do painel ficaria inalcançável
-      const fits=()=>innerWidth>1100&&vault.offsetHeight<=innerHeight-120;
+      const fits=()=>vault.offsetHeight<=innerHeight-120;
 
       function layout(){
         const want=fits();
