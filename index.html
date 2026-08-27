@@ -4353,8 +4353,11 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
   box-shadow:0 0 16px rgba(167,132,255,.30);
 }
 @media(max-width:900px){
-  .experience-v14{height:280vh}
-  .experience-v14-sticky{position:sticky;top:0;height:100vh;min-height:0;padding:74px 20px 28px;display:grid}
+  .experience-v14{height:auto}
+  /* linear no celular: os tres cargos empilham (tres colunas de 210px nao
+     cabem em 350px de largura) e 1102px de conteudo nao cabem num sticky
+     de 100vh — o mapa subia por cima do cabecalho */
+  .experience-v14-sticky{position:relative;height:auto;min-height:100vh;padding:90px 20px 50px;display:block}
   .experience-v14-head{display:block;min-height:0}
   .experience-v14-head h2{margin:22px 0}
   .experience-v14-map{height:auto;min-height:0;margin-top:50px}
@@ -6461,7 +6464,7 @@ if(mount){
 /* no celular o overlap cheio joga a headline por cima dos planetas e fica
    ilegivel; overlap menor mantem a continuidade sem sobrepor texto */
 @media(max-width:900px){
-  #experience.experience-v14{margin-top:-24vh;z-index:2;height:280vh}
+  #experience.experience-v14{margin-top:0;z-index:2;height:auto}
   .experience-v14-map{height:auto;min-height:0}
   .experience-stop{width:min(210px,26vw)}
   .experience-stop h3{font-size:22px}
@@ -7290,7 +7293,7 @@ html{
 
     // Saída: dissolve e recua antes de chegar na borda do sticky, para a emenda
     // com Projects não cortar a headline no meio da letra.
-    const exit=ease(.90,1,p);
+    const exit=innerWidth<=900?0:ease(.90,1,p);
     sticky.style.opacity=String(1-exit*.95);
     sticky.style.transform=exit?`translate3d(0,${-exit*2.6}vh,0) scale(${1-exit*.03})`:'none';
 
