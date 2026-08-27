@@ -7480,10 +7480,9 @@ html{
     const boot=document.getElementById('bootIgnition');
     if(boot){
       const reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      let visto=false;
-      try{ visto=sessionStorage.getItem('lc-boot')==='1'; sessionStorage.setItem('lc-boot','1'); }catch(e){}
+      // roda em todo carregamento, a pedido — sem trava de sessao
       const sair=()=>{ if(boot.isConnected) boot.remove(); };
-      if(visto||reduce){ sair(); }
+      if(reduce){ sair(); }
       else{
         const pular=()=>{ boot.classList.add('skip'); setTimeout(sair,300); };
         ['pointerdown','wheel','touchstart','keydown'].forEach(ev=>
