@@ -282,36 +282,36 @@ export function criarGabinete() {
      nela, GPU apoiada na tampa da fonte e presa na bandeja, ventoinhas rentes
      ao teto e ao piso. */
   const dentro = new THREE.Group();
-  const xBandeja = L / 2 - 0.012;
+  const xBandeja = L / 2 - 0.030;
   const yPiso = y - A / 2 + 0.009;
   const yTeto = y + A / 2 - 0.009;
 
   // bandeja da placa-mae, colada na parede
-  dentro.add(peca(caixa(0.008, A - 0.05, P - 0.06, 0.003), matGrafite(), xBandeja, y + 0.012, -0.005));
+  dentro.add(peca(caixa(0.007, A - 0.12, P - 0.14, 0.003), matGrafite(), xBandeja + 0.022, y + 0.030, -0.010));
   // placa-mae por cima da bandeja
-  dentro.add(peca(caixa(0.006, 0.235, 0.215, 0.003), matPreto(), xBandeja - 0.008, y + 0.055, -0.015));
+  dentro.add(peca(caixa(0.006, 0.215, 0.195, 0.003), matPreto(), xBandeja + 0.014, y + 0.052, -0.012));
 
   // tampa da fonte: apoiada no piso, e o que sustenta a GPU
-  const yShroud = yPiso + 0.042;
-  dentro.add(peca(caixa(L - 0.036, 0.084, P - 0.05, 0.006), matGrafite(), 0, yShroud, 0));
+  const yShroud = yPiso + 0.032;
+  dentro.add(peca(caixa(L - 0.040, 0.062, P - 0.06, 0.006), matGrafite(), 0, yShroud, 0));
   dentro.add(peca(caixa(0.004, 0.050, 0.16, 0.002), matBrancoFosco(), -L / 2 + 0.020, yShroud, 0.02));
 
   // torre do cooler, parafusada na placa
-  dentro.add(peca(caixa(0.085, 0.130, 0.105, 0.006), matGrafite(), xBandeja - 0.058, y + 0.115, -0.045));
-  dentro.add(peca(caixa(0.090, 0.010, 0.110, 0.003), matBrancoFosco(), xBandeja - 0.058, y + 0.185, -0.045));
+  dentro.add(peca(caixa(0.105, 0.135, 0.115, 0.008), matGrafite(), xBandeja - 0.048, y + 0.112, -0.040));
+  dentro.add(peca(caixa(0.110, 0.012, 0.120, 0.004), matBrancoFosco(), xBandeja - 0.048, y + 0.186, -0.040));
 
   // memorias, encostadas na placa
   for (let i = 0; i < 4; i++) {
     dentro.add(peca(caixa(0.005, 0.078, 0.014, 0.002), matBrancoFosco(),
-      xBandeja - 0.016, y + 0.098, 0.030 + i * 0.020));
+      xBandeja + 0.004, y + 0.096, 0.026 + i * 0.021));
   }
 
   // GPU: encosta na bandeja de um lado e senta na tampa da fonte do outro
-  const yGPU = yShroud + 0.042 + 0.017;
-  dentro.add(peca(caixa(0.092, 0.034, 0.235, 0.005), matPreto(), xBandeja - 0.056, yGPU, 0.005));
-  dentro.add(peca(caixa(0.096, 0.005, 0.240, 0.002), matGrafite(), xBandeja - 0.056, yGPU + 0.019, 0.005));
+  const yGPU = yShroud + 0.031 + 0.020;
+  dentro.add(peca(caixa(0.115, 0.036, 0.250, 0.005), matPreto(), xBandeja - 0.052, yGPU, 0.005));
+  dentro.add(peca(caixa(0.119, 0.006, 0.255, 0.002), matGrafite(), xBandeja - 0.052, yGPU + 0.020, 0.005));
   // suporte ligando a GPU a tampa da fonte, para nao parecer suspensa
-  dentro.add(peca(caixa(0.010, 0.042, 0.012, 0.003), matGrafite(), xBandeja - 0.100, yGPU - 0.030, 0.090));
+  dentro.add(peca(caixa(0.012, 0.040, 0.014, 0.003), matGrafite(), xBandeja - 0.100, yGPU - 0.032, 0.095));
 
   g.add(dentro);
 

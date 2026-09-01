@@ -8164,7 +8164,7 @@ if (alvo && capitulo && palco) {
     // Precisa de `important` porque o driver de capitulos escreve `opacity`
     // inline nesse mesmo elemento a cada quadro.
     const sumir = (p) => {
-      const f = 1 - Math.max(0, Math.min(1, (p - 0.08) / 0.26));
+      const f = 1 - Math.max(0, Math.min(1, (p - 0.03) / 0.13));
       capitulo.style.setProperty('--gate-texto', f.toFixed(3));
       capitulo.dataset.zoom = f < 0.06 ? '1' : '0';
     };
