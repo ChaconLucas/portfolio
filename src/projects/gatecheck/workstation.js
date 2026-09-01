@@ -300,15 +300,17 @@ export function criarMousepadEMouse() {
     const pos = cupula.getAttribute('position');
     for (let i = 0; i < pos.count; i++) {
       const z = pos.getZ(i);                 // -1 (frente) .. 1 (tras)
-      const k = 0.72 + (z * 0.5 + 0.5) * 0.28;
-      pos.setX(i, pos.getX(i) * k);
-      pos.setY(i, pos.getY(i) * (0.86 + (z * 0.5 + 0.5) * 0.14));
+      const t = z * 0.5 + 0.5;              // 0 na frente, 1 atras
+      pos.setX(i, pos.getX(i) * (0.70 + t * 0.30));
+      // o ponto alto de um mouse fica na parte de tras, onde a palma apoia.
+      // Com a cupula simetrica ele virava um seixo.
+      pos.setY(i, pos.getY(i) * (0.52 + t * 0.48));
     }
     pos.needsUpdate = true;
     cupula.computeVertexNormals();
   }
   const corpo = new THREE.Mesh(cupula, matRosa());
-  corpo.scale.set(0.032, 0.043, 0.056);
+  corpo.scale.set(0.033, 0.046, 0.057);
   corpo.position.y = ALTURA_MESA + 0.0015;
   corpo.castShadow = true;
   mouse.add(corpo);
@@ -325,7 +327,7 @@ export function criarMousepadEMouse() {
     new THREE.BoxGeometry(0.0024, 0.016, 0.042),
     new THREE.MeshStandardMaterial({ color: PALETA.rosaEscuro, roughness: 0.7 })
   );
-  sulco.position.set(0, ALTURA_MESA + 0.038, -0.014);
+  sulco.position.set(0, ALTURA_MESA + 0.030, -0.018);
   mouse.add(sulco);
 
   // rodinha entre os botoes
@@ -334,7 +336,7 @@ export function criarMousepadEMouse() {
     new THREE.MeshStandardMaterial({ color: 0x2a2230, roughness: 0.55 })
   );
   roda.rotation.z = Math.PI / 2;
-  roda.position.set(0, ALTURA_MESA + 0.0435, 0.000);
+  roda.position.set(0, ALTURA_MESA + 0.0345, -0.006);
   mouse.add(roda);
 
   g.add(mouse);
@@ -348,7 +350,10 @@ export function criarMousepadEMouse() {
  *  para as pontas dos dedos cairem exatamente nesta superficie — o numero nao
  *  pode viver em dois arquivos. */
 export const ESPESSURA_TECLADO = 0.034;
+export const TOPO_MOUSE = ALTURA_MESA + 0.0015 + 0.046;
 export const SUPERFICIE_TECLAS = ALTURA_MESA + ESPESSURA_TECLADO + 0.002;
+/** Topo das teclas: e nele que a ponta do dedo tem que parar, nao no fundo. */
+export const TOPO_TECLAS = SUPERFICIE_TECLAS + 0.0025 + 0.0045;
 
 export function criarTeclado() {
   const g = new THREE.Group();

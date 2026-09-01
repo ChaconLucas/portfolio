@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
-import { criarEstacao, SUPERFICIE_TECLAS } from './workstation.js';
+import { criarEstacao, TOPO_TECLAS, TOPO_MOUSE } from './workstation.js';
 import { criarPersonagem, animarPersonagem, pousarMaos } from './character.js';
 import { carregarPersonagem } from './character-glb.js';
 import { criarRigCamera } from './camera-rig.js';
@@ -137,12 +137,16 @@ export function montarCenaGatecheck(container) {
       const digitando = dir.filter((v) => v.x < corte);
       const noMouse = dir.filter((v) => v.x >= corte);
 
-      /* Altura pelo que esta digitando, nao pela media geral: a excursao ate o
-         mouse puxava a media e os dedos afundavam nas teclas. A folga tira o
-         dedo de dentro da tecla. */
-      const alvoY = SUPERFICIE_TECLAS + 0.010;
-      const yAtual = (media(esq, 'y') + media(digitando.length ? digitando : dir, 'y')) / 2;
-      const ajuste = alvoY - yAtual;
+      /* Altura pelo ponto MAIS BAIXO da digitacao, nao pela media: a tecla e
+         pressionada no fundo do movimento, e era ali que o dedo entrava dentro
+         do teclado. Encostando o minimo no topo da tecla, o resto do curso fica
+         por cima. */
+      const digit = digitando.length ? digitando : dir;
+      const minY = Math.min(
+        Math.min(...esq.map((v) => v.y)),
+        Math.min(...digit.map((v) => v.y))
+      );
+      const ajuste = (TOPO_TECLAS + 0.002) - minY;
       m.raiz.position.y += ajuste;
       m.raiz.updateMatrixWorld(true);
 
@@ -153,11 +157,57 @@ export function montarCenaGatecheck(container) {
       estacao.grupoTeclado.position.set((ex + dx) / 2, 0, (ez + dz) / 2);
       estacao.definirLarguraTeclado(Math.abs(dx - ex) + 0.16);
 
-      if (noMouse.length > N * 0.08) {
-        estacao.grupoPad.position.set(media(noMouse, 'x'), 0, media(noMouse, 'z'));
-      } else {
-        estacao.grupoPad.position.set((ex + dx) / 2 + 0.45, 0, (ez + dz) / 2);
+      // guarda o limiar entre os dois agrupamentos: e ele que diz, a cada
+      // quadro, se a mao esta digitando ou no mouse
+      mouseZona.limiar = corte;
+      mouseZona.ativo = noMouse.length > N * 0.08;
+
+      /* O antebraco do clipe fica no ar nesse trecho, entao seguir so o XZ
+         deixa um vao visivel entre a mao e o mouse. A correcao e no BRACO, nao
+         no objeto: um mouse subindo ate a mao ficaria voando.
+         Aqui eu descubro, por busca, quanto girar o antebraco para a ponta do
+         dedo encostar no topo do mouse — e o valor e aplicado depois, por
+         quadro, proporcional a quanto a mao esta na zona do mouse. */
+      const antebraco = m.ossos.RightForeArm || m.ossos.RightArm;
+      if (antebraco && noMouse.length) {
+        const alvo = TOPO_MOUSE;
+        const orig = antebraco.rotation.x;
+        const medir = (d) => {
+          antebraco.rotation.x = orig + d;
+          antebraco.updateWorldMatrix(true, true);
+          return m.dedoD.getWorldPosition(new THREE.Vector3()).y;
+        };
+        // leva o mixer ate um quadro representativo do trecho do mouse
+        m.mixer.setTime(0);
+        for (let i = 0; i < N; i++) {
+          m.mixer.update(m.clipe.duration / N);
+          m.raiz.updateMatrixWorld(true);
+          if (m.dedoD.getWorldPosition(new THREE.Vector3()).x >= corte) break;
+        }
+        const y0 = medir(0);
+        const sobe = medir(0.25) > y0;      // descobre o sinal do eixo
+        let lo = 0, hi = sobe ? -1.4 : 1.4;
+        for (let i = 0; i < 22; i++) {
+          const meio = (lo + hi) / 2;
+          if (medir(meio) > alvo) lo = meio; else hi = meio;
+        }
+        antebraco.rotation.x = orig;
+        mouseZona.osso = antebraco;
+        mouseZona.giro = (lo + hi) / 2;
+        try { window.__giro = mouseZona.giro.toFixed(3); } catch (e) {}
       }
+
+      /* O mouse NAO vai debaixo do segundo agrupamento da mao direita.
+         Medindo a altura naquele trecho: dedo 0,841 / punho 0,840 / cotovelo
+         0,902 — o antebraco inteiro esta no ar, 7 a 9 cm acima do tampo. Aquele
+         gesto nao e pegar o mouse, e a mao subindo para o lado. Qualquer mouse
+         ali ficaria 5 cm abaixo da mao.
+         Entao ele fica onde um mouse fica numa mesa: a direita do teclado. */
+      // o pad cobre do repouso ate onde a mao chega, para o mouse deslizar
+      // dentro dele o percurso inteiro
+      const xMouse = noMouse.length ? media(noMouse, 'x') : (ex + dx) / 2 + 0.46;
+      const zMouse = noMouse.length ? media(noMouse, 'z') : (ez + dz) / 2;
+      estacao.grupoPad.position.set((xMouse + (ex + dx) / 2 + 0.42) / 2, 0, (zMouse + (ez + dz) / 2) / 2);
     }
   }).catch((e) => console.warn('modelo nao carregou, seguindo com o boneco simples', e));
 
@@ -271,6 +321,12 @@ export function montarCenaGatecheck(container) {
      as telas do projeto passarem — com o monitor inteiro no quadro, sem entrar
      dentro da imagem. */
   const FIM_APROXIMACAO = 0.55;
+  /* Estado da mao direita: o clipe alterna entre digitar e ir para a zona do
+     mouse. O mouse acompanha a mao no segundo trecho e e largado no primeiro. */
+  const mouseZona = { limiar: 0, ativo: false, k: 0, segura: 0, osso: null, giro: 0 };
+  const _dedo = new THREE.Vector3();
+
+
   let progresso = 0;
   let progCamera = 0;
   let rodando = true;
@@ -291,7 +347,14 @@ export function montarCenaGatecheck(container) {
     // a vida do personagem some conforme a camera entra na tela: perto do
     // monitor, qualquer movimento do corpo vira tremor no quadro
     const calma = 1 - rig.proximidade(progCamera);
-    if (modelo) modelo.atualizar(reduzido ? 0 : dt * calma);
+    if (modelo) {
+      modelo.atualizar(reduzido ? 0 : dt * calma);
+      // desce o antebraco proporcional a presenca na zona do mouse
+      if (mouseZona.osso && mouseZona.k > 0.001) {
+        mouseZona.osso.rotation.x += mouseZona.giro * mouseZona.k;
+        mouseZona.osso.updateWorldMatrix(true, true);
+      }
+    }
     else if (!reduzido) animarPersonagem(pessoa, t, calma);
 
     // Chegando na tela, o personagem se dissolve: o ponto de vista passa a ser
@@ -309,6 +372,38 @@ export function montarCenaGatecheck(container) {
       estacao.gabinete.userData.fans.children.forEach((f, i) => {
         f.rotation.z = t * (1.6 + i * 0.4);
       });
+    }
+
+    /* Mouse preso a mao: quando a ponta do dedo direito passa do limiar entre
+       os dois agrupamentos, o mouse desliza junto; quando ela volta para o
+       teclado, ele fica onde parou e depois volta ao repouso.
+       So o XZ acompanha — o Y fica no tampo, porque naquele trecho o antebraco
+       do clipe esta 8 cm no ar e um mouse subindo junto ficaria voando. */
+    if (modelo && modelo.dedoD && estacao.mouse && mouseZona.ativo) {
+      modelo.dedoD.getWorldPosition(_dedo);
+      /* Dois sinais separados, de proposito:
+         `k`      — presenca na zona do mouse, banda larga. Manda no braco, que
+                    precisa descer e subir suave.
+         `segura` — a mao esta EM CIMA do mouse, banda estreita e deslocada para
+                    dentro da zona. Manda no arrasto: assim o mouse para assim
+                    que ele tira a mao, e nao la na frente quando ela chega no
+                    teclado. */
+      const bruto = THREE.MathUtils.smoothstep(_dedo.x, mouseZona.limiar - 0.06, mouseZona.limiar + 0.06);
+      mouseZona.k += (bruto - mouseZona.k) * (1 - Math.pow(0.02, dt));
+      mouseZona.segura = THREE.MathUtils.smoothstep(_dedo.x, mouseZona.limiar + 0.04, mouseZona.limiar + 0.11);
+
+      estacao.grupoPad.worldToLocal(_dedo);
+      const px = THREE.MathUtils.clamp(_dedo.x, -0.24, 0.24);
+      const pz = THREE.MathUtils.clamp(_dedo.z + 0.03, -0.24, 0.24);
+
+      /* Solto e solto: abaixo do limiar o mouse FICA onde parou, em vez de
+         voltar para o repouso acompanhando a mao na volta — que era o "o mouse
+         vem junto na hora de soltar". */
+      if (mouseZona.segura > 0.55) {
+        const a2 = 1 - Math.pow(0.004, dt);
+        estacao.mouse.position.x += (px - estacao.mouse.position.x) * a2;
+        estacao.mouse.position.z += (pz - estacao.mouse.position.z) * a2;
+      }
     }
 
     rig.atualizar(progCamera, dt);
