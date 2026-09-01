@@ -6682,7 +6682,8 @@ if(mount){
 /* O texto sai de cena conforme o zoom avanca. O valor chega por variavel:
    regra com !important vence o `style.opacity` que o driver escreve inline. */
 .project-chapter-gate .project-chapter-info,
-.project-chapter-gate .chapter-hint{opacity:var(--gate-texto,1)!important}
+.project-chapter-gate .chapter-hint,
+.project-chapter-gate .chapter-progress{opacity:var(--gate-texto,1)!important}
 .project-chapter-gate[data-zoom="1"] .project-chapter-info,
 .project-chapter-gate[data-zoom="1"] .chapter-hint{pointer-events:none!important}
 

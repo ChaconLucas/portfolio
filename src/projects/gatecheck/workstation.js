@@ -274,91 +274,87 @@ export function criarGabinete() {
   const tampaT = peca(caixa(L, A, 0.012, 0.004), matBranco(), 0, y, -P / 2);
   g.add(tampaT);
 
-  // INTERIOR — antes era so uma placa e o gabinete lia como caixa vazia.
-  // Um aquario so funciona se tiver o que olhar dentro dele.
+  /* INTERIOR — tudo APOIADO em alguma coisa.
+     Na versao anterior as pecas flutuavam soltas no meio da caixa: as ventoinhas
+     no ar, a GPU sem nada por baixo, a placa-mae longe da parede. Num aquario
+     isso salta aos olhos, porque se ve o vazio atras de cada peca.
+     Agora: bandeja encostada na parede direita, cooler e memorias parafusados
+     nela, GPU apoiada na tampa da fonte e presa na bandeja, ventoinhas rentes
+     ao teto e ao piso. */
   const dentro = new THREE.Group();
+  const xBandeja = L / 2 - 0.012;
+  const yPiso = y - A / 2 + 0.009;
+  const yTeto = y + A / 2 - 0.009;
 
-  // placa-mae encostada na parede oposta ao vidro
-  dentro.add(peca(caixa(0.010, 0.27, 0.25, 0.004), matPreto(), 0.115, y + 0.02, -0.015));
+  // bandeja da placa-mae, colada na parede
+  dentro.add(peca(caixa(0.008, A - 0.05, P - 0.06, 0.003), matGrafite(), xBandeja, y + 0.012, -0.005));
+  // placa-mae por cima da bandeja
+  dentro.add(peca(caixa(0.006, 0.235, 0.215, 0.003), matPreto(), xBandeja - 0.008, y + 0.055, -0.015));
 
-  // torre do cooler + memorias
-  // torre do cooler com o topo claro: peca escura sobre placa escura sumia
-  dentro.add(peca(caixa(0.095, 0.135, 0.11, 0.008), matGrafite(), 0.055, y + 0.115, -0.03));
-  dentro.add(peca(caixa(0.10, 0.012, 0.115, 0.004), matGrafite(), 0.055, y + 0.188, -0.03));
+  // tampa da fonte: apoiada no piso, e o que sustenta a GPU
+  const yShroud = yPiso + 0.042;
+  dentro.add(peca(caixa(L - 0.036, 0.084, P - 0.05, 0.006), matGrafite(), 0, yShroud, 0));
+  dentro.add(peca(caixa(0.004, 0.050, 0.16, 0.002), matBrancoFosco(), -L / 2 + 0.020, yShroud, 0.02));
+
+  // torre do cooler, parafusada na placa
+  dentro.add(peca(caixa(0.085, 0.130, 0.105, 0.006), matGrafite(), xBandeja - 0.058, y + 0.115, -0.045));
+  dentro.add(peca(caixa(0.090, 0.010, 0.110, 0.003), matBrancoFosco(), xBandeja - 0.058, y + 0.185, -0.045));
+
+  // memorias, encostadas na placa
   for (let i = 0; i < 4; i++) {
-    dentro.add(peca(caixa(0.006, 0.088, 0.016, 0.002), matBrancoFosco(), 0.100, y + 0.10, 0.045 + i * 0.021));
+    dentro.add(peca(caixa(0.005, 0.078, 0.014, 0.002), matBrancoFosco(),
+      xBandeja - 0.016, y + 0.098, 0.030 + i * 0.020));
   }
 
-  /* Placa de video com backplate e as duas ventoinhas viradas para baixo, que e
-     a leitura que faz reconhecer uma GPU. Antes eram duas caixas empilhadas. */
-  dentro.add(peca(caixa(0.098, 0.034, 0.24, 0.006), matPreto(), 0.056, y - 0.030, 0.005));
-  dentro.add(peca(caixa(0.101, 0.006, 0.245, 0.003), matGrafite(), 0.056, y - 0.011, 0.005));
-  [-0.055, 0.055].forEach((dz) => {
-    const fg = new THREE.Mesh(new THREE.TorusGeometry(0.028, 0.004, 8, 18),
-      new THREE.MeshStandardMaterial({ color: 0x2a2d36, roughness: 0.6 }));
-    fg.rotation.x = Math.PI / 2;
-    fg.position.set(0.056, y - 0.048, 0.005 + dz);
-    dentro.add(fg);
-  });
-  // conector de energia com cabo saindo por cima
-  dentro.add(peca(caixa(0.020, 0.010, 0.030, 0.003), matGrafite(), 0.056, y - 0.008, -0.085));
-
-  // tampa da fonte, embaixo
-  dentro.add(peca(caixa(0.155, 0.070, 0.29, 0.008), matGrafite(), 0.035, y - 0.155, 0));
-
-  // cabos: dois vultos escuros saindo da placa, so para quebrar a geometria limpa
-  dentro.add(peca(caixa(0.012, 0.10, 0.012, 0.005), matPreto(), 0.100, y - 0.09, -0.10));
-  dentro.add(peca(caixa(0.012, 0.07, 0.012, 0.005), matPreto(), 0.100, y + 0.05, -0.10));
+  // GPU: encosta na bandeja de um lado e senta na tampa da fonte do outro
+  const yGPU = yShroud + 0.042 + 0.017;
+  dentro.add(peca(caixa(0.092, 0.034, 0.235, 0.005), matPreto(), xBandeja - 0.056, yGPU, 0.005));
+  dentro.add(peca(caixa(0.096, 0.005, 0.240, 0.002), matGrafite(), xBandeja - 0.056, yGPU + 0.019, 0.005));
+  // suporte ligando a GPU a tampa da fonte, para nao parecer suspensa
+  dentro.add(peca(caixa(0.010, 0.042, 0.012, 0.003), matGrafite(), xBandeja - 0.100, yGPU - 0.030, 0.090));
 
   g.add(dentro);
 
-  // ventoinhas: duas na frente e uma sobre a GPU, todas com anel aceso
+  /* Ventoinhas rentes as chapas: duas no teto e uma no piso, exaustao e entrada.
+     Soltas no meio da caixa elas nao tinham em que estar presas. */
   const fans = new THREE.Group();
   fans.name = 'ventoinhas';
-  const aro = new THREE.TorusGeometry(0.044, 0.006, 10, 26);
-  // moldura quadrada da ventoinha, como nas de verdade
-  const molduraFan = new THREE.BoxGeometry(0.098, 0.098, 0.020);
-  const pa = new THREE.BoxGeometry(0.062, 0.0035, 0.016);
+  const aro = new THREE.TorusGeometry(0.040, 0.005, 10, 24);
+  const molduraFan = new THREE.BoxGeometry(0.090, 0.090, 0.016);
+  const pa = new THREE.BoxGeometry(0.056, 0.0032, 0.015);
   const luzRosa = new THREE.MeshBasicMaterial({ color: PALETA.rosa, toneMapped: false });
 
-  [[-0.055, y + 0.115, P / 2 - 0.045, 0],
-   [-0.055, y - 0.020, P / 2 - 0.045, 0],
-   [0.045, y - 0.085, 0.055, Math.PI / 2]].forEach(([fx, fy, fz, rx]) => {
-    const u = new THREE.Group();
-    u.position.set(fx, fy, fz);
-    u.rotation.x = rx;
-    const carcaca = new THREE.Mesh(molduraFan, matPreto());
-    carcaca.position.z = -0.012;
-    u.add(carcaca);
-    u.add(new THREE.Mesh(aro, luzRosa));
-    // 9 pas inclinadas: pa reta e sem inclinacao lia como raio de bicicleta
-    for (let k = 0; k < 9; k++) {
-      const p2 = new THREE.Mesh(pa, matGrafite());
-      p2.rotation.z = (k / 9) * Math.PI * 2;
-      p2.rotation.y = 0.42;
-      p2.position.x = Math.cos(p2.rotation.z) * 0.022;
-      p2.position.y = Math.sin(p2.rotation.z) * 0.022;
-      u.add(p2);
-    }
-    u.add(new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.010, 14), matPreto()));
-    fans.add(u);
-  });
+  [[-0.062, yTeto - 0.012, -0.075], [0.048, yTeto - 0.012, -0.075], [-0.055, yPiso + 0.012, 0.115]]
+    .forEach(([fx, fy, fz]) => {
+      const u = new THREE.Group();
+      u.position.set(fx, fy, fz);
+      u.rotation.x = Math.PI / 2;      // eixo na vertical: sopra para cima/baixo
+      const carcaca = new THREE.Mesh(molduraFan, matPreto());
+      carcaca.position.z = -0.010;
+      u.add(carcaca);
+      u.add(new THREE.Mesh(aro, luzRosa));
+      for (let k = 0; k < 9; k++) {
+        const p2 = new THREE.Mesh(pa, matGrafite());
+        p2.rotation.z = (k / 9) * Math.PI * 2;
+        p2.rotation.y = 0.42;
+        p2.position.set(Math.cos(p2.rotation.z) * 0.020, Math.sin(p2.rotation.z) * 0.020, 0);
+        u.add(p2);
+      }
+      u.add(new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.009, 14), matPreto()));
+      fans.add(u);
+    });
   g.add(fans);
 
-  // fita de LED no teto do gabinete
-  const fita = new THREE.Mesh(new THREE.BoxGeometry(L - 0.06, 0.006, 0.012), luzRosa);
-  fita.position.set(0, y + A / 2 - 0.018, P / 2 - 0.05);
+  // fita de LED rente ao teto
+  const fita = new THREE.Mesh(new THREE.BoxGeometry(L - 0.07, 0.005, 0.010), luzRosa);
+  fita.position.set(0, yTeto - 0.004, P / 2 - 0.045);
   g.add(fita);
 
-  /* Luz DENTRO da caixa. Sem ela o vidro mostrava so preto e o gabinete lia como
-     uma caixa branca com dois aneis acesos — nada do interior aparecia, que e o
-     ponto inteiro de um aquario. Duas fontes: o rosa das ventoinhas e um
-     preenchimento frio fraco para as pecas terem volume. */
   const brilhoRosa = new THREE.PointLight(PALETA.rosa, 1.1, 0.55, 2);
   brilhoRosa.position.set(-0.04, y + 0.02, P / 2 - 0.08);
   g.add(brilhoRosa);
   const preenche = new THREE.PointLight(0xe6eeff, 1.9, 1.0, 2);
-  preenche.position.set(0.02, y + A / 2 - 0.07, 0.02);
+  preenche.position.set(0.02, yTeto - 0.06, 0.02);
   g.add(preenche);
 
   g.userData.fans = fans;
