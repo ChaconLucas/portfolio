@@ -242,7 +242,7 @@ export function criarGabinete() {
   const g = new THREE.Group();
   g.name = 'gabinete';
 
-  const L = 0.30, A = 0.42, P = 0.34;
+  const L = 0.32, A = 0.47, P = 0.43;
   const y = ALTURA_MESA + A / 2;
 
   // estrutura: so as quinas, para o vidro dominar
@@ -278,14 +278,16 @@ export function criarGabinete() {
   dentro.add(peca(caixa(0.010, 0.27, 0.25, 0.004), matPreto(), 0.115, y + 0.02, -0.015));
 
   // torre do cooler + memorias
-  dentro.add(peca(caixa(0.085, 0.125, 0.10, 0.008), matGrafite(), 0.055, y + 0.115, -0.03));
+  // torre do cooler com o topo claro: peca escura sobre placa escura sumia
+  dentro.add(peca(caixa(0.095, 0.135, 0.11, 0.008), matGrafite(), 0.055, y + 0.115, -0.03));
+  dentro.add(peca(caixa(0.10, 0.012, 0.115, 0.004), matBrancoFosco(), 0.055, y + 0.188, -0.03));
   for (let i = 0; i < 4; i++) {
-    dentro.add(peca(caixa(0.005, 0.085, 0.014, 0.002), matGrafite(), 0.100, y + 0.10, 0.035 + i * 0.019));
+    dentro.add(peca(caixa(0.006, 0.088, 0.016, 0.002), matBrancoFosco(), 0.100, y + 0.10, 0.045 + i * 0.021));
   }
 
   // placa de video: e a peca que ocupa o meio e mata a sensacao de vazio
   dentro.add(peca(caixa(0.095, 0.040, 0.225, 0.008), matPreto(), 0.058, y - 0.035, 0.005));
-  dentro.add(peca(caixa(0.088, 0.012, 0.215, 0.004), matGrafite(), 0.058, y - 0.058, 0.005));
+  dentro.add(peca(caixa(0.092, 0.014, 0.225, 0.004), matBrancoFosco(), 0.058, y - 0.060, 0.005));
 
   // tampa da fonte, embaixo
   dentro.add(peca(caixa(0.155, 0.070, 0.29, 0.008), matGrafite(), 0.035, y - 0.155, 0));
@@ -323,6 +325,17 @@ export function criarGabinete() {
   const fita = new THREE.Mesh(new THREE.BoxGeometry(L - 0.06, 0.006, 0.012), luzRosa);
   fita.position.set(0, y + A / 2 - 0.018, P / 2 - 0.05);
   g.add(fita);
+
+  /* Luz DENTRO da caixa. Sem ela o vidro mostrava so preto e o gabinete lia como
+     uma caixa branca com dois aneis acesos — nada do interior aparecia, que e o
+     ponto inteiro de um aquario. Duas fontes: o rosa das ventoinhas e um
+     preenchimento frio fraco para as pecas terem volume. */
+  const brilhoRosa = new THREE.PointLight(PALETA.rosa, 1.5, 0.9, 2);
+  brilhoRosa.position.set(-0.02, y + 0.02, P / 2 - 0.10);
+  g.add(brilhoRosa);
+  const preenche = new THREE.PointLight(0xcfe0ff, 0.85, 0.8, 2);
+  preenche.position.set(0.02, y + A / 2 - 0.07, 0.02);
+  g.add(preenche);
 
   g.userData.fans = fans;
   return g;
