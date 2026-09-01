@@ -71,11 +71,12 @@ export function criarCadeira() {
   // coluna a gas
   g.add(peca(new THREE.CylinderGeometry(0.035, 0.045, alturaAssento - 0.10, 16), matGrafite(), 0, (alturaAssento - 0.10) / 2 + 0.06, 0));
 
-  // assento rosa com borda levantada (perfil gamer)
-  const assento = peca(caixa(0.52, 0.10, 0.50, 0.05, 4), matRosa(), 0, alturaAssento, 0);
+  // assento rosa com as bordas brancas (perfil gamer, rosa + branco)
+  // raios grandes e mais segmentos: estofado le como estofado, nao como caixa
+  const assento = peca(caixa(0.52, 0.11, 0.50, 0.055, 7), matRosa(), 0, alturaAssento, 0);
   g.add(assento);
-  g.add(peca(caixa(0.10, 0.09, 0.46, 0.04, 4), matRosaEscuro(), -0.22, alturaAssento + 0.04, 0.01));
-  g.add(peca(caixa(0.10, 0.09, 0.46, 0.04, 4), matRosaEscuro(), 0.22, alturaAssento + 0.04, 0.01));
+  g.add(peca(caixa(0.11, 0.10, 0.46, 0.048, 7), matBranco(), -0.215, alturaAssento + 0.04, 0.01));
+  g.add(peca(caixa(0.11, 0.10, 0.46, 0.048, 7), matBranco(), 0.215, alturaAssento + 0.04, 0.01));
 
   // encosto inclinado, com as "asas" laterais da cadeira gamer
   const encosto = new THREE.Group();
@@ -83,17 +84,17 @@ export function criarCadeira() {
   encosto.rotation.x = -0.20;
   // encosto mais baixo de proposito: com 0,72 de altura ele cobria a cabeca e os
   // ombros do personagem visto de tras, e a cena perdia quem estava trabalhando
-  encosto.add(peca(caixa(0.48, 0.52, 0.10, 0.05, 4), matRosa(), 0, 0.24, 0));
-  encosto.add(peca(caixa(0.085, 0.44, 0.13, 0.045, 4), matRosaEscuro(), -0.21, 0.22, -0.02));
-  encosto.add(peca(caixa(0.085, 0.44, 0.13, 0.045, 4), matRosaEscuro(), 0.21, 0.22, -0.02));
+  encosto.add(peca(caixa(0.48, 0.52, 0.11, 0.055, 7), matRosa(), 0, 0.24, 0));
+  encosto.add(peca(caixa(0.09, 0.44, 0.14, 0.05, 7), matBranco(), -0.205, 0.22, -0.02));
+  encosto.add(peca(caixa(0.09, 0.44, 0.14, 0.05, 7), matBranco(), 0.205, 0.22, -0.02));
   // apoio de cabeca, agora atras da nuca e nao na frente dela
-  encosto.add(peca(caixa(0.26, 0.12, 0.10, 0.045, 4), matRosaEscuro(), 0, 0.56, -0.01));
+  encosto.add(peca(caixa(0.26, 0.12, 0.11, 0.05, 7), matBranco(), 0, 0.56, -0.01));
   g.add(encosto);
 
   // apoios de braco
   [-0.32, 0.32].forEach((x) => {
     g.add(peca(caixa(0.07, 0.20, 0.07, 0.02), matPreto(), x, alturaAssento + 0.14, 0.10));
-    g.add(peca(caixa(0.09, 0.045, 0.28, 0.02), matPreto(), x, alturaAssento + 0.25, 0.02));
+    g.add(peca(caixa(0.09, 0.05, 0.28, 0.024, 6), matPreto(), x, alturaAssento + 0.25, 0.02));
   });
 
   return g;
@@ -179,21 +180,59 @@ export function criarGabinete() {
   vidroL.rotation.y = Math.PI / 2;
   g.add(vidroL);
 
-  // interior: placa, GPU e ventoinhas — e o que faz parecer aquario
-  g.add(peca(caixa(0.012, A - 0.10, P - 0.09, 0.004), matPreto(), L / 2 - 0.03, y, -0.02));
-  g.add(peca(caixa(0.10, 0.05, 0.22, 0.01), matGrafite(), 0.03, y + 0.02, -0.01));
+  // INTERIOR — antes era so uma placa e o gabinete lia como caixa vazia.
+  // Um aquario so funciona se tiver o que olhar dentro dele.
+  const dentro = new THREE.Group();
 
+  // placa-mae encostada na parede oposta ao vidro
+  dentro.add(peca(caixa(0.010, 0.27, 0.25, 0.004), matPreto(), 0.115, y + 0.02, -0.015));
+
+  // torre do cooler + memorias
+  dentro.add(peca(caixa(0.085, 0.125, 0.10, 0.008), matGrafite(), 0.055, y + 0.115, -0.03));
+  for (let i = 0; i < 4; i++) {
+    dentro.add(peca(caixa(0.005, 0.085, 0.014, 0.002), matGrafite(), 0.100, y + 0.10, 0.035 + i * 0.019));
+  }
+
+  // placa de video: e a peca que ocupa o meio e mata a sensacao de vazio
+  dentro.add(peca(caixa(0.095, 0.040, 0.225, 0.008), matPreto(), 0.058, y - 0.035, 0.005));
+  dentro.add(peca(caixa(0.088, 0.012, 0.215, 0.004), matGrafite(), 0.058, y - 0.058, 0.005));
+
+  // tampa da fonte, embaixo
+  dentro.add(peca(caixa(0.155, 0.070, 0.29, 0.008), matGrafite(), 0.035, y - 0.155, 0));
+
+  // cabos: dois vultos escuros saindo da placa, so para quebrar a geometria limpa
+  dentro.add(peca(caixa(0.012, 0.10, 0.012, 0.005), matPreto(), 0.100, y - 0.09, -0.10));
+  dentro.add(peca(caixa(0.012, 0.07, 0.012, 0.005), matPreto(), 0.100, y + 0.05, -0.10));
+
+  g.add(dentro);
+
+  // ventoinhas: duas na frente e uma sobre a GPU, todas com anel aceso
   const fans = new THREE.Group();
   fans.name = 'ventoinhas';
-  for (let i = 0; i < 2; i++) {
-    const f = new THREE.Mesh(
-      new THREE.TorusGeometry(0.045, 0.008, 8, 20),
-      new THREE.MeshBasicMaterial({ color: PALETA.rosa, toneMapped: false })
-    );
-    f.position.set(-0.02, y + 0.12 - i * 0.13, P / 2 - 0.05);
-    fans.add(f);
-  }
+  const aro = new THREE.TorusGeometry(0.042, 0.007, 8, 22);
+  const pa = new THREE.BoxGeometry(0.062, 0.004, 0.010);
+  const luzRosa = new THREE.MeshBasicMaterial({ color: PALETA.rosa, toneMapped: false });
+
+  [[-0.055, y + 0.115, P / 2 - 0.045, 0],
+   [-0.055, y - 0.020, P / 2 - 0.045, 0],
+   [0.045, y - 0.085, 0.055, Math.PI / 2]].forEach(([fx, fy, fz, rx]) => {
+    const u = new THREE.Group();
+    u.position.set(fx, fy, fz);
+    u.rotation.x = rx;
+    u.add(new THREE.Mesh(aro, luzRosa));
+    for (let k = 0; k < 3; k++) {
+      const p2 = new THREE.Mesh(pa, matGrafite());
+      p2.rotation.z = (k / 3) * Math.PI;
+      u.add(p2);
+    }
+    fans.add(u);
+  });
   g.add(fans);
+
+  // fita de LED no teto do gabinete
+  const fita = new THREE.Mesh(new THREE.BoxGeometry(L - 0.06, 0.006, 0.012), luzRosa);
+  fita.position.set(0, y + A / 2 - 0.018, P / 2 - 0.05);
+  g.add(fita);
 
   g.userData.fans = fans;
   return g;
@@ -235,14 +274,14 @@ export function criarMousepadEMouse() {
   g.name = 'mousepad';
 
   // mousepad quadrado rosa
-  const pad = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 0.32),
+  const pad = new THREE.Mesh(new THREE.PlaneGeometry(0.50, 0.50),
     new THREE.MeshStandardMaterial({ color: PALETA.rosa, roughness: 0.95, metalness: 0 }));
   pad.rotation.x = -Math.PI / 2;
   pad.position.set(0, ALTURA_MESA + 0.002, 0);
   pad.receiveShadow = true;
   g.add(pad);
   // costura da borda
-  const borda = new THREE.Mesh(new THREE.RingGeometry(0.219, 0.226, 4),
+  const borda = new THREE.Mesh(new THREE.RingGeometry(0.344, 0.353, 4),
     new THREE.MeshBasicMaterial({ color: PALETA.rosaEscuro }));
   borda.rotation.set(-Math.PI / 2, 0, Math.PI / 4);
   borda.position.set(0, ALTURA_MESA + 0.003, 0);
@@ -269,11 +308,11 @@ export function criarMousepadEMouse() {
 export function criarTeclado() {
   const g = new THREE.Group();
   g.name = 'teclado';
-  g.add(peca(caixa(0.44, 0.018, 0.15, 0.006), matBranco(), 0, ALTURA_MESA + 0.009, 0));
+  g.add(peca(caixa(0.44, 0.020, 0.15, 0.008, 5), matRosa(), 0, ALTURA_MESA + 0.010, 0));
   const teclas = new THREE.Mesh(new THREE.PlaneGeometry(0.41, 0.12),
-    new THREE.MeshStandardMaterial({ color: 0xd7d8de, roughness: 0.85 }));
+    new THREE.MeshStandardMaterial({ color: PALETA.rosaEscuro, roughness: 0.85 }));
   teclas.rotation.x = -Math.PI / 2;
-  teclas.position.set(0, ALTURA_MESA + 0.019, 0);
+  teclas.position.set(0, ALTURA_MESA + 0.021, 0);
   g.add(teclas);
   return g;
 }
@@ -314,6 +353,7 @@ export function criarEstacao() {
 
   return {
     raiz, cadeira, monitor, tela, cabecaMonitor: cabeca,
-    mouse: pad.userData.mouse, gabinete, macbook
+    mouse: pad.userData.mouse, gabinete, macbook,
+    grupoPad: pad, grupoTeclado: teclado
   };
 }

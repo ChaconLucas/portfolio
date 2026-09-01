@@ -10,8 +10,11 @@ import * as THREE from 'three';
  * movimento e dolly puro.
  */
 
-/** Chaves do percurso: de plano geral ate encostar na tela. */
-const CHAVES = [
+/** Centro e tamanho do painel do monitor, no mundo. */
+export const TELA = { x: 0, y: 1.210, z: -0.106, largura: 1.185, altura: 0.665 };
+
+/** Chaves do percurso: de plano geral ate a tela ocupar o quadro. */
+const CHAVES_BASE = [
   { p: 0.00, pos: [2.00, 1.72, 1.72], alvo: [0.10, 1.04, 0.02] },
   { p: 0.30, pos: [1.32, 1.56, 1.48], alvo: [0.05, 1.12, -0.02] },
   { p: 0.58, pos: [0.62, 1.44, 1.24], alvo: [0.00, 1.19, -0.08] },
@@ -24,7 +27,7 @@ const suave = (t) => t * t * (3 - 2 * t);
 const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
 
-function amostrar(prog, campo, out) {
+function amostrar(CHAVES, prog, campo, out) {
   const p = Math.max(0, Math.min(1, prog));
   for (let i = 0; i < CHAVES.length - 1; i++) {
     const c0 = CHAVES[i], c1 = CHAVES[i + 1];
@@ -39,6 +42,28 @@ function amostrar(prog, campo, out) {
 }
 
 export function criarRigCamera(camera) {
+  // copia propria: o enquadramento final e recalculado por cena e por resize
+  const CHAVES = CHAVES_BASE.map((c) => ({ p: c.p, pos: c.pos.slice(), alvo: c.alvo.slice() }));
+
+  /**
+   * Distancia em que o painel inteiro cabe no quadro.
+   *
+   * Antes o ultimo ponto do trilho era um numero fixo, e a camera passava do
+   * painel: o zoom entrava DENTRO da screenshot e mostrava um pedaco dela.
+   * Aqui a distancia sai da lente — o monitor termina inteiro na tela, do jeito
+   * que ele e.
+   */
+  function enquadrarTela() {
+    const tv = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+    const th = tv * camera.aspect;
+    const d = Math.max(TELA.largura / 2 / th, TELA.altura / 2 / tv) * 1.06;
+    CHAVES[CHAVES.length - 1].pos = [TELA.x, TELA.y, TELA.z + d];
+    CHAVES[CHAVES.length - 2].pos = [TELA.x + 0.10, TELA.y + 0.03, TELA.z + d * 1.75];
+    CHAVES[CHAVES.length - 1].alvo = [TELA.x, TELA.y, TELA.z - 0.01];
+    CHAVES[CHAVES.length - 2].alvo = [TELA.x, TELA.y + 0.005, TELA.z - 0.01];
+  }
+  enquadrarTela();
+
   const posAlvo = new THREE.Vector3().fromArray(CHAVES[0].pos);
   const olharAlvo = new THREE.Vector3().fromArray(CHAVES[0].alvo);
   const olharAtual = olharAlvo.clone();
@@ -51,6 +76,9 @@ export function criarRigCamera(camera) {
   const ponteiroSuave = new THREE.Vector2();
 
   return {
+    /** chamado no resize: a distancia final depende do FOV e do aspecto */
+    reenquadrar: enquadrarTela,
+
     /** @param {number} x -1..1 @param {number} y -1..1 */
     apontar(x, y) { ponteiro.set(x, y); },
 
@@ -59,8 +87,8 @@ export function criarRigCamera(camera) {
      * @param {number} dt    delta em segundos, para o amortecimento nao depender do FPS
      */
     atualizar(prog, dt) {
-      amostrar(prog, 'pos', posAlvo);
-      amostrar(prog, 'alvo', olharAlvo);
+      amostrar(CHAVES, prog, 'pos', posAlvo);
+      amostrar(CHAVES, prog, 'alvo', olharAlvo);
 
       // o parallax fecha perto do fim: colado na tela ele viraria tremor
       const peso = (1 - suave(Math.min(1, Math.max(0, (prog - 0.55) / 0.45)))) * 0.9;

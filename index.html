@@ -4783,6 +4783,7 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
 </div>
 <article class="project-chapter project-chapter-gate" data-project="gatecheck" id="project-gatecheck">
 <div class="project-chapter-sticky">
+<div class="gate-scene" id="gateScene"></div>
 <div class="project-chapter-info">
 <div class="chapter-count">01 / 03</div>
 <div class="chapter-kicker">PLATAFORMA DE EVENTOS / FULL STACK</div>
@@ -4794,7 +4795,6 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
 <div class="chapter-screen-label"><b id="gateShotIndex">01</b><span id="gateShotLabel">Dashboard operacional</span></div>
 </div>
 <div class="real-project-stage gate-real-stage">
-<div class="gate-scene" id="gateScene"></div>
 <div class="real-stage-glow"></div>
 <div class="real-browser">
 <div class="real-shot-stack">
@@ -6671,15 +6671,25 @@ if(mount){
    estacao de trabalho. As screenshots reais viram a textura do monitor, entao o
    zoom termina no produto de verdade em vez de numa interface inventada. */
 .gate-scene{
-  position:absolute;
-  /* sangra para fora do palco: com inset 0 a mesa terminava exatamente na borda
-     do canvas e a cena lia como um quadrado colado na pagina */
-  inset:-12% -10% -16%;
-  z-index:2;overflow:visible;
-  /* e a borda dissolve, entao nao existe aresta onde o 3D acaba */
-  -webkit-mask-image:radial-gradient(128% 116% at 54% 46%,#000 54%,rgba(0,0,0,.62) 76%,transparent 97%);
-  mask-image:radial-gradient(128% 116% at 54% 46%,#000 54%,rgba(0,0,0,.62) 76%,transparent 97%);
+  /* a cena e filha do sticky, nao do palco: ocupa a secao inteira em vez de
+     ficar presa na coluna da direita, que era o que lia como quadrado */
+  position:absolute;inset:-2% 0 -6%;
+  z-index:1;overflow:visible;pointer-events:none;
+  /* centro deslocado para a direita: a esquerda apaga sob o texto */
+  -webkit-mask-image:radial-gradient(74% 108% at 66% 52%,#000 46%,rgba(0,0,0,.55) 74%,transparent 96%);
+  mask-image:radial-gradient(74% 108% at 66% 52%,#000 46%,rgba(0,0,0,.55) 74%,transparent 96%);
 }
+/* O texto sai de cena conforme o zoom avanca. O valor chega por variavel:
+   regra com !important vence o `style.opacity` que o driver escreve inline. */
+.project-chapter-gate .project-chapter-info,
+.project-chapter-gate .chapter-hint{opacity:var(--gate-texto,1)!important}
+.project-chapter-gate[data-zoom="1"] .project-chapter-info,
+.project-chapter-gate[data-zoom="1"] .chapter-hint{pointer-events:none!important}
+
+/* texto e indicadores por cima da cena */
+.project-chapter-gate .project-chapter-info,
+.gate-real-stage.tem-3d .chapter-progress,
+.gate-real-stage.tem-3d .chapter-hint{position:relative;z-index:3}
 .gate-scene canvas{display:block;width:100%;height:100%}
 /* com a cena no ar, a pilha de prints sai de cena e o balanco do driver e
    desligado: quem move o quadro agora e a camera 3D, e os dois somados
@@ -8134,7 +8144,7 @@ import { montarCenaGatecheck } from '/src/projects/gatecheck/index.js';
 
 const alvo = document.getElementById('gateScene');
 const capitulo = document.getElementById('project-gatecheck');
-const palco = alvo && alvo.closest('.real-project-stage');
+const palco = document.querySelector('.gate-real-stage');
 const rotulo = document.getElementById('gateShotIndex');
 
 if (alvo && capitulo && palco) {
@@ -8149,25 +8159,30 @@ if (alvo && capitulo && palco) {
       return Math.max(0, Math.min(1, -r.top / util));
     };
 
+    // O texto sai de cena assim que o zoom comeca: no fim so fica a modelagem.
+    // Precisa de `important` porque o driver de capitulos escreve `opacity`
+    // inline nesse mesmo elemento a cada quadro.
+    const sumir = (p) => {
+      const f = 1 - Math.max(0, Math.min(1, (p - 0.08) / 0.26));
+      capitulo.style.setProperty('--gate-texto', f.toFixed(3));
+      capitulo.dataset.zoom = f < 0.06 ? '1' : '0';
+    };
+
     let agendado = false;
     const aoRolar = () => {
       if (agendado) return;
       agendado = true;
-      requestAnimationFrame(() => { agendado = false; cena.definirProgresso(progresso()); });
+      requestAnimationFrame(() => {
+        agendado = false;
+        const p = progresso();
+        cena.definirProgresso(p);
+        sumir(p);
+      });
     };
     addEventListener('scroll', aoRolar, { passive: true });
     addEventListener('resize', aoRolar, { passive: true });
     aoRolar();
 
-    // a tela do monitor acompanha o passo que o driver ja calcula
-    if (rotulo) {
-      const sincronizar = () => {
-        const i = parseInt(rotulo.textContent, 10);
-        if (!Number.isNaN(i)) cena.definirTela(i - 1);
-      };
-      new MutationObserver(sincronizar).observe(rotulo, { childList: true, characterData: true, subtree: true });
-      sincronizar();
-    }
   }
 }
 </script>

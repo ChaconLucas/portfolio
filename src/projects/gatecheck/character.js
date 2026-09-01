@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { PALETA, matPele, matTecido, matGrafite } from './materials.js';
+import { texturaCamisa, texturaTatuagem, texturaBlackout } from './textures.js';
 import { ALTURA_MESA } from './workstation.js';
 
 /**
@@ -23,32 +24,57 @@ function malha(geo, mat) {
 
 const matCabelo = () => new THREE.MeshStandardMaterial({ color: 0x2a2118, roughness: 0.85 });
 
+// camisa e pele sao instanciadas uma vez por cena e reaproveitadas nos membros
+let _camisa, _tatuada;
+const matCamisa = () => (_camisa || (_camisa = new THREE.MeshStandardMaterial({
+  map: texturaCamisa(), roughness: 0.86, metalness: 0
+})));
+const matTatuada = () => (_tatuada || (_tatuada = new THREE.MeshStandardMaterial({
+  map: texturaTatuagem(), roughness: 0.7, metalness: 0
+})));
+let _blackout;
+const matBlackout = () => (_blackout || (_blackout = new THREE.MeshStandardMaterial({
+  map: texturaBlackout(), roughness: 0.62, metalness: 0
+})));
+
 /**
  * Braco em dois segmentos, com pivo no ombro e no cotovelo, para a mao
  * chegar na mesa sem o antebraco atravessar o tampo.
  */
 function criarBraco(lado) {
   const ombro = new THREE.Group();
+  // o braco direito leva um blackout: bloco solido em vez de traco
+  const pelo = lado === 1 ? matBlackout() : matTatuada();
 
-  const superior = malha(caixa(0.085, 0.26, 0.10, 0.04), matTecido());
-  superior.position.y = -0.13;
+  // capsula no lugar de caixa: braco arredondado le como membro, caixa le como bloco
+  // deltoide: a bola no ombro e o que da leitura de braco forte
+  const deltoide = malha(new THREE.SphereGeometry(0.078, 18, 14), pelo);
+  deltoide.scale.set(1, 0.92, 1);
+  ombro.add(deltoide);
+
+  const superior = malha(new THREE.CapsuleGeometry(0.064, 0.185, 7, 16), pelo);
+  superior.position.y = -0.135;
   ombro.add(superior);
 
   const cotovelo = new THREE.Group();
   cotovelo.position.y = -0.26;
   ombro.add(cotovelo);
 
-  const antebraco = malha(caixa(0.075, 0.25, 0.085, 0.035), matPele());
+  const antebraco = malha(new THREE.CapsuleGeometry(0.053, 0.175, 7, 16), pelo);
   antebraco.position.y = -0.125;
   cotovelo.add(antebraco);
 
-  const mao = malha(caixa(0.075, 0.05, 0.11, 0.022), matPele());
-  mao.position.set(0, -0.26, 0.015);
+  const mao = malha(new THREE.SphereGeometry(0.052, 16, 12), matPele());
+  mao.scale.set(0.86, 0.58, 1.25);
+  mao.position.set(0, -0.255, -0.02);
   cotovelo.add(mao);
 
-  // pose base: ombro para frente e para baixo, cotovelo abrindo para a mesa
-  ombro.rotation.set(-1.02, lado * 0.16, lado * 0.10);
-  cotovelo.rotation.set(0.78, 0, 0);
+  // POSE: o X do ombro precisa ser POSITIVO. Com valor negativo o braco girava
+  // para +Z, ou seja, para tras — e o personagem parecia recostado em vez de
+  // trabalhando. O +0.24 compensa a inclinacao do tronco, para o angulo no
+  // mundo dar os ~45 graus que levam a mao ate o tampo.
+  ombro.rotation.set(1.02, lado * -0.10, lado === 1 ? 0.24 : -0.05);
+  cotovelo.rotation.set(0.62, 0, 0);
 
   return { ombro, cotovelo, mao };
 }
@@ -56,7 +82,7 @@ function criarBraco(lado) {
 function criarPerna(lado) {
   const quadril = new THREE.Group();
 
-  const coxa = malha(caixa(0.13, 0.36, 0.15, 0.05), matGrafite());
+  const coxa = malha(new THREE.CapsuleGeometry(0.072, 0.28, 6, 14), matGrafite());
   coxa.position.y = -0.18;
   quadril.add(coxa);
 
@@ -64,11 +90,11 @@ function criarPerna(lado) {
   joelho.position.y = -0.36;
   quadril.add(joelho);
 
-  const canela = malha(caixa(0.11, 0.36, 0.12, 0.045), matGrafite());
+  const canela = malha(new THREE.CapsuleGeometry(0.058, 0.28, 6, 14), matGrafite());
   canela.position.y = -0.18;
   joelho.add(canela);
 
-  const pe = malha(caixa(0.115, 0.06, 0.22, 0.025), matTecido());
+  const pe = malha(caixa(0.115, 0.06, 0.22, 0.028, 5), matTecido());
   pe.position.set(0, -0.37, -0.05);
   joelho.add(pe);
 
@@ -87,7 +113,7 @@ export function criarPersonagem() {
   const alturaAssento = 0.51;
 
   // quadril
-  const pelve = malha(caixa(0.34, 0.16, 0.26, 0.06), matGrafite());
+  const pelve = malha(caixa(0.36, 0.16, 0.27, 0.08, 7), matGrafite());
   pelve.position.y = alturaAssento + 0.06;
   raiz.add(pelve);
 
@@ -97,16 +123,24 @@ export function criarPersonagem() {
   tronco.rotation.x = -0.24; // inclinado para a mesa: tira a cabeca da linha do encosto
   raiz.add(tronco);
 
-  const torso = malha(caixa(0.40, 0.46, 0.24, 0.07), matTecido());
-  torso.position.y = 0.23;
+  // ombros arredondados: o torso em caixa dura era o que mais deixava o
+  // personagem com cara de bloco. Mais largo em cima e estreito na cintura,
+  // que e o que le como corpo treinado.
+  const torso = malha(caixa(0.47, 0.44, 0.27, 0.115, 8), matCamisa());
+  torso.position.y = 0.22;
   tronco.add(torso);
+  // trapezio ligando pescoco e ombros
+  const trapezio = malha(new THREE.SphereGeometry(0.155, 20, 14), matCamisa());
+  trapezio.scale.set(1.42, 0.42, 0.86);
+  trapezio.position.y = 0.415;
+  tronco.add(trapezio);
 
   // gola, so para quebrar o bloco unico do torso
-  const gola = malha(caixa(0.20, 0.05, 0.19, 0.02), matTecido());
-  gola.position.y = 0.455;
+  const gola = malha(new THREE.CylinderGeometry(0.082, 0.096, 0.05, 18), matTecido());
+  gola.position.y = 0.462;
   tronco.add(gola);
 
-  const pescoco = malha(new THREE.CylinderGeometry(0.045, 0.05, 0.08, 12), matPele());
+  const pescoco = malha(new THREE.CylinderGeometry(0.048, 0.056, 0.09, 16), matTatuada());
   pescoco.position.y = 0.50;
   tronco.add(pescoco);
 
@@ -115,25 +149,28 @@ export function criarPersonagem() {
   cabeca.position.y = 0.545;
   tronco.add(cabeca);
 
-  const cranio = malha(caixa(0.185, 0.215, 0.20, 0.085, 5), matPele());
+  const cranio = malha(new THREE.SphereGeometry(0.105, 22, 18), matPele());
+  cranio.scale.set(0.92, 1.02, 0.98);
   cranio.position.y = 0.10;
   cabeca.add(cranio);
 
   // cabelo: casca por cima e atras, que e o que a camera ve de costas
-  const cabelo = malha(caixa(0.198, 0.16, 0.212, 0.085, 5), matCabelo());
-  cabelo.position.set(0, 0.145, 0.012);
+  const cabelo = malha(new THREE.SphereGeometry(0.112, 22, 18, 0, Math.PI * 2, 0, Math.PI * 0.62), matCabelo());
+  cabelo.scale.set(0.94, 1.06, 1.0);
+  cabelo.position.set(0, 0.115, 0.006);
   cabeca.add(cabelo);
-  const nuca = malha(caixa(0.185, 0.11, 0.06, 0.03), matCabelo());
-  nuca.position.set(0, 0.055, 0.082);
+  const nuca = malha(new THREE.SphereGeometry(0.095, 18, 14), matCabelo());
+  nuca.scale.set(0.98, 0.72, 0.55);
+  nuca.position.set(0, 0.075, 0.055);
   cabeca.add(nuca);
 
   // bracos
   const bracoE = criarBraco(-1);
-  bracoE.ombro.position.set(-0.215, 0.40, 0.01);
+  bracoE.ombro.position.set(-0.255, 0.375, 0.01);
   tronco.add(bracoE.ombro);
 
   const bracoD = criarBraco(1);
-  bracoD.ombro.position.set(0.215, 0.40, 0.01);
+  bracoD.ombro.position.set(0.255, 0.375, 0.01);
   tronco.add(bracoD.ombro);
 
   // pernas
@@ -187,4 +224,41 @@ export function animarPersonagem(p, t, intensidade = 1) {
   p.bracoD.ombro.rotation.y = base.ombroD.y + Math.sin(t * 0.37) * 0.055 * k;
   p.bracoD.ombro.rotation.x = base.ombroD.x + Math.sin(t * 0.29 + 2.1) * 0.022 * k;
   p.bracoD.cotovelo.rotation.x = base.cotoveloD.x + Math.sin(t * 0.37) * 0.030 * k;
+}
+
+/**
+ * Poe as maos na altura do tampo por busca binaria no angulo do ombro.
+ *
+ * Acertar esse angulo na mao quebra toda vez que uma proporcao muda (tronco
+ * mais largo, braco mais grosso, cadeira mais alta). Resolvendo por numero, a
+ * pose continua certa sozinha depois de qualquer ajuste de modelagem.
+ *
+ * @returns {{esquerda:THREE.Vector3, direita:THREE.Vector3}} posicoes no mundo
+ */
+export function pousarMaos(p, alvoY) {
+  const v = new THREE.Vector3();
+
+  const resolver = (braco) => {
+    let lo = 0.55, hi = 1.75;
+    for (let i = 0; i < 24; i++) {
+      const meio = (lo + hi) / 2;
+      braco.ombro.rotation.x = meio;
+      p.raiz.updateMatrixWorld(true);
+      braco.mao.getWorldPosition(v);
+      // angulo maior => mao mais para frente e mais alta
+      if (v.y > alvoY) hi = meio; else lo = meio;
+    }
+    braco.ombro.rotation.x = (lo + hi) / 2;
+    p.raiz.updateMatrixWorld(true);
+    return braco.mao.getWorldPosition(new THREE.Vector3());
+  };
+
+  const esquerda = resolver(p.bracoE);
+  const direita = resolver(p.bracoD);
+
+  // a animacao oscila em torno da pose, entao a base tem que ser a pose resolvida
+  p.base.ombroE.copy(p.bracoE.ombro.rotation);
+  p.base.ombroD.copy(p.bracoD.ombro.rotation);
+
+  return { esquerda, direita };
 }

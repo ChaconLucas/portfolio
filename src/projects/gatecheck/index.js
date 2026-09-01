@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
 import { criarEstacao } from './workstation.js';
-import { criarPersonagem, animarPersonagem } from './character.js';
+import { criarPersonagem, animarPersonagem, pousarMaos } from './character.js';
 import { criarRigCamera } from './camera-rig.js';
 import { descartarMateriais } from './materials.js';
 
@@ -70,6 +70,14 @@ export function montarCenaGatecheck(container) {
   const pessoa = criarPersonagem();
   pessoa.raiz.position.set(0.02, 0, 0.68);
   scene.add(pessoa.raiz);
+
+  // As maos mandam nos perifericos, e nao o contrario: o solver poe as maos na
+  // altura do tampo e o teclado e o mousepad vao para debaixo delas. Assim a
+  // mao segura o mouse de verdade, e continua segurando se as proporcoes do
+  // personagem mudarem depois.
+  const maos = pousarMaos(pessoa, 0.795);
+  estacao.grupoTeclado.position.set(maos.esquerda.x, 0, THREE.MathUtils.clamp(maos.esquerda.z, 0.02, 0.34));
+  estacao.grupoPad.position.set(maos.direita.x, 0, THREE.MathUtils.clamp(maos.direita.z, 0.02, 0.34));
 
   /* ---------------------------------------------------------------- luz -- */
   scene.add(new THREE.HemisphereLight(0xbcc6ff, 0x14121c, 0.55));
@@ -146,6 +154,7 @@ export function montarCenaGatecheck(container) {
     // suficiente para a estacao continuar inteira no quadro
     camera.fov = w / h < 1.2 ? 50 : 38;
     camera.updateProjectionMatrix();
+    rig.reenquadrar();
   }
   dimensionar();
   const ro = new ResizeObserver(dimensionar);
@@ -169,7 +178,12 @@ export function montarCenaGatecheck(container) {
   );
   io.observe(container);
 
+  /* A camera chega no monitor em 55% do capitulo. Os 45% restantes servem para
+     as telas do projeto passarem — com o monitor inteiro no quadro, sem entrar
+     dentro da imagem. */
+  const FIM_APROXIMACAO = 0.55;
   let progresso = 0;
+  let progCamera = 0;
   let rodando = true;
   let ultimo = performance.now();
   const relogio = new THREE.Clock();
@@ -187,7 +201,7 @@ export function montarCenaGatecheck(container) {
 
     // a vida do personagem some conforme a camera entra na tela: perto do
     // monitor, qualquer movimento do corpo vira tremor no quadro
-    const calma = 1 - rig.proximidade(progresso);
+    const calma = 1 - rig.proximidade(progCamera);
     if (!reduzido) animarPersonagem(pessoa, t, calma);
 
     if (estacao.gabinete.userData.fans && !reduzido) {
@@ -196,7 +210,7 @@ export function montarCenaGatecheck(container) {
       });
     }
 
-    rig.atualizar(progresso, dt);
+    rig.atualizar(progCamera, dt);
     renderer.render(scene, camera);
   }
   requestAnimationFrame(quadro);
@@ -220,7 +234,13 @@ export function montarCenaGatecheck(container) {
   }
 
   return {
-    definirProgresso(p) { progresso = Math.max(0, Math.min(1, p)); },
+    definirProgresso(p) {
+      progresso = Math.max(0, Math.min(1, p));
+      progCamera = Math.min(1, progresso / FIM_APROXIMACAO);
+      const k = (progresso - FIM_APROXIMACAO) / (1 - FIM_APROXIMACAO);
+      const i = Math.floor(Math.max(0, Math.min(0.999, k)) * TELAS.length);
+      if (i !== telaAtual) aplicarTela(i);
+    },
     definirTela(i) { if (i !== telaAtual) aplicarTela(Math.max(0, Math.min(TELAS.length - 1, i))); },
     destruir
   };
