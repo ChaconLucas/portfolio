@@ -105,19 +105,34 @@ export function montarCenaGatecheck(container) {
     m.materiais().forEach((x) => materiaisPessoa.push(x));
     pessoa.raiz.visible = false;
 
-    // Mesmo principio de antes: os perifericos vao para debaixo das maos. Com o
-    // modelo do Mixamo as maos ja param na altura do tampo, entao so falta o XZ.
-    m.mixer.update(0.001);
-    m.raiz.updateMatrixWorld(true);
-    const alvo = new THREE.Vector3();
-    if (m.maoE) {
-      m.maoE.getWorldPosition(alvo);
-      estacao.grupoTeclado.position.set(alvo.x, 0, THREE.MathUtils.clamp(alvo.z, 0.02, 0.34));
-    }
-    if (m.maoD) {
-      m.maoD.getWorldPosition(alvo);
-      estacao.grupoPad.position.set(alvo.x, 0, THREE.MathUtils.clamp(alvo.z, 0.02, 0.34));
-      if (estacao.mouse) estacao.mouse.position.x = 0;
+    /* O clipe e "Typing": as DUAS maos ficam no teclado o tempo todo. Entao o
+       teclado vai no meio das duas — nao debaixo de uma so, que era o motivo de
+       ele digitar no ar — e o mousepad fica ao lado, parado.
+
+       As maos se mexem durante a animacao, entao um unico quadro nao serve como
+       referencia: a media ao longo do clipe e que da o centro real da digitacao. */
+    if (m.maoE && m.maoD && m.clipe) {
+      const somaE = new THREE.Vector3();
+      const somaD = new THREE.Vector3();
+      const tmp = new THREE.Vector3();
+      const N = 24;
+      const passo = m.clipe.duration / N;
+      for (let i = 0; i < N; i++) {
+        m.mixer.update(i === 0 ? 0.0001 : passo);
+        m.raiz.updateMatrixWorld(true);
+        somaE.add(m.maoE.getWorldPosition(tmp));
+        somaD.add(m.maoD.getWorldPosition(tmp));
+      }
+      somaE.divideScalar(N);
+      somaD.divideScalar(N);
+
+      const cx = (somaE.x + somaD.x) / 2;
+      const cz = THREE.MathUtils.clamp((somaE.z + somaD.z) / 2, 0.02, 0.34);
+      estacao.grupoTeclado.position.set(cx, 0, cz);
+      // largura util entre as maos, com folga para as bordas do teclado
+      estacao.definirLarguraTeclado(Math.abs(somaD.x - somaE.x) + 0.20);
+      // mousepad a direita do teclado, fora do alcance da digitacao
+      estacao.grupoPad.position.set(cx + Math.abs(somaD.x - somaE.x) / 2 + 0.42, 0, cz);
     }
   }).catch((e) => console.warn('modelo nao carregou, seguindo com o boneco simples', e));
 
@@ -249,7 +264,9 @@ export function montarCenaGatecheck(container) {
 
     // Chegando na tela, o personagem se dissolve: o ponto de vista passa a ser
     // o dele. Ele nao pode ficar tapando a tela que a camera veio ver.
-    const s0 = Math.max(0, Math.min(1, (progCamera - 0.58) / 0.34));
+    // So no trecho final da aproximacao. Em 0.58 ele sumia quando a camera mal
+    // tinha saido do plano geral, e a estacao ficava com uma cadeira vazia.
+    const s0 = Math.max(0, Math.min(1, (progCamera - 0.84) / 0.15));
     const alfa = 1 - s0 * s0 * (3 - 2 * s0);
     const vivo = alfa > 0.01;
     if (modelo) { if (modelo.raiz.visible !== vivo) modelo.raiz.visible = vivo; }

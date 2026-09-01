@@ -354,6 +354,8 @@ export function criarEstacao() {
   return {
     raiz, cadeira, monitor, tela, cabecaMonitor: cabeca,
     mouse: pad.userData.mouse, gabinete, macbook,
-    grupoPad: pad, grupoTeclado: teclado
+    grupoPad: pad, grupoTeclado: teclado,
+    /** o teclado nasce com 0,44; a distancia entre as maos do modelo manda */
+    definirLarguraTeclado(l) { teclado.scale.x = Math.max(0.8, l / 0.44); }
   };
 }
