@@ -287,17 +287,56 @@ export function criarMousepadEMouse() {
   borda.position.set(0.09, ALTURA_MESA + 0.003, 0.05);
   g.add(borda);
 
-  // mouse sem fio: corpo baixo, sem cabo saindo
+  // MOUSE — antes era uma esfera achatada e nao lia como mouse.
+  // Agora: cupula com base plana, afinando para a frente, com a divisao dos
+  // dois botoes e a rodinha. Sem cabo, porque e sem fio.
   const mouse = new THREE.Group();
   mouse.name = 'mouse';
-  const corpo = peca(new THREE.SphereGeometry(0.038, 20, 14), matRosa(), 0, ALTURA_MESA + 0.016, 0);
-  corpo.scale.set(1, 0.62, 1.45);
+
+  const cupula = new THREE.SphereGeometry(1, 30, 18, 0, Math.PI * 2, 0, Math.PI / 2);
+  {
+    // afina a frente: um elipsoide puro fica com cara de seixo. O fator vem do
+    // Z normalizado, entao a traseira fica larga e a frente estreita.
+    const pos = cupula.getAttribute('position');
+    for (let i = 0; i < pos.count; i++) {
+      const z = pos.getZ(i);                 // -1 (frente) .. 1 (tras)
+      const k = 0.72 + (z * 0.5 + 0.5) * 0.28;
+      pos.setX(i, pos.getX(i) * k);
+      pos.setY(i, pos.getY(i) * (0.86 + (z * 0.5 + 0.5) * 0.14));
+    }
+    pos.needsUpdate = true;
+    cupula.computeVertexNormals();
+  }
+  const corpo = new THREE.Mesh(cupula, matRosa());
+  corpo.scale.set(0.036, 0.028, 0.058);
+  corpo.position.y = ALTURA_MESA + 0.0015;
+  corpo.castShadow = true;
   mouse.add(corpo);
-  const risco = new THREE.Mesh(new THREE.PlaneGeometry(0.004, 0.05),
-    new THREE.MeshBasicMaterial({ color: PALETA.rosaEscuro }));
-  risco.rotation.x = -Math.PI / 2;
-  risco.position.set(0, ALTURA_MESA + 0.045, 0.012);
-  mouse.add(risco);
+
+  // base fechando a cupula por baixo
+  const base = new THREE.Mesh(new THREE.CircleGeometry(1, 30), matRosaEscuro());
+  base.geometry.scale(0.033, 0.055, 1);
+  base.rotation.x = Math.PI / 2;
+  base.position.y = ALTURA_MESA + 0.0016;
+  mouse.add(base);
+
+  // divisao dos dois botoes: um sulco escuro da frente ate o meio
+  const sulco = new THREE.Mesh(
+    new THREE.BoxGeometry(0.0022, 0.012, 0.040),
+    new THREE.MeshStandardMaterial({ color: PALETA.rosaEscuro, roughness: 0.7 })
+  );
+  sulco.position.set(0, ALTURA_MESA + 0.024, -0.016);
+  mouse.add(sulco);
+
+  // rodinha entre os botoes
+  const roda = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.0062, 0.0062, 0.0042, 14),
+    new THREE.MeshStandardMaterial({ color: 0x2a2230, roughness: 0.55 })
+  );
+  roda.rotation.z = Math.PI / 2;
+  roda.position.set(0, ALTURA_MESA + 0.0295, 0.002);
+  mouse.add(roda);
+
   g.add(mouse);
   g.userData.mouse = mouse;
 
