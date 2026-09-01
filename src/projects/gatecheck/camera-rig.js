@@ -54,6 +54,11 @@ function amostrar(CHAVES, prog, campo, out) {
 export function criarRigCamera(camera, opcoes = {}) {
   const ALVO = opcoes.tela || TELA;
   const BASE = opcoes.chaves || CHAVES_BASE;
+  /* Folga do enquadramento final. 1,55 serve para o monitor deitado do
+     GateCheck; um painel alto como a TV da WSL precisa de menos, senao a
+     distancia calculada fica MAIOR que o ponto de partida e a camera recua no
+     meio do percurso — entra, sai e entra de novo. */
+  const FOLGA = opcoes.folga || 1.55;
   // copia propria: o enquadramento final e recalculado por cena e por resize
   const CHAVES = BASE.map((c) => ({ p: c.p, pos: c.pos.slice(), alvo: c.alvo.slice() }));
 
@@ -71,7 +76,7 @@ export function criarRigCamera(camera, opcoes = {}) {
     /* 1,55 de folga: com 1,22 a moldura saia do quadro e a tela lia como uma
        pagina aberta, nao como um monitor ligado. A folga precisa caber a borda,
        a haste e um pedaco do tampo. */
-    const d = Math.max(ALVO.largura / 2 / th, ALVO.altura / 2 / tv) * 1.55;
+    const d = Math.max(ALVO.largura / 2 / th, ALVO.altura / 2 / tv) * FOLGA;
     CHAVES[CHAVES.length - 1].pos = [ALVO.x, ALVO.y, ALVO.z + d];
     CHAVES[CHAVES.length - 2].pos = [ALVO.x + 0.10, ALVO.y + 0.03, ALVO.z + d * 1.75];
     CHAVES[CHAVES.length - 1].alvo = [ALVO.x, ALVO.y, ALVO.z - 0.01];

@@ -22,12 +22,14 @@ const TELAS = [
 
 /** Percurso proprio: aqui a camera nao chega por cima de uma mesa, e sim de tras
  *  de alguem em pe. Os dois ultimos pontos sao calculados pelo rig. */
+/* Todos os pontos ficam mais longe que o final calculado (~2,90 com folga
+   1,14), senao o percurso deixa de ser uma aproximacao continua. */
 const CHAVES = [
-  { p: 0.00, pos: [1.95, 1.95, 3.55], alvo: [0.05, 1.35, 0.70] },
-  { p: 0.32, pos: [1.25, 1.85, 2.85], alvo: [0.02, 1.44, 0.40] },
-  { p: 0.62, pos: [0.55, 1.70, 2.05], alvo: [0.00, 1.50, 0.16] },
-  { p: 0.85, pos: [0.10, 1.55, 1.20], alvo: [0.00, 1.52, 0.03] },
-  { p: 1.00, pos: [0.00, 1.52, 0.60], alvo: [0.00, 1.52, 0.02] }
+  { p: 0.00, pos: [3.30, 2.35, 6.10], alvo: [0.05, 1.30, 0.70] },
+  { p: 0.34, pos: [2.10, 2.10, 4.85], alvo: [0.02, 1.38, 0.45] },
+  { p: 0.66, pos: [1.05, 1.85, 3.70], alvo: [0.00, 1.46, 0.20] },
+  { p: 0.85, pos: [0.40, 1.65, 3.20], alvo: [0.00, 1.50, 0.05] },
+  { p: 1.00, pos: [0.00, 1.52, 2.90], alvo: [0.00, 1.52, 0.02] }
 ];
 
 const ehMobile = () => window.matchMedia('(max-width:900px)').matches;
@@ -229,7 +231,7 @@ export function montarCenaWsl(container) {
   scene.environmentIntensity = 0.26;
 
   const camera = new THREE.PerspectiveCamera(38, 1, 0.05, 60);
-  const rig = criarRigCamera(camera, { chaves: CHAVES, tela: PAINEL });
+  const rig = criarRigCamera(camera, { chaves: CHAVES, tela: PAINEL, folga: 1.14 });
 
   const { raiz: sala, tela } = criarAmbiente();
   scene.add(sala);
