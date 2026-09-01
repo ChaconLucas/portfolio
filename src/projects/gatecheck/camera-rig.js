@@ -10,7 +10,11 @@ import * as THREE from 'three';
  * movimento e dolly puro.
  */
 
-/** Centro e tamanho do painel do monitor, no mundo. */
+/**
+ * Painel do GateCheck. Fica aqui como valor padrao; `criarRigCamera` aceita
+ * outro por parametro, que e o que a cena da WSL usa — la a tela e uma TV
+ * vertical na parede, com centro e proporcao completamente diferentes.
+ */
 export const TELA = { x: 0, y: 1.210, z: -0.106, largura: 1.218, altura: 0.583 };
 
 /** Chaves do percurso: de plano geral ate a tela ocupar o quadro. */
@@ -41,9 +45,17 @@ function amostrar(CHAVES, prog, campo, out) {
   return out.fromArray(CHAVES[CHAVES.length - 1][campo]);
 }
 
-export function criarRigCamera(camera) {
+/**
+ * @param {THREE.PerspectiveCamera} camera
+ * @param {object} [opcoes]
+ * @param {Array} [opcoes.chaves]  percurso proprio da cena
+ * @param {object} [opcoes.tela]   painel de destino {x,y,z,largura,altura}
+ */
+export function criarRigCamera(camera, opcoes = {}) {
+  const ALVO = opcoes.tela || TELA;
+  const BASE = opcoes.chaves || CHAVES_BASE;
   // copia propria: o enquadramento final e recalculado por cena e por resize
-  const CHAVES = CHAVES_BASE.map((c) => ({ p: c.p, pos: c.pos.slice(), alvo: c.alvo.slice() }));
+  const CHAVES = BASE.map((c) => ({ p: c.p, pos: c.pos.slice(), alvo: c.alvo.slice() }));
 
   /**
    * Distancia em que o painel inteiro cabe no quadro.
@@ -59,11 +71,11 @@ export function criarRigCamera(camera) {
     /* 1,55 de folga: com 1,22 a moldura saia do quadro e a tela lia como uma
        pagina aberta, nao como um monitor ligado. A folga precisa caber a borda,
        a haste e um pedaco do tampo. */
-    const d = Math.max(TELA.largura / 2 / th, TELA.altura / 2 / tv) * 1.55;
-    CHAVES[CHAVES.length - 1].pos = [TELA.x, TELA.y, TELA.z + d];
-    CHAVES[CHAVES.length - 2].pos = [TELA.x + 0.10, TELA.y + 0.03, TELA.z + d * 1.75];
-    CHAVES[CHAVES.length - 1].alvo = [TELA.x, TELA.y, TELA.z - 0.01];
-    CHAVES[CHAVES.length - 2].alvo = [TELA.x, TELA.y + 0.005, TELA.z - 0.01];
+    const d = Math.max(ALVO.largura / 2 / th, ALVO.altura / 2 / tv) * 1.55;
+    CHAVES[CHAVES.length - 1].pos = [ALVO.x, ALVO.y, ALVO.z + d];
+    CHAVES[CHAVES.length - 2].pos = [ALVO.x + 0.10, ALVO.y + 0.03, ALVO.z + d * 1.75];
+    CHAVES[CHAVES.length - 1].alvo = [ALVO.x, ALVO.y, ALVO.z - 0.01];
+    CHAVES[CHAVES.length - 2].alvo = [ALVO.x, ALVO.y + 0.005, ALVO.z - 0.01];
   }
   enquadrarTela();
 
