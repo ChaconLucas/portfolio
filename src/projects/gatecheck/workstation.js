@@ -284,14 +284,14 @@ export function criarGabinete() {
   // torre do cooler + memorias
   // torre do cooler com o topo claro: peca escura sobre placa escura sumia
   dentro.add(peca(caixa(0.095, 0.135, 0.11, 0.008), matGrafite(), 0.055, y + 0.115, -0.03));
-  dentro.add(peca(caixa(0.10, 0.012, 0.115, 0.004), matBrancoFosco(), 0.055, y + 0.188, -0.03));
+  dentro.add(peca(caixa(0.10, 0.012, 0.115, 0.004), matGrafite(), 0.055, y + 0.188, -0.03));
   for (let i = 0; i < 4; i++) {
     dentro.add(peca(caixa(0.006, 0.088, 0.016, 0.002), matBrancoFosco(), 0.100, y + 0.10, 0.045 + i * 0.021));
   }
 
   // placa de video: e a peca que ocupa o meio e mata a sensacao de vazio
   dentro.add(peca(caixa(0.095, 0.040, 0.225, 0.008), matPreto(), 0.058, y - 0.035, 0.005));
-  dentro.add(peca(caixa(0.092, 0.014, 0.225, 0.004), matBrancoFosco(), 0.058, y - 0.060, 0.005));
+  dentro.add(peca(caixa(0.092, 0.014, 0.225, 0.004), matGrafite(), 0.058, y - 0.060, 0.005));
 
   // tampa da fonte, embaixo
   dentro.add(peca(caixa(0.155, 0.070, 0.29, 0.008), matGrafite(), 0.035, y - 0.155, 0));
@@ -306,7 +306,7 @@ export function criarGabinete() {
   const fans = new THREE.Group();
   fans.name = 'ventoinhas';
   const aro = new THREE.TorusGeometry(0.042, 0.007, 8, 22);
-  const pa = new THREE.BoxGeometry(0.062, 0.004, 0.010);
+  const pa = new THREE.BoxGeometry(0.070, 0.0035, 0.006);
   const luzRosa = new THREE.MeshBasicMaterial({ color: PALETA.rosa, toneMapped: false });
 
   [[-0.055, y + 0.115, P / 2 - 0.045, 0],
@@ -316,11 +316,13 @@ export function criarGabinete() {
     u.position.set(fx, fy, fz);
     u.rotation.x = rx;
     u.add(new THREE.Mesh(aro, luzRosa));
-    for (let k = 0; k < 3; k++) {
+    // 7 pas finas: com 3 barras grossas a ventoinha virava um X
+    for (let k = 0; k < 7; k++) {
       const p2 = new THREE.Mesh(pa, matGrafite());
-      p2.rotation.z = (k / 3) * Math.PI;
+      p2.rotation.z = (k / 7) * Math.PI * 2;
       u.add(p2);
     }
+    u.add(new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.008, 12), matPreto()));
     fans.add(u);
   });
   g.add(fans);
@@ -334,10 +336,10 @@ export function criarGabinete() {
      uma caixa branca com dois aneis acesos — nada do interior aparecia, que e o
      ponto inteiro de um aquario. Duas fontes: o rosa das ventoinhas e um
      preenchimento frio fraco para as pecas terem volume. */
-  const brilhoRosa = new THREE.PointLight(PALETA.rosa, 2.4, 1.0, 2);
+  const brilhoRosa = new THREE.PointLight(PALETA.rosa, 1.1, 0.55, 2);
   brilhoRosa.position.set(-0.04, y + 0.02, P / 2 - 0.08);
   g.add(brilhoRosa);
-  const preenche = new THREE.PointLight(0xdfe9ff, 1.5, 0.9, 2);
+  const preenche = new THREE.PointLight(0xe6eeff, 1.9, 1.0, 2);
   preenche.position.set(0.02, y + A / 2 - 0.07, 0.02);
   g.add(preenche);
 
@@ -350,8 +352,13 @@ export function criarMacbook() {
   const g = new THREE.Group();
   g.name = 'macbook';
 
-  const L = 0.33, P = 0.23;
-  g.add(peca(caixa(L, 0.012, P, 0.006), matMidnight(), 0, ALTURA_MESA + 0.006, 0));
+  const L = 0.34, P = 0.235;
+  g.add(peca(caixa(L, 0.014, P, 0.006), matMidnight(), 0, ALTURA_MESA + 0.007, 0));
+  // pes de borracha, para nao parecer colado no tampo
+  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) => {
+    g.add(peca(new THREE.CylinderGeometry(0.006, 0.006, 0.003, 10), matPreto(),
+      sx * (L / 2 - 0.03), ALTURA_MESA + 0.0015, sz * (P / 2 - 0.03)));
+  });
 
   // teclado e trackpad apenas sugeridos: a esta distancia, detalhe vira ruido
   const tec = new THREE.Mesh(new THREE.PlaneGeometry(L - 0.05, P - 0.10),
@@ -361,15 +368,24 @@ export function criarMacbook() {
   g.add(tec);
 
   const tampa = new THREE.Group();
-  tampa.position.set(0, ALTURA_MESA + 0.012, -P / 2);
-  tampa.rotation.x = -1.83; // ~105 graus aberto
+  tampa.position.set(0, ALTURA_MESA + 0.014, -P / 2);
+  /* +0,28 abre a tampa; o -1,83 anterior girava 105 graus para a FRENTE e
+     deitava a tela em cima da mesa — por isso lia como uma placa escura. */
+  tampa.rotation.x = 0.28;
   tampa.add(peca(caixa(L, P, 0.008, 0.005), matMidnight(), 0, P / 2, 0));
   const telaMac = new THREE.Mesh(
-    new THREE.PlaneGeometry(L - 0.022, P - 0.022),
-    new THREE.MeshBasicMaterial({ color: 0x1a2440, toneMapped: false })
+    new THREE.PlaneGeometry(L - 0.020, P - 0.024),
+    new THREE.MeshBasicMaterial({ color: 0x223458, toneMapped: false })
   );
-  telaMac.position.set(0, P / 2, 0.005);
+  telaMac.position.set(0, P / 2, 0.0055);
   tampa.add(telaMac);
+  // barra de menu, so para a tela nao ser um retangulo chapado
+  const barra = new THREE.Mesh(
+    new THREE.PlaneGeometry(L - 0.020, 0.012),
+    new THREE.MeshBasicMaterial({ color: 0x3a4e7a, toneMapped: false })
+  );
+  barra.position.set(0, P - 0.024, 0.006);
+  tampa.add(barra);
   g.add(tampa);
 
   return g;
