@@ -275,84 +275,113 @@ export function criarGabinete() {
   const tampaT = peca(caixa(L, A, 0.012, 0.004), matBranco(), 0, y, -P / 2);
   g.add(tampaT);
 
-  /* INTERIOR — POUCAS PECAS GRANDES.
-     As versoes anteriores foram acumulando detalhe: memorias, SSD, M.2, pente
-     de cabos, dissipador de VRM. Nenhuma delas mede mais que 2 mm na tela, e
-     juntas viravam ruido — o gabinete ocupa cerca de 8% da largura do quadro.
-     Aqui a regra e inversa: quatro volumes grandes, muito contraste entre eles
-     e o RGB marcando so as bordas. */
+  /* INTERIOR — montado a partir de uma referencia de gabinete aquario real.
+     O que faz aquele PC ser reconhecido, em ordem de peso visual:
+       1. parede de ventoinhas grandes acesas na lateral
+       2. tubos brancos grossos do water cooler curvando no meio
+       3. GPU preta atravessada, com etiqueta clara
+       4. placa-mae ao fundo, encarando o vidro frontal
+     As versoes anteriores tinham as pecas certas em tamanho pequeno demais e
+     sem nenhuma delas dominando. Aqui a hierarquia e explicita. */
   const dentro = new THREE.Group();
-  const xParede = L / 2 - 0.026;
-  const yPiso = y - A / 2 + 0.009;
-  const yTeto = y + A / 2 - 0.009;
+  const yPiso = y - A / 2 + 0.010;
+  const yTeto = y + A / 2 - 0.010;
+  const xDir = L / 2 - 0.014;
+  const zFundo = -P / 2 + 0.016;
 
-  /* Emissivo com tone mapping LIGADO: com `toneMapped:false` a cor saia crua e
-     estourava. Assim ela continua acesa, mas dentro da faixa da cena. */
-  const rgb = (cor) => new THREE.MeshStandardMaterial({
-    color: 0x1a1420, emissive: cor, emissiveIntensity: 1.25, roughness: 0.5
+  const escuro = new THREE.MeshStandardMaterial({ color: 0x0b0d13, roughness: 0.78 });
+  const metal = new THREE.MeshStandardMaterial({ color: 0xc6ccd8, roughness: 0.32, metalness: 0.55 });
+  const brancoTubo = new THREE.MeshStandardMaterial({ color: 0xf4f4f7, roughness: 0.42 });
+  const aceso = (cor, i) => new THREE.MeshStandardMaterial({
+    color: 0x140f1c, emissive: cor, emissiveIntensity: i, roughness: 0.45
   });
-  const luzRosa = rgb(PALETA.rosa);
-  const luzRoxa = rgb(0xa77bff);
-  const metal = new THREE.MeshStandardMaterial({ color: 0xc3c9d4, roughness: 0.34, metalness: 0.55 });
-  const escuro = new THREE.MeshStandardMaterial({ color: 0x090b10, roughness: 0.8 });
 
-  // 1. bandeja escura ao fundo: e o contraste dela que faz o resto aparecer
-  dentro.add(peca(caixa(0.010, A - 0.07, P - 0.07, 0.003), escuro, xParede, y + 0.010, 0));
-
-  // 2. torre do cooler: volume alto, aletas grossas o bastante para se verem
-  for (let i = 0; i < 7; i++) {
-    dentro.add(peca(caixa(0.110, 0.008, 0.125, 0.002), metal,
-      xParede - 0.070, y + 0.075 + i * 0.020, -0.030));
+  /* --- ventoinha reutilizavel: aro aceso, moldura e pas --- */
+  const geoAro = new THREE.TorusGeometry(0.052, 0.008, 12, 30);
+  const geoMold = new THREE.BoxGeometry(0.118, 0.118, 0.024);
+  const geoPa = new THREE.BoxGeometry(0.082, 0.004, 0.020);
+  const geoCubo = new THREE.CylinderGeometry(0.018, 0.018, 0.012, 14);
+  const matAro = aceso(0xc06bff, 1.9);
+  function ventoinha() {
+    const u = new THREE.Group();
+    const m = new THREE.Mesh(geoMold, escuro);
+    m.position.z = -0.014;
+    u.add(m);
+    u.add(new THREE.Mesh(geoAro, matAro));
+    for (let k = 0; k < 9; k++) {
+      const pa2 = new THREE.Mesh(geoPa, metal);
+      pa2.rotation.z = (k / 9) * Math.PI * 2;
+      pa2.rotation.y = 0.4;
+      pa2.position.set(Math.cos(pa2.rotation.z) * 0.026, Math.sin(pa2.rotation.z) * 0.026, 0);
+      u.add(pa2);
+    }
+    u.add(new THREE.Mesh(geoCubo, escuro));
+    return u;
   }
-  dentro.add(peca(caixa(0.116, 0.014, 0.130, 0.004), escuro, xParede - 0.070, y + 0.212, -0.030));
-  const anelCooler = new THREE.Mesh(new THREE.TorusGeometry(0.052, 0.006, 10, 26), luzRoxa);
-  anelCooler.position.set(xParede - 0.070, y + 0.145, 0.038);
-  dentro.add(anelCooler);
 
-  // 3. placa de video: a peca mais larga, atravessando a caixa
-  const yGPU = yPiso + 0.115;
-  dentro.add(peca(caixa(0.150, 0.048, 0.300, 0.006), escuro, xParede - 0.078, yGPU, 0.010));
-  dentro.add(peca(caixa(0.156, 0.008, 0.306, 0.003), metal, xParede - 0.078, yGPU + 0.027, 0.010));
-  const faixaGPU = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.012, 0.230), luzRosa);
-  faixaGPU.position.set(xParede - 0.155, yGPU + 0.014, 0.010);
-  dentro.add(faixaGPU);
-  [-0.075, 0.075].forEach((dz) => {
-    const fg = new THREE.Mesh(new THREE.TorusGeometry(0.042, 0.005, 10, 22), metal);
+  const fans = new THREE.Group();
+  fans.name = 'ventoinhas';
+
+  // 1. PAREDE DE VENTOINHAS na lateral direita — o elemento dominante
+  [-0.135, 0, 0.135].forEach((dy) => {
+    const u = ventoinha();
+    u.position.set(xDir, y + dy, 0.02);
+    u.rotation.y = -Math.PI / 2;
+    fans.add(u);
+  });
+  // duas no teto e duas no piso
+  [[-0.085, yTeto - 0.014], [0.075, yTeto - 0.014],
+   [-0.085, yPiso + 0.014], [0.075, yPiso + 0.014]].forEach(([fx, fy]) => {
+    const u = ventoinha();
+    u.position.set(fx, fy, 0.04);
+    u.rotation.x = Math.PI / 2;
+    u.scale.setScalar(0.88);
+    fans.add(u);
+  });
+  g.add(fans);
+
+  // 2. placa-mae ao fundo, encarando o vidro frontal
+  dentro.add(peca(caixa(L - 0.075, A - 0.16, 0.010, 0.004), escuro, -0.020, y + 0.028, zFundo));
+  dentro.add(peca(caixa(0.075, 0.048, 0.014, 0.004), metal, -0.105, y + 0.130, zFundo + 0.010));
+  dentro.add(peca(caixa(0.060, 0.070, 0.012, 0.004), metal, -0.115, y - 0.055, zFundo + 0.010));
+  const trilhoMobo = new THREE.Mesh(new THREE.BoxGeometry(L - 0.10, 0.006, 0.005), aceso(0xa24bff, 1.5));
+  trilhoMobo.position.set(-0.020, y + 0.140, zFundo + 0.012);
+  dentro.add(trilhoMobo);
+
+  // 3. bloco da CPU no meio da placa, com os TUBOS BRANCOS saindo dele
+  dentro.add(peca(caixa(0.090, 0.090, 0.036, 0.008), brancoTubo, -0.045, y + 0.048, zFundo + 0.028));
+  const anelCPU = new THREE.Mesh(new THREE.TorusGeometry(0.030, 0.006, 10, 24), aceso(0xc06bff, 2.1));
+  anelCPU.position.set(-0.045, y + 0.048, zFundo + 0.048);
+  dentro.add(anelCPU);
+  for (let i = 0; i < 2; i++) {
+    const tubo = new THREE.Mesh(
+      new THREE.TorusGeometry(0.115, 0.011, 10, 28, Math.PI * 0.92), brancoTubo);
+    tubo.position.set(-0.020 + i * 0.030, y + 0.075, zFundo + 0.055);
+    tubo.rotation.set(0.25, 0.15, -0.55 - i * 0.16);
+    dentro.add(tubo);
+  }
+
+  // 4. GPU: laje preta atravessando a caixa, com etiqueta clara
+  const yGPU = y - 0.085;
+  dentro.add(peca(caixa(L - 0.085, 0.052, 0.135, 0.006), escuro, -0.018, yGPU, zFundo + 0.085));
+  dentro.add(peca(caixa(L - 0.078, 0.008, 0.140, 0.003), metal, -0.018, yGPU + 0.029, zFundo + 0.085));
+  const etiqueta = new THREE.Mesh(new THREE.BoxGeometry(0.130, 0.016, 0.004),
+    new THREE.MeshStandardMaterial({ color: 0xd8dde6, roughness: 0.5 }));
+  etiqueta.position.set(-0.010, yGPU + 0.002, zFundo + 0.153);
+  dentro.add(etiqueta);
+  [-0.085, 0.055].forEach((dx) => {
+    const fg = new THREE.Mesh(new THREE.TorusGeometry(0.036, 0.005, 10, 22), metal);
     fg.rotation.x = Math.PI / 2;
-    fg.position.set(xParede - 0.078, yGPU - 0.026, 0.010 + dz);
+    fg.position.set(dx, yGPU - 0.028, zFundo + 0.085);
     dentro.add(fg);
   });
 
-  // 4. tampa da fonte: base escura que ancora tudo
-  const yShroud = yPiso + 0.036;
-  dentro.add(peca(caixa(L - 0.040, 0.070, P - 0.05, 0.006), escuro, 0, yShroud, 0));
-  const fitaShroud = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.010, P - 0.13), luzRoxa);
-  fitaShroud.position.set(-L / 2 + 0.022, yShroud + 0.024, 0);
+  // 5. tampa da fonte, ancorando a base
+  const yShroud = yPiso + 0.048;
+  dentro.add(peca(caixa(L - 0.040, 0.058, P - 0.06, 0.006), escuro, 0, yShroud, 0.005));
+  const fitaShroud = new THREE.Mesh(new THREE.BoxGeometry(L - 0.10, 0.008, 0.005), aceso(0xa24bff, 1.4));
+  fitaShroud.position.set(0, yShroud + 0.020, zFundo + 0.180);
   dentro.add(fitaShroud);
-
-  // reservatorio: unico cilindro no meio de tanta caixa, quebra a repeticao
-  const tubo = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.026, 0.026, 0.160, 18, 1, true),
-    new THREE.MeshPhysicalMaterial({ color: 0xdfeaff, roughness: 0.06, metalness: 0,
-      transparent: true, opacity: 0.28, side: THREE.DoubleSide })
-  );
-  tubo.position.set(-0.070, y + 0.070, -0.090);
-  dentro.add(tubo);
-  const liquido = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.120, 18),
-    new THREE.MeshStandardMaterial({ color: 0x8e2352, emissive: 0xff5fa2, emissiveIntensity: 0.55, roughness: 0.35 }));
-  liquido.position.set(-0.070, y + 0.052, -0.090);
-  dentro.add(liquido);
-  dentro.add(peca(new THREE.CylinderGeometry(0.030, 0.030, 0.014, 18), metal, -0.070, y + 0.155, -0.090));
-  dentro.add(peca(new THREE.CylinderGeometry(0.034, 0.034, 0.022, 18), escuro, -0.070, y - 0.014, -0.090));
-
-  // dois cabos grossos, so os que se veem
-  const capaCabo = new THREE.MeshStandardMaterial({ color: 0x1a1e26, roughness: 0.88 });
-  for (let i = 0; i < 2; i++) {
-    const cabo = new THREE.Mesh(new THREE.TorusGeometry(0.070, 0.008, 8, 20, Math.PI * 0.6), capaCabo);
-    cabo.position.set(xParede - 0.020, y - 0.040, -0.120 + i * 0.030);
-    cabo.rotation.set(0, Math.PI / 2, -0.5);
-    dentro.add(cabo);
-  }
 
   /* bonequinho de enfeite em cima da tampa da fonte */
   const boneco = new THREE.Group();
@@ -370,44 +399,20 @@ export function criarGabinete() {
     olho.position.set(lado * 0.0075, 0.050, 0.018);
     boneco.add(olho);
   });
-  boneco.position.set(0.055, yShroud + 0.035 + 0.014, 0.120);
-  boneco.rotation.y = -0.6;
-  boneco.scale.setScalar(1.2);
+  boneco.position.set(0.115, yShroud + 0.029 + 0.014, 0.115);
+  boneco.rotation.y = -0.7;
+  boneco.scale.setScalar(1.1);
   dentro.add(boneco);
 
   g.add(dentro);
 
-  /* Ventoinhas rentes as chapas: duas no teto e uma no piso, exaustao e entrada.
-     Soltas no meio da caixa elas nao tinham em que estar presas. */
-  const fans = new THREE.Group();
-  fans.name = 'ventoinhas';
-  const aro = new THREE.TorusGeometry(0.040, 0.005, 10, 24);
-  const molduraFan = new THREE.BoxGeometry(0.090, 0.090, 0.016);
-  const pa = new THREE.BoxGeometry(0.056, 0.0032, 0.015);
-
-  [[-0.062, yTeto - 0.012, -0.075], [0.048, yTeto - 0.012, -0.075], [-0.055, yPiso + 0.012, 0.115]]
-    .forEach(([fx, fy, fz]) => {
-      const u = new THREE.Group();
-      u.position.set(fx, fy, fz);
-      u.rotation.x = Math.PI / 2;      // eixo na vertical: sopra para cima/baixo
-      const carcaca = new THREE.Mesh(molduraFan, matPreto());
-      carcaca.position.z = -0.010;
-      u.add(carcaca);
-      u.add(new THREE.Mesh(aro, luzRosa));
-      for (let k = 0; k < 9; k++) {
-        const p2 = new THREE.Mesh(pa, matGrafite());
-        p2.rotation.z = (k / 9) * Math.PI * 2;
-        p2.rotation.y = 0.42;
-        p2.position.set(Math.cos(p2.rotation.z) * 0.020, Math.sin(p2.rotation.z) * 0.020, 0);
-        u.add(p2);
-      }
-      u.add(new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.009, 14), matPreto()));
-      fans.add(u);
-    });
-  g.add(fans);
+  // luz roxa difusa, como a das fitas de RGB batendo nas chapas brancas
+  const glow = new THREE.PointLight(0xb46bff, 0.9, 0.75, 2);
+  glow.position.set(0.02, y + 0.010, 0.02);
+  g.add(glow);
 
   // fita de LED rente ao teto
-  const fita = new THREE.Mesh(new THREE.BoxGeometry(L - 0.07, 0.005, 0.010), luzRosa);
+  const fita = new THREE.Mesh(new THREE.BoxGeometry(L - 0.07, 0.005, 0.010), aceso(0xc06bff, 1.6));
   fita.position.set(0, yTeto - 0.004, P / 2 - 0.045);
   g.add(fita);
 
