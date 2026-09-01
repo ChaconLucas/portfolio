@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { texturaMousepad, texturaEditor, texturaTeclado } from './textures.js';
+import { texturaMousepad, texturaEditor, texturaLegendas, ATLAS_COLS } from './textures.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
   PALETA, matBranco, matBrancoFosco, matRosa, matRosaEscuro,
   matGrafite, matPreto, matMidnight, matTecido, matVidro
@@ -678,14 +679,70 @@ export function criarTeclado() {
   // mais fundo e mais alto: o formato anterior era uma regua fina
   g.add(peca(caixa(0.44, ESPESSURA_TECLADO, 0.21, 0.010, 5), matRosa(),
     0, ALTURA_MESA + ESPESSURA_TECLADO / 2, 0));
-  // face do teclado desenhada: teclas com legenda, vao e sombra
-  const face = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.418, 0.196),
-    new THREE.MeshStandardMaterial({ map: texturaTeclado(), roughness: 0.66 })
+  /* TECLAS EM RELEVO COM LEGENDA.
+     Instancia nao serve: todas dividiriam o mesmo pedaco de textura e cairia a
+     mesma letra em todas. Plano desenhado tambem nao: resolve a legenda e perde
+     o volume. A saida e reapontar o UV de cada tecla para uma celula do atlas e
+     MESCLAR tudo numa geometria — legenda por tecla, relevo de verdade, e ainda
+     assim uma unica chamada de desenho. */
+  const FILEIRAS = [
+    ['esc:1.3', 'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12', 'del:1.3'],
+    ['`', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '⌫:1.6'],
+    ['tab:1.5', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '[', ']', '|:1.1'],
+    ['caps:1.8', 'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ';', "'", '↵:1.8'],
+    ['⇧:2.3', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', ',', '.', '/', '⇧:2.3'],
+    ['ctrl:1.3', 'alt:1.2', '⌘:1.3', ':6.4', '⌘:1.3', 'alt:1.2', '←', '↑', '↓', '→']
+  ];
+
+  // celula 0 fica vazia: e a que as laterais da tecla usam
+  const rotulos = [''];
+  FILEIRAS.forEach((f) => f.forEach((k) => {
+    const t = k.split(':')[0];
+    if (t && rotulos.indexOf(t) < 0) rotulos.push(t);
+  }));
+
+  const atlas = texturaLegendas(rotulos);
+  const passo = 1 / ATLAS_COLS;
+
+  const LARG = 0.418, PROF = 0.196, VAO = 0.0026, ALT = 0.0075;
+  const alturaLinha = (PROF - VAO * (FILEIRAS.length - 1)) / FILEIRAS.length;
+  const partes = [];
+
+  FILEIRAS.forEach((fileira, li) => {
+    const unidades = fileira.reduce((acc, k) => acc + (parseFloat(k.split(':')[1]) || 1), 0);
+    const unidade = (LARG - VAO * (fileira.length - 1)) / unidades;
+    let x = -LARG / 2;
+    const z = -PROF / 2 + li * (alturaLinha + VAO) + alturaLinha / 2;
+
+    fileira.forEach((k) => {
+      const [rot, mult] = k.split(':');
+      const w = unidade * (parseFloat(mult) || 1);
+      const geo = new THREE.BoxGeometry(w, ALT, alturaLinha * 0.86);
+
+      /* BoxGeometry entrega as faces na ordem +X, -X, +Y, -Y, +Z, -Z, quatro
+         vertices cada. Os indices 8..11 sao o topo: so eles recebem a celula da
+         legenda, o resto vai para a celula vazia. */
+      const uv = geo.getAttribute('uv');
+      const cel = rotulos.indexOf(rot);
+      for (let v = 0; v < uv.count; v++) {
+        const alvo = (v >= 8 && v <= 11 && cel > 0) ? cel : 0;
+        const cx = (alvo % ATLAS_COLS) * passo;
+        const cy = 1 - (((alvo / ATLAS_COLS) | 0) + 1) * passo;
+        uv.setXY(v, cx + uv.getX(v) * passo, cy + uv.getY(v) * passo);
+      }
+      geo.translate(x + w / 2, SUPERFICIE_TECLAS - ALT / 2 + 0.0016, z);
+      partes.push(geo);
+      x += w + VAO;
+    });
+  });
+
+  const teclas = new THREE.Mesh(
+    mergeGeometries(partes, false),
+    new THREE.MeshStandardMaterial({ map: atlas, roughness: 0.6 })
   );
-  face.rotation.x = -Math.PI / 2;
-  face.position.set(0, SUPERFICIE_TECLAS, 0);
-  g.add(face);
+  teclas.castShadow = true;
+  teclas.receiveShadow = true;
+  g.add(teclas);
   return g;
 }
 
@@ -706,8 +763,12 @@ export function criarEstacao() {
   raiz.add(monitor);
 
   const gabinete = criarGabinete();
+  /* O gabinete gira para o vidro LATERAL encarar a camera. Com 0,34 rad via-se
+     o interior de perfil: a bandeja da placa fica na parede direita e as pecas
+     apontam para o lado, entao de frente so aparecia o painel liso. A 2,5 rad a
+     placa-mae, a GPU e o cooler ficam de frente. */
   gabinete.position.set(-0.86, 0, -0.14);
-  gabinete.rotation.y = 0.34;
+  gabinete.rotation.y = 2.5;
   raiz.add(gabinete);
 
   const macbook = criarMacbook();

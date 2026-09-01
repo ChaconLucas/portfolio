@@ -392,3 +392,42 @@ export function texturaTeclado() {
   ctx.textBaseline = 'alphabetic';
   return finalizar(c);
 }
+
+/** Grade do atlas de legendas: 8 x 8 celulas. */
+export const ATLAS_COLS = 8;
+
+/**
+ * Atlas com as legendas das teclas.
+ *
+ * A celula 0 fica em branco e serve para as laterais da tecla; as demais levam
+ * um caractere cada. Assim uma textura so atende o teclado inteiro, e a tecla
+ * pode ser geometria de verdade, com relevo — desenhar o teclado num plano
+ * resolvia a legenda mas tirava o volume.
+ */
+export function texturaLegendas(rotulos) {
+  const N = ATLAS_COLS, CEL = 64, T = N * CEL;
+  const { c, ctx } = tela(T, T);
+
+  ctx.fillStyle = '#f6ecf1';
+  ctx.fillRect(0, 0, T, T);
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  rotulos.forEach((rot, i) => {
+    const cx = (i % N) * CEL, cy = ((i / N) | 0) * CEL;
+    // leve degrade em cada celula: da a impressao de topo curvo da tecla
+    const g = ctx.createLinearGradient(0, cy, 0, cy + CEL);
+    g.addColorStop(0, '#fffafc');
+    g.addColorStop(1, '#e9dbe3');
+    ctx.fillStyle = g;
+    ctx.fillRect(cx, cy, CEL, CEL);
+    if (!rot) return;
+    ctx.fillStyle = '#5c3247';
+    ctx.font = `${rot.length > 2 ? 15 : 26}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+    ctx.fillText(rot, cx + CEL / 2, cy + CEL / 2 + 1);
+  });
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+
+  return finalizar(c);
+}
