@@ -83,7 +83,7 @@ export function montarCenaGatecheck(container) {
     const cb = new THREE.Box3().setFromObject(cadeiraPronta);
     // encosto atras do quadril: alinha o centro do assento com ele, com um
     // pequeno recuo para o corpo nao atravessar o estofado
-    cadeiraPronta.position.z += (q.z + 0.06) - (cb.min.z + cb.max.z) / 2;
+    cadeiraPronta.position.z += (q.z + 0.015) - (cb.min.z + cb.max.z) / 2;
     cadeiraPronta.position.x += q.x - (cb.min.x + cb.max.x) / 2;
   }
 
@@ -142,12 +142,15 @@ export function montarCenaGatecheck(container) {
       const mats = Array.isArray(x.material) ? x.material : [x.material];
       mats.forEach((mm) => {
         if (!mm || !mm.color) return;
-        /* Mapeamento por nome, nao por brilho: adivinhar pelo tom deixou a
-           cadeira inteira branca, porque as superficies grandes eram as escuras.
-           No modelo, `__1` e `__2` sao o estofado e o resto e estrutura. */
-        const estofado = /__1$|__2$/.test(mm.name || '');
-        mm.color.set(estofado ? 0xff5fa2 : 0xf0f0f3);
-        mm.roughness = estofado ? 0.66 : 0.38;
+        /* Quem e o que, medido no proprio modelo (triangulos x faixa de altura):
+             Executive__1  1539 tris, y 0..26   -> base e assento
+             Executive__2   556 tris, y 15..45  -> encosto
+             Executive       114 tris, y 2..15  -> detalhe da base
+           So o encosto vai de rosa. Pintar `__1` tambem deixava a cadeira
+           inteira rosa, porque ele cobre da roda ate o assento. */
+        const encosto = /__2$/.test(mm.name || '');
+        mm.color.set(encosto ? 0xff5fa2 : 0xf0f0f3);
+        mm.roughness = encosto ? 0.66 : 0.38;
         mm.metalness = 0.02;
       });
     });
