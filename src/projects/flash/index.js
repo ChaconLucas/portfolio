@@ -274,6 +274,29 @@ export function montarCenaFlash(container, opcoes = {}) {
 
         const base = new THREE.Matrix4().makeBasis(atravessaPalma, eixoDedos, normalPalma);
         const qMundo = new THREE.Quaternion().setFromRotationMatrix(base);
+
+        /* INCLINACAO PARA O ROSTO.
+           Medindo a mao: a normal da palma aponta para cima (0,9 em Y). Deitado
+           assim o aparelho fica com a tela para o teto — anatomicamente correto
+           e visualmente de perfil, que e o "em pe" que se via.
+           Ninguem usa celular na horizontal: inclina para o rosto. Aqui a
+           inclinacao gira em torno do eixo do antebraco, e o SENTIDO e escolhido
+           medindo qual dos dois aproxima a tela da cabeca — sem depender de
+           qual mao e nem de como o esqueleto foi montado. */
+        const pCabeca = new THREE.Vector3();
+        const oCabeca = m.ossos.Head || m.ossos.Neck;
+        if (oCabeca) {
+          oCabeca.getWorldPosition(pCabeca);
+          const paraCabeca = pCabeca.clone().sub(alvoMundo).normalize();
+          const testar = (ang) => {
+            const q = new THREE.Quaternion().setFromAxisAngle(eixoDedos, ang).multiply(qMundo);
+            return new THREE.Vector3(0, 0, 1).applyQuaternion(q).dot(paraCabeca);
+          };
+          const passo = 0.95;
+          qMundo.premultiply(
+            new THREE.Quaternion().setFromAxisAngle(eixoDedos, testar(passo) > testar(-passo) ? passo : -passo)
+          );
+        }
         const qPai = new THREE.Quaternion();
         maoD.getWorldQuaternion(qPai);
         celular.quaternion.copy(qPai.clone().invert().multiply(qMundo));
@@ -355,6 +378,34 @@ export function montarCenaFlash(container, opcoes = {}) {
           'celular.rotation.set(' + [r2.x, r2.y, r2.z].map((v) => v.toFixed(3)).join(', ') + ');'
         );
       });
+      /* Painel na tela. Sem ele nao da para saber se as teclas estao chegando
+         — se a pagina nao recebeu um clique, o teclado vai para outro lugar e
+         parece que o ajuste nao existe. O painel responde na hora. */
+      const hud = document.createElement('div');
+      hud.style.cssText = [
+        'position:fixed', 'right:16px', 'bottom:16px', 'z-index:99999',
+        'background:rgba(10,12,20,.92)', 'color:#dfe4f2', 'padding:14px 16px',
+        'border:1px solid rgba(255,255,255,.14)', 'border-radius:10px',
+        'font:12px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace',
+        'white-space:pre', 'pointer-events:none'
+      ].join(';');
+      document.body.appendChild(hud);
+      const pintar = () => {
+        const p3 = celular.position, r3 = celular.rotation;
+        hud.textContent =
+          'AJUSTE DO CELULAR   (clique na pagina antes)
+' +
+          'setas mover · Q/E fundo · WASD e Z/X girar
+
+' +
+          'celular.position.set(' + [p3.x, p3.y, p3.z].map((v) => v.toFixed(4)).join(', ') + ');
+' +
+          'celular.rotation.set(' + [r3.x, r3.y, r3.z].map((v) => v.toFixed(3)).join(', ') + ');';
+      };
+      pintar();
+      addEventListener('keydown', pintar);
+      // um clique em qualquer lugar garante o foco do teclado
+      addEventListener('pointerdown', () => document.body.focus(), { once: true });
       console.info('Ajuste do celular ligado: setas movem, Q/E profundidade, WASD e Z/X giram.');
     }
   } catch (e) {}
