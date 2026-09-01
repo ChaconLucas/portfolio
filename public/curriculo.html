@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Lucas Chacon — Currículo</title>
+<meta name="description" content="Currículo de Lucas Chacon, Desenvolvedor Full Stack no Rio de Janeiro. Experiência com PHP, TypeScript, Python, React, Next.js e FastAPI."/>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
+<link rel="icon" href="/favicon-32.png" sizes="32x32"/>
+<style>
+/* ==========================================================================
+   Curriculo — pagina propria, fora do index.
+
+   Fica em `public/` de proposito: o projeto nao tem vite.config e a entrada do
+   build e so o index.html. Um segundo HTML aqui e servido como esta, sem
+   bundling — o que exige esta pagina ser autossuficiente (CSS inline, nenhum
+   import), e em troca nao ha risco nenhum de mexer no build do site.
+
+   Duas midias, um conteudo so. Na tela ela acompanha o portfolio: escuro,
+   Space Grotesk, roxo. No papel ela vira documento: fundo branco, tinta preta,
+   nada de sombra ou gradiente — imprimir o tema escuro gastaria toner e sairia
+   ilegivel. Por isso todas as cores saem de variaveis, trocadas em @media
+   print, em vez de estarem espalhadas pelas regras.
+   ========================================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+:root{
+  --fundo:#08090f;
+  --papel:#0d0f18;
+  --texto:#e8e4f2;
+  --suave:#a79fbb;
+  --fraco:#6f6885;
+  --acento:#c3a9ff;
+  --linha:rgba(190,163,255,.16);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--fundo);color:var(--texto);
+  font:400 14px/1.6 'Space Grotesk',system-ui,-apple-system,Segoe UI,sans-serif;
+  padding:44px 20px 80px;
+  -webkit-font-smoothing:antialiased;
+}
+.folha{max-width:840px;margin:0 auto}
+
+.voltar{
+  display:inline-flex;align-items:center;gap:7px;
+  font-size:10px;letter-spacing:.12em;color:var(--suave);
+  text-decoration:none;margin-bottom:26px;
+  border:1px solid var(--linha);border-radius:999px;padding:8px 13px;
+  transition:border-color .2s ease,color .2s ease;
+}
+.voltar:hover{border-color:var(--acento);color:var(--texto)}
+
+header{border-bottom:1px solid var(--linha);padding-bottom:22px;margin-bottom:30px}
+h1{font-size:clamp(26px,5vw,36px);line-height:1.05;letter-spacing:-.02em;font-weight:700}
+.cargo{color:var(--acento);font-size:12px;letter-spacing:.14em;margin-top:9px;text-transform:uppercase}
+.contatos{margin-top:16px;display:flex;flex-wrap:wrap;gap:8px 18px;font-size:12.5px;color:var(--suave)}
+.contatos a{color:var(--suave);text-decoration:none;border-bottom:1px solid var(--linha)}
+.contatos a:hover{color:var(--acento)}
+
+.baixar{display:flex;flex-wrap:wrap;gap:9px;margin-top:20px}
+.baixar a{
+  display:inline-flex;align-items:center;gap:8px;
+  border:1px solid var(--linha);border-radius:999px;
+  background:rgba(19,16,32,.6);
+  padding:10px 15px;font-size:10px;letter-spacing:.1em;
+  color:var(--texto);text-decoration:none;
+  transition:border-color .2s ease,background .2s ease;
+}
+.baixar a:hover{border-color:var(--acento);background:rgba(30,24,50,.85)}
+.baixar svg{width:12px;height:12px;flex:none}
+
+section{margin-bottom:30px}
+h2{
+  font-size:9px;letter-spacing:.2em;color:var(--fraco);
+  text-transform:uppercase;font-weight:600;
+  padding-bottom:8px;margin-bottom:15px;border-bottom:1px solid var(--linha);
+}
+p{color:var(--suave);font-size:13.5px}
+
+.item{margin-bottom:17px;break-inside:avoid}
+.item:last-child{margin-bottom:0}
+.item-topo{display:flex;flex-wrap:wrap;align-items:baseline;gap:5px 11px}
+.item h3{font-size:14.5px;font-weight:600;color:var(--texto)}
+.item .onde{font-size:12.5px;color:var(--acento)}
+.item .quando{font-size:11px;color:var(--fraco);letter-spacing:.06em;margin-left:auto}
+.item .pilha{font-size:11.5px;color:var(--fraco);font-style:italic;margin-top:3px}
+.item p{margin-top:5px;font-size:12.5px;line-height:1.55}
+.item a{color:var(--acento);text-decoration:none;border-bottom:1px solid var(--linha);font-size:12px}
+
+.trilhas{display:grid;gap:9px}
+.trilha{display:grid;grid-template-columns:104px 1fr;gap:14px;align-items:baseline}
+.trilha b{font-size:10px;letter-spacing:.1em;color:var(--fraco);text-transform:uppercase;font-weight:600}
+.trilha span{font-size:12.5px;color:var(--suave)}
+
+.duas{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+@media(max-width:640px){
+  .duas{grid-template-columns:1fr;gap:26px}
+  .trilha{grid-template-columns:1fr;gap:2px}
+  .item .quando{margin-left:0}
+}
+
+/* --------------------------------------------------------------- impressao */
+@media print{
+  /* Documento, nao tela: o tema escuro no papel sai borrado e gasta tinta. */
+  :root{
+    --fundo:#fff;--papel:#fff;--texto:#111;--suave:#333;--fraco:#666;
+    --acento:#1a1a1a;--linha:#ccc;
+  }
+  @page{margin:14mm 15mm}
+  body{padding:0;font-size:10.5pt;line-height:1.42}
+  .voltar,.baixar{display:none}     /* nao se clica em papel */
+  h1{font-size:20pt}
+  .cargo{font-size:9pt;letter-spacing:.1em}
+  .contatos{font-size:9pt;gap:4px 12px}
+  .contatos a{border:0}
+  h2{font-size:8pt;letter-spacing:.16em;margin-bottom:9px;padding-bottom:5px}
+  section{margin-bottom:14px}
+  .item{margin-bottom:9px}
+  .item h3{font-size:10.5pt}
+  .item .onde,.item p,.trilha span{font-size:9.5pt}
+  .item .pilha{font-size:9pt}
+  .item a{border:0}
+  header{margin-bottom:16px;padding-bottom:12px}
+  .duas{gap:18px}
+}
+</style>
+</head>
+<body>
+<div class="folha">
+
+<a class="voltar" href="/">← VOLTAR AO PORTFÓLIO</a>
+
+<header>
+  <h1>Lucas Chacon Gonçalves Dias Santos</h1>
+  <div class="cargo">Desenvolvedor Full Stack</div>
+  <div class="contatos">
+    <span>Rio de Janeiro — RJ</span>
+    <span>(21) 98513-6806</span>
+    <a href="mailto:lucaschacon79@gmail.com">lucaschacon79@gmail.com</a>
+    <a href="https://www.linkedin.com/in/lucas-chacon-129414a7/" rel="noopener noreferrer" target="_blank">linkedin.com/in/lucas-chacon-129414a7</a>
+    <a href="https://github.com/ChaconLucas" rel="noopener noreferrer" target="_blank">github.com/ChaconLucas</a>
+  </div>
+  <div class="baixar">
+    <a href="/Lucas-Chacon-Curriculo.pdf" download>
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3v10.6l3.3-3.3 1.4 1.4-5.7 5.7-5.7-5.7 1.4-1.4 3.3 3.3V3h2ZM4 19h16v2H4v-2Z"/></svg>
+      BAIXAR EM PDF · PORTUGUÊS
+    </a>
+    <a href="/Lucas-Chacon-Resume-EN.pdf" download>
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3v10.6l3.3-3.3 1.4 1.4-5.7 5.7-5.7-5.7 1.4-1.4 3.3 3.3V3h2ZM4 19h16v2H4v-2Z"/></svg>
+      DOWNLOAD PDF · ENGLISH
+    </a>
+  </div>
+</header>
+
+<section>
+  <h2>Resumo</h2>
+  <p>Desenvolvedor Full Stack com experiência profissional no desenvolvimento e manutenção de aplicações web, atuando em front-end, back-end, APIs, bancos de dados e integrações. Desenvolvo soluções para e-commerce, plataformas de eventos, sistemas administrativos e aplicações interativas. Pós-graduado em Cibersegurança, com conhecimentos em Pentest e desenvolvimento seguro.</p>
+</section>
+
+<section>
+  <h2>Experiência profissional</h2>
+
+  <div class="item">
+    <div class="item-topo">
+      <h3>Desenvolvedor Full Stack</h3><span class="onde">TIIX</span>
+      <span class="quando">2026 — atual</span>
+    </div>
+    <p>Desenvolvimento e manutenção de aplicações web em PHP, HTML e CSS, atuando em funcionalidades de front-end e back-end. Implementação de melhorias, manutenção de código existente, análise e correção de bugs e evolução de sistemas. Atuação em projetos sujeitos a confidencialidade, preservando informações técnicas e regras de negócio sensíveis.</p>
+  </div>
+
+  <div class="item">
+    <div class="item-topo">
+      <h3>Desenvolvedor Full Stack</h3><span class="onde">D&amp;Z</span>
+      <span class="quando">Nov/2025 — atual</span>
+    </div>
+    <p>Desenvolvimento e evolução de e-commerce e sistemas web: painel administrativo, gestão de produtos, pedidos e clientes, autenticação e controle de acesso, integração de APIs, endpoints customizados, banco MySQL e interfaces responsivas. Git/GitHub para controle de versão e apoio à configuração de ambiente.</p>
+  </div>
+
+  <div class="item">
+    <div class="item-topo">
+      <h3>Auxiliar Administrativo</h3><span class="onde">D&amp;Z</span>
+      <span class="quando">Jan/2024 — Nov/2025</span>
+    </div>
+    <p>Atuação administrativa e operacional, administração do site oficial e desenvolvimento de solução interna em JavaScript, HTML e CSS para ações da empresa. Transição interna para a área de desenvolvimento em novembro de 2025.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Projetos</h2>
+
+  <div class="item">
+    <div class="item-topo"><h3>GateCheck</h3><span class="onde">Plataforma de ingressos e check-in</span></div>
+    <div class="pilha">Next.js · React · TypeScript · Python (FastAPI) · PostgreSQL · SQLAlchemy · Alembic</div>
+    <p>Venda de ingressos e controle de entrada em eventos, com criação de eventos e lotes, fluxo de compra, emissão de QR Code único, validação na portaria e registros de auditoria. Backend estruturado em serviços e autenticação JWT.</p>
+  </div>
+
+  <div class="item">
+    <div class="item-topo"><h3>FLASH</h3><span class="onde">Marketplace de materiais para tatuagem</span></div>
+    <div class="pilha">TypeScript · Next.js 16 · React Native (Expo) · Express · PostgreSQL</div>
+    <p>Marketplace de materiais para tatuagem e body piercing, em monorepo com web, aplicativo mobile, API e pacote compartilhado. Integração de entregas com Uber Direct e deploy contínuo na Render.</p>
+  </div>
+
+  <div class="item">
+    <div class="item-topo"><h3>Rare7</h3><span class="onde">E-commerce completo</span></div>
+    <div class="pilha">PHP · MySQL · JavaScript · HTML5 · CSS3</div>
+    <p>Loja virtual com painel administrativo, CMS, checkout integrado ao Mercado Pago, automação de e-mails, dashboards e registros de auditoria.</p>
+  </div>
+
+  <div class="item">
+    <div class="item-topo"><h3>WSL SporTV Games</h3><span class="onde">Experiências interativas para evento</span></div>
+    <div class="pilha">Python (FastAPI) · React 18 · TypeScript · SQLAlchemy</div>
+    <p>MVP com os jogos Drop Sua Onda e Jurado por Um Dia: interface para TV touch, resultado individual no celular, cadastro configurável e painel administrativo.
+      <a href="https://wsl-sportv-games.vercel.app" rel="noopener noreferrer" target="_blank">wsl-sportv-games.vercel.app ↗</a></p>
+  </div>
+
+  <div class="item">
+    <div class="item-topo"><h3>Gestão de Clientes e Produtos</h3><span class="onde">Aplicativo mobile</span></div>
+    <div class="pilha">React Native · Expo · TypeScript · SQLite · Drizzle ORM · Redux Toolkit</div>
+    <p>CRUD de clientes e produtos com relacionamento entre registros, banco local SQLite, formulários validados, gerenciamento de estado e navegação com Expo Router.</p>
+  </div>
+
+  <div class="item">
+    <div class="item-topo"><h3>Factory Production Management</h3><span class="onde">Gestão de produção industrial</span></div>
+    <div class="pilha">Python (FastAPI) · React · MySQL · SQLAlchemy</div>
+    <p>Controle de estoque, modelagem de produtos e matérias-primas e lógica para análise de viabilidade e priorização de produção.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Habilidades técnicas</h2>
+  <div class="trilhas">
+    <div class="trilha"><b>Linguagens</b><span>PHP, Python, JavaScript, TypeScript, SQL</span></div>
+    <div class="trilha"><b>Front-end</b><span>React, Next.js, React Native, HTML5, CSS3, Tailwind CSS, Bootstrap, Vite</span></div>
+    <div class="trilha"><b>Back-end</b><span>FastAPI, Node.js/Express, APIs REST, PHP</span></div>
+    <div class="trilha"><b>Dados</b><span>PostgreSQL, MySQL, MariaDB, SQLite, SQLAlchemy, Alembic, Drizzle ORM</span></div>
+    <div class="trilha"><b>Segurança</b><span>JWT, bcrypt, controle de acesso, auditoria, logs, Pentest, Kali Linux</span></div>
+    <div class="trilha"><b>Ferramentas</b><span>Git, GitHub, GitHub Actions, Render, Vercel, VS Code</span></div>
+  </div>
+</section>
+
+<div class="duas">
+  <section>
+    <h2>Formação</h2>
+    <div class="item">
+      <div class="item-topo"><h3>Pós-graduação em Cibersegurança</h3></div>
+      <div class="pilha">Faculdade Metropolitana</div>
+      <p>Concluída em 2026.</p>
+    </div>
+    <div class="item">
+      <div class="item-topo"><h3>Análise e Desenvolvimento de Sistemas</h3></div>
+      <div class="pilha">UNISUAM</div>
+      <p>Em andamento desde julho de 2025.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Certificação e idiomas</h2>
+    <div class="item">
+      <div class="item-topo"><h3>Iniciação ao Pentest</h3></div>
+      <div class="pilha">Desec Security</div>
+      <p>Fundamentos de testes de invasão, reconhecimento, enumeração e ferramentas de segurança ofensiva.</p>
+    </div>
+    <div class="item">
+      <div class="item-topo"><h3>Inglês — intermediário</h3></div>
+      <p>Leitura e interpretação de documentação técnica, tradução e comunicação em contexto profissional.</p>
+    </div>
+  </section>
+</div>
+
+<section>
+  <h2>Projetos complementares</h2>
+  <div class="item">
+    <div class="item-topo"><h3>Bot da FURIA</h3></div>
+    <div class="pilha">Python · Telegram API · BeautifulSoup</div>
+    <p>Interação com fãs, consulta de partidas e jogadores e obtenção automatizada de informações via web scraping.</p>
+  </div>
+  <div class="item">
+    <div class="item-topo"><h3>Tiixokê</h3></div>
+    <div class="pilha">React · Vite · Express · Web Audio API</div>
+    <p>Karaokê web com reprodução de vídeo e análise do áudio captado pelo microfone para geração de pontuação.</p>
+  </div>
+  <div class="item">
+    <div class="item-topo"><h3>AIpply</h3></div>
+    <div class="pilha">JavaScript · Python</div>
+    <p>Automação de candidaturas com apoio de IA para leitura de vagas, adequação de perfil e geração de materiais.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Experiências anteriores</h2>
+  <div class="item">
+    <div class="item-topo"><h3>Xuxu Beleza</h3><span class="quando">2023 — 2024</span></div>
+    <p>Separação, organização e empacotamento de pedidos, com apoio às rotinas operacionais.</p>
+  </div>
+  <div class="item">
+    <div class="item-topo"><h3>Auxiliar Administrativo</h3><span class="onde">Fisa Imobiliária</span><span class="quando">2020 — 2021</span></div>
+    <p>Atendimento ao cliente, emissão de boletos e apoio ao controle administrativo de aluguéis.</p>
+  </div>
+</section>
+
+</div>
+</body>
+</html>
