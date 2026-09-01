@@ -3601,6 +3601,37 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
   font-size:8px;letter-spacing:.08em;
   color:#cbc2dc;
 }
+/* Corpo do capitulo: o desafio e o que existe dentro do produto.
+   A coluna esquerda era ~55% vazia — a modelagem prendia o olho e nao havia o
+   que ler. Duas secoes curtas resolvem sem virar texto corrido: uma diz por que
+   o problema e dificil, a outra lista o que da para ver nas capturas ao lado. */
+.chapter-detail{margin-top:26px;display:grid;gap:18px;max-width:min(430px,100%)}
+.chapter-detail h4{
+  margin:0 0 7px;
+  font-size:8px;letter-spacing:.16em;font-weight:600;
+  color:#8f83a8;text-transform:uppercase;
+}
+.chapter-detail p{
+  margin:0;font-size:12px;line-height:1.62;color:#b9b0cb;
+}
+.chapter-detail ul{
+  margin:0;padding:0;list-style:none;display:grid;gap:7px;
+}
+.chapter-detail li{
+  position:relative;padding-left:15px;
+  font-size:12px;line-height:1.55;color:#b9b0cb;
+}
+/* Marcador desenhado, e nao bullet nativo: o disco padrao pesa demais neste
+   corpo de 12px e desalinha na segunda linha. */
+.chapter-detail li::before{
+  content:"";position:absolute;left:0;top:.55em;
+  width:5px;height:1px;background:rgba(190,163,255,.55);
+}
+@media(max-width:900px){
+  .chapter-detail{gap:14px;margin-top:20px}
+  .chapter-detail p,.chapter-detail li{font-size:11.5px}
+}
+
 /* Links do capitulo: demo ao vivo e afins.
    Fica entre a stack e o rotulo da tela porque e ali que a leitura ja parou —
    quem chegou na lista de tecnologias e exatamente quem quer abrir o produto.
@@ -4816,6 +4847,7 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
 <div class="chapter-kicker">PLATAFORMA DE EVENTOS / FULL STACK</div>
 <h3>GateCheck</h3>
 <p>Venda de ingressos, lotes, pedidos, QR Code individual, check-in em tempo real, auditoria e operação de eventos.</p>
+<div class="chapter-detail"><div><h4>O DESAFIO</h4><p>Evento não perdoa fila. A portaria é o único momento em que o sistema é medido por segundo, e é onde ingresso repetido, lote errado e rede instável aparecem todos ao mesmo tempo.</p></div><div><h4>DENTRO DO PRODUTO</h4><ul><li>Cada ingresso tem QR Code próprio, e não um código por lote: toda entrada é única e rastreável.</li><li>Check-in em tempo real com auditoria — fica registrado quem validou o quê e quando.</li><li>Lotes, pedidos e preços na mesma base que a portaria lê, para venda e entrada nunca discordarem.</li></ul></div></div>
 <div class="chapter-stack">
 <span>Next.js</span><span>React</span><span>FastAPI</span><span>PostgreSQL</span><span>JWT</span>
 </div>
@@ -4845,6 +4877,7 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
 <div class="chapter-kicker">EXPERIÊNCIA INTERATIVA / EVENTO</div>
 <h3>WSL<br/>Games</h3>
 <p>Experiência touch para evento: interação em tela grande, decisão do público, resultado e continuidade no celular.</p>
+<div class="chapter-detail"><div><h4>O DESAFIO</h4><p>Ativação de evento tem um público que não leu manual, não instala nada e para por pouco tempo. A tela precisa ser entendida de pé, à distância e no primeiro toque.</p></div><div><h4>DENTRO DO PRODUTO</h4><ul><li>Dois jogos num fluxo só: o quiz que devolve um atleta pelo estilo, e o julgamento de onda com replay.</li><li>A nota dada pelo público aparece lado a lado com a dos jurados reais.</li><li>O resultado sai da tela grande para o celular por QR Code, sem cadastro e sem instalar aplicativo.</li></ul></div></div>
 <div class="chapter-stack"><span>React</span><span>TypeScript</span><span>FastAPI</span><span>SQLAlchemy</span></div>
 <div class="chapter-links"><a href="https://wsl-sportv-games.vercel.app" rel="noopener noreferrer" target="_blank" aria-label="Abrir a demo da WSL Games em nova aba"><svg aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42 9.3-9.29H14V3ZM5 5h5v2H6v11h11v-4h2v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"/></svg>ABRIR DEMO AO VIVO</a></div>
 <div class="chapter-screen-label"><b id="wslShotIndex">01</b><span id="wslShotLabel">Start</span></div>
@@ -4872,6 +4905,7 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
 <div class="chapter-kicker">E-COMMERCE / FULL STACK</div>
 <h3>Rare7</h3>
 <p>Loja, catálogo, produto, checkout e administração integrados em uma única operação de comércio digital.</p>
+<div class="chapter-detail"><div><h4>O DESAFIO</h4><p>Loja de camisa vive de variação: liga, clube, temporada, tamanho. O catálogo cresce por combinação, e é exatamente aí que estoque e preço começam a divergir.</p></div><div><h4>DENTRO DO PRODUTO</h4><ul><li>Navegação por liga e clube antes do produto, que é o caminho que o torcedor já faz de cabeça.</li><li>Checkout integrado ao Mercado Pago, dentro do próprio fluxo da loja.</li><li>Catálogo, pedido e administração na mesma operação, sem painel paralelo.</li></ul></div></div>
 <div class="chapter-stack"><span>PHP</span><span>MySQL</span><span>JavaScript</span><span>Mercado Pago</span></div>
 <div class="chapter-screen-label"><b id="rareShotIndex">01</b><span id="rareShotLabel">Store</span></div>
 </div>
@@ -4886,6 +4920,7 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
 <div class="chapter-kicker">MARKETPLACE / WEB · API · MOBILE</div>
 <h3>FLASH</h3>
 <p>Marketplace de materiais para tatuagem e body piercing, com entrega rápida por motoboy. Web, API e aplicativo compartilhando as mesmas regras.</p>
+<div class="chapter-detail"><div><h4>O DESAFIO</h4><p>Estúdio compra no meio do atendimento: falta material na hora, e prazo de dias não resolve. Entregar por motoboy tira o problema da logística e joga para o tempo real.</p></div><div><h4>DENTRO DO PRODUTO</h4><ul><li>Web, API e aplicativo compartilham as mesmas regras — preço e disponibilidade não divergem por plataforma.</li><li>Aplicativo em Expo e React Native, para o estúdio pedir do balcão.</li><li>PostgreSQL como fonte única de catálogo e pedido, com a API em Express no meio.</li></ul></div></div>
 <div class="chapter-stack"><span>Next.js</span><span>Expo</span><span>React Native</span><span>Express</span><span>PostgreSQL</span><span>TypeScript</span></div>
 <div class="chapter-screen-label"><b id="flashShotIndex">01</b><span id="flashShotLabel">Catálogo</span></div>
 </div>
@@ -7947,6 +7982,24 @@ window.__EN_DICT__ = {
   "Operação / check-in": "Operations / check-in",
   "ROLE / EXPLORE O PRODUTO": "SCROLL / EXPLORE PRODUCT",
   "ABRIR DEMO AO VIVO": "OPEN LIVE DEMO",
+  "O DESAFIO": "THE CHALLENGE",
+  "DENTRO DO PRODUTO": "INSIDE THE PRODUCT",
+  "Evento não perdoa fila. A portaria é o único momento em que o sistema é medido por segundo, e é onde ingresso repetido, lote errado e rede instável aparecem todos ao mesmo tempo.": "Events do not forgive queues. The gate is the only moment the system is measured by the second, and it is where duplicate tickets, wrong batches and unstable networks all show up at once.",
+  "Cada ingresso tem QR Code próprio, e não um código por lote: toda entrada é única e rastreável.": "Every ticket carries its own QR code rather than one code per batch: each entry is unique and traceable.",
+  "Check-in em tempo real com auditoria — fica registrado quem validou o quê e quando.": "Real-time check-in with auditing — who validated what, and when, is on record.",
+  "Lotes, pedidos e preços na mesma base que a portaria lê, para venda e entrada nunca discordarem.": "Batches, orders and prices live in the same database the gate reads, so sales and entry never disagree.",
+  "Ativação de evento tem um público que não leu manual, não instala nada e para por pouco tempo. A tela precisa ser entendida de pé, à distância e no primeiro toque.": "An event activation faces an audience that read no manual, installs nothing and stops only briefly. The screen has to be understood standing up, from a distance, on the first touch.",
+  "Dois jogos num fluxo só: o quiz que devolve um atleta pelo estilo, e o julgamento de onda com replay.": "Two games in a single flow: the quiz that matches you to an athlete by style, and wave judging with replay.",
+  "A nota dada pelo público aparece lado a lado com a dos jurados reais.": "The score given by the audience appears side by side with the one given by the real judges.",
+  "O resultado sai da tela grande para o celular por QR Code, sem cadastro e sem instalar aplicativo.": "The result moves from the big screen to the phone by QR code — no sign-up, no app install.",
+  "Loja de camisa vive de variação: liga, clube, temporada, tamanho. O catálogo cresce por combinação, e é exatamente aí que estoque e preço começam a divergir.": "A shirt store runs on variation: league, club, season, size. The catalogue grows by combination, and that is exactly where stock and price start to drift apart.",
+  "Navegação por liga e clube antes do produto, que é o caminho que o torcedor já faz de cabeça.": "Browsing by league and club before product — the path a supporter already follows in their head.",
+  "Checkout integrado ao Mercado Pago, dentro do próprio fluxo da loja.": "Checkout integrated with Mercado Pago, inside the store flow itself.",
+  "Catálogo, pedido e administração na mesma operação, sem painel paralelo.": "Catalogue, orders and administration in one operation, with no parallel panel.",
+  "Estúdio compra no meio do atendimento: falta material na hora, e prazo de dias não resolve. Entregar por motoboy tira o problema da logística e joga para o tempo real.": "A studio buys mid-session: material runs out right then, and a delivery window of days solves nothing. Motorbike delivery moves the problem out of logistics and into real time.",
+  "Web, API e aplicativo compartilham as mesmas regras — preço e disponibilidade não divergem por plataforma.": "Web, API and app share the same rules — price and availability never diverge between platforms.",
+  "Aplicativo em Expo e React Native, para o estúdio pedir do balcão.": "App built with Expo and React Native, so the studio can order from the counter.",
+  "PostgreSQL como fonte única de catálogo e pedido, com a API em Express no meio.": "PostgreSQL as the single source for catalogue and orders, with the Express API in between.",
   "SISTEMA DE EVENTOS → EXPERIÊNCIA INTERATIVA": "EVENT SYSTEM → INTERACTIVE EXPERIENCE",
   "EXPERIÊNCIA INTERATIVA / EVENTO": "INTERACTIVE EXPERIENCE / EVENT",
   "Experiência touch para evento: interação em tela grande, decisão do público, resultado e continuidade no celular.": "Touch experience for events: big-screen interaction, audience decision, result and continuity on mobile.",
