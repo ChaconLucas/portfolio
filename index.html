@@ -6670,7 +6670,16 @@ if(mount){
 /* CENA 3D DO GATECHECK — o palco deixa de ser uma moldura com print e vira a
    estacao de trabalho. As screenshots reais viram a textura do monitor, entao o
    zoom termina no produto de verdade em vez de numa interface inventada. */
-.gate-scene{position:absolute;inset:0;z-index:2;border-radius:inherit;overflow:hidden}
+.gate-scene{
+  position:absolute;
+  /* sangra para fora do palco: com inset 0 a mesa terminava exatamente na borda
+     do canvas e a cena lia como um quadrado colado na pagina */
+  inset:-12% -10% -16%;
+  z-index:2;overflow:visible;
+  /* e a borda dissolve, entao nao existe aresta onde o 3D acaba */
+  -webkit-mask-image:radial-gradient(128% 116% at 54% 46%,#000 54%,rgba(0,0,0,.62) 76%,transparent 97%);
+  mask-image:radial-gradient(128% 116% at 54% 46%,#000 54%,rgba(0,0,0,.62) 76%,transparent 97%);
+}
 .gate-scene canvas{display:block;width:100%;height:100%}
 /* com a cena no ar, a pilha de prints sai de cena e o balanco do driver e
    desligado: quem move o quadro agora e a camera 3D, e os dois somados
