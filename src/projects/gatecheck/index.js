@@ -323,7 +323,7 @@ export function montarCenaGatecheck(container) {
   const FIM_APROXIMACAO = 0.55;
   /* Estado da mao direita: o clipe alterna entre digitar e ir para a zona do
      mouse. O mouse acompanha a mao no segundo trecho e e largado no primeiro. */
-  const mouseZona = { limiar: 0, ativo: false, k: 0, segura: 0, osso: null, giro: 0 };
+  const mouseZona = { limiar: 0, ativo: false, k: 0, segura: 0, pego: false, osso: null, giro: 0 };
   const _dedo = new THREE.Vector3();
 
 
@@ -399,14 +399,24 @@ export function montarCenaGatecheck(container) {
       /* Solto e solto: abaixo do limiar o mouse FICA onde parou, em vez de
          voltar para o repouso acompanhando a mao na volta — que era o "o mouse
          vem junto na hora de soltar". */
-      if (mouseZona.segura > 0.55) {
-        /* Sem amortecimento no arrasto: o suavizador anterior convergia ~8% por
-           quadro e o mouse ficava correndo atras da mao. Preso e preso — o peso
-           vem do proprio `segura`, entao a pegada entra suave e, ja segurando
-           (peso 1), o mouse anda exatamente junto. */
-        const peso = mouseZona.segura;
-        estacao.mouse.position.x += (px - estacao.mouse.position.x) * peso;
-        estacao.mouse.position.z += (pz - estacao.mouse.position.z) * peso;
+      /* Pegar e largar viram um estado binario, com histerese.
+         Interpolar por peso era o que causava as duas queixas ao mesmo tempo:
+         na aproximacao o mouse ja andava um pouco na direcao da mao (efeito ima)
+         e na saida ele ainda vinha atras por alguns quadros.
+         Agora ele so se move quando a mao esta REALMENTE em cima dele — que e
+         como um mouse funciona: voce pega ele onde ele esta. */
+      const dist = Math.hypot(px - estacao.mouse.position.x, pz - estacao.mouse.position.z);
+      if (!mouseZona.pego) {
+        // pega: precisa estar na zona e praticamente encostando
+        if (mouseZona.segura > 0.60 && dist < 0.055) mouseZona.pego = true;
+      } else if (mouseZona.segura < 0.45 || dist > 0.11) {
+        // larga: sai da zona ou a mao se afasta do corpo do mouse
+        mouseZona.pego = false;
+      }
+
+      if (mouseZona.pego) {
+        estacao.mouse.position.x = px;
+        estacao.mouse.position.z = pz;
       }
     }
 
