@@ -49,14 +49,111 @@ function criarParede() {
   g.add(peca(caixa(9, 0.11, 0.035, 0.006), matGrafite(), 0, 0.055, 0.01));
   g.add(peca(caixa(9, 0.02, 0.02, 0.004), matGrafite(), 0, 2.62, 0.008));
 
-  // chao
+  /* Chao de evento reflete. Rugosidade baixa com um pouco de metalness faz o
+     ambiente e a luz da TV aparecerem no piso — sem custo de um segundo passe
+     de render, que e o que um espelho de verdade exigiria. */
   const chao = new THREE.Mesh(
-    new THREE.PlaneGeometry(9, 6),
-    new THREE.MeshStandardMaterial({ color: 0x14161d, roughness: 0.86 })
+    new THREE.PlaneGeometry(14, 10),
+    new THREE.MeshStandardMaterial({ color: 0x0f1117, roughness: 0.26, metalness: 0.42 })
   );
   chao.rotation.x = -Math.PI / 2;
   chao.receiveShadow = true;
   g.add(chao);
+
+  // poca de luz sob a TV: amarra o painel ao chao
+  const poca = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.6, 2.2),
+    new THREE.MeshBasicMaterial({
+      color: 0x6f8bff, transparent: true, opacity: 0.10,
+      blending: THREE.AdditiveBlending, depthWrite: false
+    })
+  );
+  poca.rotation.x = -Math.PI / 2;
+  poca.position.set(0, 0.004, 0.95);
+  g.add(poca);
+
+  return g;
+}
+
+/**
+ * Profundidade atras do plano geral.
+ *
+ * Sem nada alem da parede, a cena inteira acontece num plano so e le como
+ * maquete. Aqui entram volumes escuros e sem detalhe: eles nunca sao o assunto,
+ * so dizem que existe um evento em volta. A camera termina dentro da tela,
+ * entao isso aparece apenas nos primeiros 40% do capitulo — encher de objeto
+ * reconhecivel seria trabalho jogado fora e concorrencia com o painel.
+ */
+function criarFundo() {
+  const g = new THREE.Group();
+  g.name = 'fundoWsl';
+
+  const vulto = new THREE.MeshStandardMaterial({ color: 0x0d0f16, roughness: 0.9 });
+  const estrutura = new THREE.MeshStandardMaterial({ color: 0x171a23, roughness: 0.6, metalness: 0.4 });
+
+  /* Nas LATERAIS, nao atras. A camera parte de z=6,10 olhando para a parede em
+     z=0 — entao o que eu tinha posto em z=5,4 a 8,4 ficava atras dela ou colado
+     na lente. O evento em volta so aparece pelas bordas do quadro. */
+  [[-4.3, 2.6, 1.15], [4.6, 3.4, -1.05], [-5.4, 4.6, 1.35], [5.2, 1.4, -1.2]].forEach(([x, z, rot]) => {
+    const t = new THREE.Group();
+    t.add(peca(caixa(0.75, 1.95, 0.14, 0.02), vulto, 0, 1.35, 0));
+    t.add(peca(caixa(0.9, 0.06, 0.5, 0.01), vulto, 0, 0.03, 0));
+    t.position.set(x, 0, z);
+    t.rotation.y = rot;
+    g.add(t);
+  });
+
+  // trelica no alto, atravessando o quadro: entra pelo topo, como num evento
+  [1.9, 3.6].forEach((z) => {
+    g.add(peca(caixa(15, 0.10, 0.10, 0.02), estrutura, 0, 3.62, z));
+    g.add(peca(caixa(15, 0.10, 0.10, 0.02), estrutura, 0, 3.20, z));
+    for (let i = -4; i <= 4; i++) {
+      g.add(peca(caixa(0.06, 0.44, 0.06, 0.01), estrutura, i * 1.7, 3.41, z));
+    }
+  });
+  // colunas de sustentacao, nas pontas
+  [-6.4, 6.4].forEach((x) => {
+    g.add(peca(caixa(0.16, 3.6, 0.16, 0.02), estrutura, x, 1.8, 2.7));
+  });
+
+  // balcao lateral, dentro do quadro
+  g.add(peca(caixa(2.2, 1.05, 0.70, 0.03), vulto, -4.9, 0.52, 1.2));
+  g.add(peca(caixa(2.2, 0.05, 0.78, 0.01), estrutura, -4.9, 1.07, 1.2));
+
+  return g;
+}
+
+/**
+ * Focos de luz com cone visivel.
+ * O cone e geometria aditiva, nao volumetrico de verdade — a essa distancia da
+ * a mesma leitura por uma fracao do custo.
+ */
+function criarFocos() {
+  const g = new THREE.Group();
+  g.name = 'focos';
+
+  const cores = [0x5f7dff, 0x00d0c0, 0x8a5bff];
+  [[-2.9, 2.2, 0.20], [2.7, 3.0, -0.18], [0.3, 4.1, 0.04]].forEach(([x, z, inc], i) => {
+    const cone = new THREE.Mesh(
+      new THREE.ConeGeometry(1.15, 3.4, 22, 1, true),
+      new THREE.MeshBasicMaterial({
+        color: cores[i], transparent: true, opacity: 0.055,
+        blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+      })
+    );
+    cone.position.set(x, 2.05, z);
+    cone.rotation.z = inc;
+    g.add(cone);
+
+    // corpo do refletor no alto
+    g.add(peca(caixa(0.20, 0.24, 0.20, 0.03), new THREE.MeshStandardMaterial({
+      color: 0x0d0f16, roughness: 0.7
+    }), x, 3.78, z));
+
+    const luz = new THREE.PointLight(cores[i], 0.5, 6, 2);
+    luz.position.set(x, 3.35, z);
+    g.add(luz);
+  });
 
   return g;
 }
@@ -118,6 +215,8 @@ export function criarAmbiente() {
   const raiz = new THREE.Group();
   raiz.name = 'ambienteWsl';
 
+  raiz.add(criarFundo());
+  raiz.add(criarFocos());
   raiz.add(criarParede());
   const { grupo: tv, tela } = criarTV();
   raiz.add(tv);
