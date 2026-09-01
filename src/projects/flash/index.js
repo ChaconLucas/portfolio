@@ -314,6 +314,14 @@ export function montarCenaFlash(container, opcoes = {}) {
   let progresso = 0, progCamera = 0, rodando = true;
   let ultimo = performance.now();
 
+  /* Parametros da pega. O loop recalcula posicao e rotacao a cada quadro — se o
+     ajuste mexesse direto no objeto, o quadro seguinte apagaria. Entao as teclas
+     mexem AQUI, e o loop le daqui.
+     Declarado ANTES do bloco de ajuste: estava depois, e como `const` fica na
+     zona morta temporal, o painel lancava ao inicializar. O `catch` vazio
+     engolia o erro e o ajuste inteiro sumia sem aviso. */
+  const PEGA = { fora: 0.026, cima: 0.022, lado: -0.044, tomba: -1.04, gira: -3.12, rola: 0 };
+
   try {
     const q = new URLSearchParams(location.search);
     if (q.get('dbg') === '1') {
@@ -327,56 +335,54 @@ export function montarCenaFlash(container, opcoes = {}) {
        controle na tela converge em segundos, e o valor final e colado no
        codigo. Setas movem, WASD giram, Q/E aproximam, e o console imprime. */
     if (q.get('tune') === '1') {
-      const passo = 0.004, giro = 0.06;
+      const dP = 0.004, dR = 0.06;
       addEventListener('keydown', (ev) => {
         const k = ev.key.toLowerCase();
-        const p2 = celular.position, r2 = celular.rotation;
-        if (k === 'arrowleft') p2.x -= passo;
-        else if (k === 'arrowright') p2.x += passo;
-        else if (k === 'arrowup') p2.y += passo;
-        else if (k === 'arrowdown') p2.y -= passo;
-        else if (k === 'q') p2.z -= passo;
-        else if (k === 'e') p2.z += passo;
-        else if (k === 'a') r2.y -= giro;
-        else if (k === 'd') r2.y += giro;
-        else if (k === 'w') r2.x -= giro;
-        else if (k === 's') r2.x += giro;
-        else if (k === 'z') r2.z -= giro;
-        else if (k === 'x') r2.z += giro;
+        if (k === 'arrowleft') PEGA.lado -= dP;
+        else if (k === 'arrowright') PEGA.lado += dP;
+        else if (k === 'arrowup') PEGA.cima += dP;
+        else if (k === 'arrowdown') PEGA.cima -= dP;
+        else if (k === 'q') PEGA.fora -= dP;
+        else if (k === 'e') PEGA.fora += dP;
+        else if (k === 'w') PEGA.tomba -= dR;
+        else if (k === 's') PEGA.tomba += dR;
+        else if (k === 'a') PEGA.gira -= dR;
+        else if (k === 'd') PEGA.gira += dR;
+        else if (k === 'z') PEGA.rola -= dR;
+        else if (k === 'x') PEGA.rola += dR;
         else return;
         ev.preventDefault();
-        console.log(
-          'celular.position.set(' + [p2.x, p2.y, p2.z].map((v) => v.toFixed(4)).join(', ') + ');' + String.fromCharCode(10) +
-          'celular.rotation.set(' + [r2.x, r2.y, r2.z].map((v) => v.toFixed(3)).join(', ') + ');'
-        );
       });
-      /* Painel na tela. Sem ele nao da para saber se as teclas estao chegando
-         — se a pagina nao recebeu um clique, o teclado vai para outro lugar e
-         parece que o ajuste nao existe. O painel responde na hora. */
+
+      /* Painel: sem ele nao da para saber se as teclas estao chegando. */
       const hud = document.createElement('div');
+      hud.id = 'ajustePega';
       hud.style.cssText = [
         'position:fixed', 'right:16px', 'bottom:16px', 'z-index:99999',
-        'background:rgba(10,12,20,.92)', 'color:#dfe4f2', 'padding:14px 16px',
-        'border:1px solid rgba(255,255,255,.14)', 'border-radius:10px',
+        'background:rgba(10,12,20,.94)', 'color:#dfe4f2', 'padding:14px 16px',
+        'border:1px solid rgba(255,255,255,.16)', 'border-radius:10px',
         'font:12px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace',
         'white-space:pre', 'pointer-events:none'
       ].join(';');
       document.body.appendChild(hud);
+      const NL = String.fromCharCode(10);
       const pintar = () => {
-        const p3 = celular.position, r3 = celular.rotation;
         hud.textContent =
-          'AJUSTE DO CELULAR   (clique na pagina antes)' + String.fromCharCode(10) +
-          'setas mover - Q/E fundo - WASD e Z/X girar' + String.fromCharCode(10,10) +
-          'celular.position.set(' + [p3.x, p3.y, p3.z].map((v) => v.toFixed(4)).join(', ') + ');' + String.fromCharCode(10) +
-          'celular.rotation.set(' + [r3.x, r3.y, r3.z].map((v) => v.toFixed(3)).join(', ') + ');';
+          'AJUSTE DA PEGA' + NL +
+          'setas: lado/altura   Q/E: fundo' + NL +
+          'W/S: tomba   A/D: gira   Z/X: rola' + NL + NL +
+          'fora:  ' + PEGA.fora.toFixed(3) + NL +
+          'cima:  ' + PEGA.cima.toFixed(3) + NL +
+          'lado:  ' + PEGA.lado.toFixed(3) + NL +
+          'tomba: ' + PEGA.tomba.toFixed(2) + NL +
+          'gira:  ' + PEGA.gira.toFixed(2) + NL +
+          'rola:  ' + PEGA.rola.toFixed(2);
       };
       pintar();
       addEventListener('keydown', pintar);
-      // um clique em qualquer lugar garante o foco do teclado
-      addEventListener('pointerdown', () => document.body.focus(), { once: true });
-      console.info('Ajuste do celular ligado: setas movem, Q/E profundidade, WASD e Z/X giram.');
+      console.info('Ajuste da pega ligado.');
     }
-  } catch (e) {}
+  } catch (e) { console.warn('ajuste/depuracao falhou', e); }
 
   const _p = new THREE.Vector3();
   const _q = new THREE.Quaternion();
@@ -392,6 +398,7 @@ export function montarCenaFlash(container, opcoes = {}) {
   const _apoio = new THREE.Vector3();
   const _t = new THREE.Vector3();
   const DEDOS_APOIO = ['RightHandMiddle2', 'RightHandRing2', 'RightHandPinky2'];
+
 
   function quadro() {
     if (!rodando) return;
@@ -454,7 +461,9 @@ export function montarCenaFlash(container, opcoes = {}) {
       _lado.crossVectors(_cima, _fora).normalize();
       _base.makeBasis(_lado, _cima, _fora);
       _qm.setFromRotationMatrix(_base);
-      _qm.premultiply(_tilt.setFromAxisAngle(_lado, -0.20));
+      _qm.premultiply(_tilt.setFromAxisAngle(_lado, PEGA.tomba));
+      if (PEGA.gira) _qm.premultiply(_tilt.setFromAxisAngle(_cima, PEGA.gira));
+      if (PEGA.rola) _qm.premultiply(_tilt.setFromAxisAngle(_fora, PEGA.rola));
       mao.getWorldQuaternion(_q);
       celular.quaternion.copy(_q.invert().multiply(_qm));
 
@@ -475,11 +484,12 @@ export function montarCenaFlash(container, opcoes = {}) {
       if (quantos) {
         _apoio.divideScalar(quantos);
         // fora da palma, para os dedos ficarem atras e nao dentro
-        _apoio.addScaledVector(_fora, 0.026);
+        _apoio.addScaledVector(_fora, PEGA.fora);
         /* E ACIMA da mao. Nas fotos de referencia a mao segura o TERCO DE BAIXO
            do aparelho e o resto sobe — centrando o celular no ponto de apoio,
            como eu fazia, a mao ficava no meio dele e nao lia como segurar. */
-        _apoio.addScaledVector(_cima, 0.046);
+        _apoio.addScaledVector(_cima, PEGA.cima);
+        if (PEGA.lado) _apoio.addScaledVector(_lado, PEGA.lado);
         celular.position.copy(mao.worldToLocal(_apoio));
       }
     }
