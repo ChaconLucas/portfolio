@@ -223,23 +223,27 @@ export function montarCenaFlash(container, opcoes = {}) {
            encaixa nao e a palma nem a ponta: e o meio entre a base e a ponta do
            dedo medio. Punho e base davam o celular atras da mao; extrapolar
            alem da base jogava para baixo do corpo. */
-        /* PONTO DE PINCA: entre a ponta do polegar e a ponta dos dedos.
-           Essa e a referencia que eu vinha errando. A mao do clipe esta FECHADA
-           — nao existe palma aberta onde apoiar. O que segura e a pinca entre o
-           polegar e os dedos, e e nela que o objeto do animador estava. Punho,
-           palma e base do dedo colocavam o aparelho dentro da carne. */
-        const pPolegar = new THREE.Vector3();
-        const pPontaInd = new THREE.Vector3();
-        const oPolegar = m.ossos.RightHandThumb4 || m.ossos.RightHandThumb3;
-        const oPontaInd = m.ossos.RightHandIndex4 || m.ossos.RightHandIndex3;
+        /* A PRATELEIRA DOS DEDOS CURVADOS.
+           Medindo o clipe: indicador 6,2 cm da base a ponta (esticado), medio
+           4,5, minimo 2,9 (curvados), polegar 8,7. Isso nao e punho fechado nem
+           pinca — e a mao em concha de quem segura um celular e toca com o
+           indicador.
+           O aparelho apoia na falange do MEIO do medio, do anelar e do minimo,
+           que formam a prateleira; o polegar fica por cima e o indicador livre.
+           Punho, palma, base do dedo e pinca colocavam ele dentro da carne. */
+        const apoio = new THREE.Vector3();
+        const tmp = new THREE.Vector3();
+        let quantos = 0;
+        ['Middle2', 'Ring2', 'Pinky2'].forEach((nome) => {
+          const b = m.ossos['RightHand' + nome];
+          if (!b) return;
+          b.getWorldPosition(tmp);
+          apoio.add(tmp);
+          quantos++;
+        });
         const alvoMundo = new THREE.Vector3();
-        if (oPolegar && oPontaInd) {
-          oPolegar.getWorldPosition(pPolegar);
-          oPontaInd.getWorldPosition(pPontaInd);
-          alvoMundo.copy(pPolegar).lerp(pPontaInd, 0.5);
-        } else {
-          alvoMundo.copy(pPunho).lerp(pDedo, 1.05);
-        }
+        if (quantos) alvoMundo.copy(apoio).divideScalar(quantos);
+        else alvoMundo.copy(pPunho).lerp(pDedo, 1.05);
 
         const eixoDedos = new THREE.Vector3();
         const atravessaPalma = new THREE.Vector3();
@@ -274,7 +278,7 @@ export function montarCenaFlash(container, opcoes = {}) {
         maoD.getWorldQuaternion(qPai);
         celular.quaternion.copy(qPai.clone().invert().multiply(qMundo));
 
-        alvoMundo.add(normalPalma.clone().multiplyScalar(0.009));
+        alvoMundo.add(normalPalma.clone().multiplyScalar(0.016));
         celular.position.copy(maoD.worldToLocal(alvoMundo));
 
         celularNaMao = true;
