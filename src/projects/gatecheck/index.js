@@ -154,29 +154,24 @@ export function montarCenaGatecheck(container) {
         mm.metalness = 0.02;
       });
     });
+    /* A cadeira desaparece junto com o personagem: no fim do zoom o encosto
+       ficava na frente, tapando a parte de baixo da tela. Materiais clonados
+       porque o modelo pode compartilhar material entre pecas. */
+    c.traverse((x) => {
+      if (!x.isMesh || !x.material) return;
+      const lista = Array.isArray(x.material) ? x.material : [x.material];
+      const clones = lista.map((mm) => {
+        const cl = mm.clone();
+        cl.transparent = true;
+        materiaisPessoa.push(cl);
+        return cl;
+      });
+      x.material = Array.isArray(x.material) ? clones : clones[0];
+    });
     scene.add(c);
     estacao.cadeira.visible = false;
     try { if (window.__gate) window.__gate.cadeiraPronta = c; } catch (e) {}
   }, undefined, (e) => console.warn('cadeira nao carregou, mantendo a de primitivas', e));
-
-  /* Gabinete pronto: 2.592 triangulos, 170 KB. O de primitivas nunca passou de
-     uma caixa de vidro com blocos dentro. */
-  new GLTFLoader().load('/assets/models/gabinete.glb', (gl) => {
-    const gb = gl.scene;
-    gb.traverse((x) => { if (x.isMesh) { x.castShadow = true; x.receiveShadow = true; } });
-    const b0 = new THREE.Box3().setFromObject(gb);
-    const alt = b0.max.y - b0.min.y;
-    if (alt > 0.001) gb.scale.setScalar(0.44 / alt);
-    gb.rotation.y = -0.30;
-    gb.updateMatrixWorld(true);
-    // mesma licao da cadeira: posicionar pela origem nao serve, o volume manda
-    const b = new THREE.Box3().setFromObject(gb);
-    gb.position.x += 0.92 - (b.min.x + b.max.x) / 2;
-    gb.position.z += -0.14 - (b.min.z + b.max.z) / 2;
-    gb.position.y += ALTURA_TAMPO - b.min.y;
-    scene.add(gb);
-    estacao.gabinete.visible = false;
-  }, undefined, (e) => console.warn('gabinete nao carregou, mantendo o de primitivas', e));
 
   carregarPersonagem('/assets/models/bryce.glb').then((m) => {
     modelo = m;
@@ -453,6 +448,7 @@ export function montarCenaGatecheck(container) {
     const vivo = alfa > 0.01;
     if (modelo) { if (modelo.raiz.visible !== vivo) modelo.raiz.visible = vivo; }
     else if (pessoa.raiz.visible !== vivo) pessoa.raiz.visible = vivo;
+    if (cadeiraPronta && cadeiraPronta.visible !== vivo) cadeiraPronta.visible = vivo;
     for (let i = 0; i < materiaisPessoa.length; i++) materiaisPessoa[i].opacity = alfa;
 
     if (estacao.gabinete.userData.fans && !reduzido) {

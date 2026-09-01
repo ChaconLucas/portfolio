@@ -246,7 +246,7 @@ export function criarGabinete() {
   const y = ALTURA_MESA + A / 2;
 
   // estrutura: so as quinas, para o vidro dominar
-  const perfil = 0.016;
+  const perfil = 0.020;
   const quina = caixa(perfil, A, perfil, 0.004);
   [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) => {
     g.add(peca(quina, matBranco(), sx * (L / 2 - perfil / 2), y, sz * (P / 2 - perfil / 2)));
@@ -256,13 +256,19 @@ export function criarGabinete() {
   g.add(peca(caixa(L, 0.018, P, 0.005), matBranco(), 0, y - A / 2, 0));
 
   // painel de vidro frontal e lateral
-  const vidroF = new THREE.Mesh(new THREE.PlaneGeometry(L - perfil, A - 0.02), matVidro());
-  vidroF.position.set(0, y, P / 2);
+  // frente e lateral em vidro; o resto fechado, como um aquario de verdade
+  const vidroF = new THREE.Mesh(new THREE.PlaneGeometry(L - perfil, A - 0.024), matVidro());
+  vidroF.position.set(0, y, P / 2 + 0.001);
   g.add(vidroF);
-  const vidroL = new THREE.Mesh(new THREE.PlaneGeometry(P - perfil, A - 0.02), matVidro());
-  vidroL.position.set(-L / 2, y, 0);
+  const vidroL = new THREE.Mesh(new THREE.PlaneGeometry(P - perfil, A - 0.024), matVidro());
+  vidroL.position.set(-L / 2 - 0.001, y, 0);
   vidroL.rotation.y = Math.PI / 2;
   g.add(vidroL);
+  // painel traseiro e a lateral oposta, fechados em branco
+  const tampaD = peca(caixa(0.012, A, P, 0.004), matBranco(), L / 2, y, 0);
+  g.add(tampaD);
+  const tampaT = peca(caixa(L, A, 0.012, 0.004), matBranco(), 0, y, -P / 2);
+  g.add(tampaT);
 
   // INTERIOR — antes era so uma placa e o gabinete lia como caixa vazia.
   // Um aquario so funciona se tiver o que olhar dentro dele.

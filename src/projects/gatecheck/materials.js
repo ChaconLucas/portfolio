@@ -64,8 +64,8 @@ export const matPele = () => memo('pele', () => new THREE.MeshStandardMaterial({
 
 /** O gabinete aquario: vidro de verdade, para o interior aparecer. */
 export const matVidro = () => memo('vidro', () => new THREE.MeshPhysicalMaterial({
-  color: PALETA.vidro, roughness: 0.06, metalness: 0, transmission: 0.92,
-  thickness: 0.02, ior: 1.45, transparent: true, opacity: 0.42, side: THREE.DoubleSide
+  color: 0xdcecf6, roughness: 0.03, metalness: 0, transmission: 0.97,
+  thickness: 0.012, ior: 1.45, transparent: true, opacity: 0.22, side: THREE.DoubleSide
 }));
 
 /** Libera tudo que foi memoizado. Chamado so no descarte da cena. */
