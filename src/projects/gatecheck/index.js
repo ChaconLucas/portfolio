@@ -49,7 +49,7 @@ export function montarCenaGatecheck(container) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, tetoDPR));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMappingExposure = 0.96;
   renderer.shadowMap.enabled = !ehMobile();
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -74,7 +74,9 @@ export function montarCenaGatecheck(container) {
   pmrem.compileEquirectangularShader();
   const ambiente = pmrem.fromScene(new RoomEnvironment(), 0.035);
   scene.environment = ambiente.texture;
-  scene.environmentIntensity = 0.62;
+  /* 0,35 e nao 0,62: somado a hemisferica o ambiente levantava as superficies
+     brancas e comia o contraste — a cena ficava clara e sem material. */
+  scene.environmentIntensity = 0.35;
 
   const camera = new THREE.PerspectiveCamera(38, 1, 0.05, 60);
   const rig = criarRigCamera(camera);
@@ -303,7 +305,7 @@ export function montarCenaGatecheck(container) {
   }).catch((e) => console.warn('modelo nao carregou, seguindo com o boneco simples', e));
 
   /* ---------------------------------------------------------------- luz -- */
-  scene.add(new THREE.HemisphereLight(0xbcc6ff, 0x14121c, 0.55));
+  scene.add(new THREE.HemisphereLight(0xbcc6ff, 0x14121c, 0.28));
 
   const chave = new THREE.DirectionalLight(0xfff2e6, 1.15);
   chave.position.set(2.6, 3.4, 2.2);

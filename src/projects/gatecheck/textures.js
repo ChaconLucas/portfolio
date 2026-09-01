@@ -293,3 +293,32 @@ export function texturaEditor() {
 
   return finalizar(c);
 }
+
+/**
+ * Grao fino para usar como mapa de rugosidade.
+ *
+ * Superficie branca com rugosidade constante reflete igual em cada ponto e o
+ * olho le como plastico chapado. Variando a rugosidade por pixel, o brilho
+ * quebra e aparece material — sem custo de memoria relevante, porque e um
+ * quadrado pequeno repetido.
+ */
+export function texturaGrao() {
+  const N = 256;
+  const { c, ctx } = tela(N, N);
+  const img = ctx.createImageData(N, N);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const p = i / 4;
+    const x = p % N, y = (p / N) | 0;
+    // duas frequencias: fibra longa mais um ruido fino por cima
+    const fibra = Math.sin(y * 0.7 + Math.sin(x * 0.04) * 2.2) * 10;
+    const fino = ((x * 374761393 + y * 668265263) % 37) - 18;
+    const v = 150 + fibra + fino;
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+    img.data[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(6, 6);
+  return t;
+}

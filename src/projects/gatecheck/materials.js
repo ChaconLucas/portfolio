@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { texturaGrao } from './textures.js';
 
 /**
  * Paleta e materiais da cena. Ficam num lugar so para as pecas nao divergirem:
@@ -27,11 +28,13 @@ function memo(chave, criar) {
 }
 
 export const matBranco = () => memo('branco', () => new THREE.MeshPhysicalMaterial({
-  color: PALETA.branco, roughness: 0.42, metalness: 0.02, clearcoat: 0.35, clearcoatRoughness: 0.4
+  color: PALETA.branco, roughness: 0.46, metalness: 0.02,
+  clearcoat: 0.3, clearcoatRoughness: 0.45,
+  roughnessMap: texturaGrao()
 }));
 
 export const matBrancoFosco = () => memo('brancoFosco', () => new THREE.MeshStandardMaterial({
-  color: PALETA.brancoFrio, roughness: 0.72, metalness: 0.03
+  color: PALETA.brancoFrio, roughness: 0.74, metalness: 0.03, roughnessMap: texturaGrao()
 }));
 
 export const matRosa = () => memo('rosa', () => new THREE.MeshPhysicalMaterial({
@@ -43,7 +46,7 @@ export const matRosaEscuro = () => memo('rosaEscuro', () => new THREE.MeshStanda
 }));
 
 export const matGrafite = () => memo('grafite', () => new THREE.MeshStandardMaterial({
-  color: PALETA.grafite, roughness: 0.55, metalness: 0.25
+  color: PALETA.grafite, roughness: 0.58, metalness: 0.25, roughnessMap: texturaGrao()
 }));
 
 export const matPreto = () => memo('preto', () => new THREE.MeshStandardMaterial({
