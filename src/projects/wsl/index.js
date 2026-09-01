@@ -124,8 +124,7 @@ function posarEmPe(m, alvo) {
   const o = m.ossos;
   const g = (n) => o[n];
 
-  // aproximacao inicial: tira os bracos da horizontal da pose de repouso
-  if (g('LeftArm')) g('LeftArm').rotation.z = 1.32;
+  // aproximacao inicial do braco que vai a tela; o esquerdo e tratado adiante
   if (g('RightArm')) g('RightArm').rotation.z = -1.32;
   // leve contraposto, para nao ficar em posicao de sentido
   if (g('Spine')) g('Spine').rotation.z = 0.02;
@@ -148,17 +147,36 @@ function posarEmPe(m, alvo) {
      esticado para a FRENTE — a mao parava em z=0,080, dentro da TV, que fica em
      0,036. Com um alvo caido ao lado do corpo isso nao acontece: o alvo e um
      ponto no mundo, entao nao ha como ele terminar dentro da parede. */
+  /* O braco esquerdo so PENDE, entao nao usa IK.
+     Com IK a posicao saia certa mas a orientacao nao: `setFromUnitVectors`
+     devolve a rotacao minima e deixa o giro em torno do proprio osso solto — o
+     punho ficava torcido, com a palma para tras.
+     Aqui a rotacao e aplicada no MUNDO, em torno de Z, girando o braco da
+     horizontal da pose de repouso ate ficar caido. Como e um giro puro em torno
+     de um eixo perpendicular ao osso, o rolamento dele nao muda, e a mao mantem
+     a orientacao natural que veio do modelo. */
   const ombroE = g('LeftArm');
   const cotoveloE = g('LeftForeArm');
-  const maoE = g('LeftHand') || m.maoE;
-  if (ombroE && cotoveloE && maoE) {
+  if (ombroE) {
+    const qW = new THREE.Quaternion();
+    const qP = new THREE.Quaternion();
+    const giro = new THREE.Quaternion();
+
     m.raiz.updateMatrixWorld(true);
-    const ps = new THREE.Vector3().setFromMatrixPosition(ombroE.matrixWorld);
-    ikBraco(
-      ombroE, cotoveloE, maoE,
-      new THREE.Vector3(ps.x - 0.05, ps.y - 0.46, ps.z + 0.06),
-      new THREE.Vector3(-0.55, -1, 0.15).normalize()
-    );
+    ombroE.getWorldQuaternion(qW);
+    ombroE.parent.getWorldQuaternion(qP);
+    giro.setFromAxisAngle(new THREE.Vector3(0, 0, 1), 1.42);
+    ombroE.quaternion.copy(qP.invert().multiply(giro).multiply(qW));
+    ombroE.updateWorldMatrix(false, true);
+
+    // cotovelo com uma dobra pequena: braco totalmente reto parece proteses
+    if (cotoveloE) {
+      cotoveloE.getWorldQuaternion(qW);
+      cotoveloE.parent.getWorldQuaternion(qP);
+      giro.setFromAxisAngle(new THREE.Vector3(0, 0, 1), 0.24);
+      cotoveloE.quaternion.copy(qP.invert().multiply(giro).multiply(qW));
+      cotoveloE.updateWorldMatrix(false, true);
+    }
   }
 
   return { ombro, cotovelo, mao, polo, repouso, alvo: alvo.clone() };
