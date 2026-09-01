@@ -400,9 +400,13 @@ export function montarCenaGatecheck(container) {
          voltar para o repouso acompanhando a mao na volta — que era o "o mouse
          vem junto na hora de soltar". */
       if (mouseZona.segura > 0.55) {
-        const a2 = 1 - Math.pow(0.004, dt);
-        estacao.mouse.position.x += (px - estacao.mouse.position.x) * a2;
-        estacao.mouse.position.z += (pz - estacao.mouse.position.z) * a2;
+        /* Sem amortecimento no arrasto: o suavizador anterior convergia ~8% por
+           quadro e o mouse ficava correndo atras da mao. Preso e preso — o peso
+           vem do proprio `segura`, entao a pegada entra suave e, ja segurando
+           (peso 1), o mouse anda exatamente junto. */
+        const peso = mouseZona.segura;
+        estacao.mouse.position.x += (px - estacao.mouse.position.x) * peso;
+        estacao.mouse.position.z += (pz - estacao.mouse.position.z) * peso;
       }
     }
 
