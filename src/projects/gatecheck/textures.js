@@ -322,3 +322,73 @@ export function texturaGrao() {
   t.repeat.set(6, 6);
   return t;
 }
+
+/**
+ * Teclado desenhado inteiro: teclas, vaos e legendas.
+ *
+ * Em `InstancedMesh` todas as teclas dividem o mesmo material, entao nao ha como
+ * dar uma letra diferente a cada uma sem escrever shader. Nesta distancia o
+ * desenho resolve melhor: le como teclado de verdade e custa uma textura so.
+ */
+export function texturaTeclado() {
+  const L = 1024, A = 489;
+  const { c, ctx } = tela(L, A);
+
+  ctx.fillStyle = '#c2306e';
+  ctx.fillRect(0, 0, L, A);
+
+  const fileiras = [
+    [['esc', 1.3], ['F1', 1], ['F2', 1], ['F3', 1], ['F4', 1], ['F5', 1], ['F6', 1],
+     ['F7', 1], ['F8', 1], ['F9', 1], ['F10', 1], ['F11', 1], ['F12', 1], ['del', 1.3]],
+    [['`', 1], ['1', 1], ['2', 1], ['3', 1], ['4', 1], ['5', 1], ['6', 1], ['7', 1],
+     ['8', 1], ['9', 1], ['0', 1], ['-', 1], ['=', 1], ['⌫', 1.6]],
+    [['tab', 1.5], ['Q', 1], ['W', 1], ['E', 1], ['R', 1], ['T', 1], ['Y', 1], ['U', 1],
+     ['I', 1], ['O', 1], ['P', 1], ['[', 1], [']', 1], ['|', 1.1]],
+    [['caps', 1.8], ['A', 1], ['S', 1], ['D', 1], ['F', 1], ['G', 1], ['H', 1], ['J', 1],
+     ['K', 1], ['L', 1], [';', 1], ["'", 1], ['↵', 1.8]],
+    [['shift', 2.3], ['Z', 1], ['X', 1], ['C', 1], ['V', 1], ['B', 1], ['N', 1], ['M', 1],
+     [',', 1], ['.', 1], ['/', 1], ['⇧', 2.3]],
+    [['ctrl', 1.3], ['alt', 1.2], ['⌘', 1.3], ['', 6.4], ['⌘', 1.3], ['alt', 1.2],
+     ['←', 1], ['↑', 1], ['↓', 1], ['→', 1]]
+  ];
+
+  const MARGEM = 14, VAO = 5;
+  const alturaLinha = (A - MARGEM * 2 - VAO * (fileiras.length - 1)) / fileiras.length;
+
+  fileiras.forEach((linha, i) => {
+    const unidades = linha.reduce((s2, k) => s2 + k[1], 0);
+    const largura = (L - MARGEM * 2 - VAO * (linha.length - 1)) / unidades;
+    let x = MARGEM;
+    const y = MARGEM + i * (alturaLinha + VAO);
+
+    linha.forEach(([rot, u]) => {
+      const w = largura * u;
+      const h = alturaLinha;
+
+      // sombra sob a tecla, para o vao ter profundidade
+      ctx.fillStyle = 'rgba(0,0,0,.28)';
+      ctx.beginPath(); ctx.roundRect(x, y + 2.5, w, h, 5); ctx.fill();
+
+      // corpo da tecla, com o topo mais claro
+      const g = ctx.createLinearGradient(0, y, 0, y + h);
+      g.addColorStop(0, '#fdf1f6');
+      g.addColorStop(1, '#e6d3dc');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.roundRect(x, y, w, h - 2.5, 5); ctx.fill();
+
+      if (rot) {
+        const tam = rot.length > 2 ? 13 : 17;
+        ctx.fillStyle = '#5c3247';
+        ctx.font = `${tam}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(rot, x + w / 2, y + h / 2 - 1);
+      }
+      x += w + VAO;
+    });
+  });
+
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  return finalizar(c);
+}
