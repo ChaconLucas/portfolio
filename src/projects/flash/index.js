@@ -241,8 +241,18 @@ export function montarCenaFlash(container, opcoes = {}) {
         const iIndic = m.ossos.RightHandIndex1;
         const iMinimo = m.ossos.RightHandPinky1;
 
-        // eixo longo do aparelho: a direcao de pega, do punho para os dedos
-        eixoDedos.copy(pPonta).sub(pPunho).normalize();
+        /* Eixo longo do aparelho: a direcao do ANTEBRACO, nao a dos dedos.
+           Nessa pose a mao esta fechada, entao punho -> ponta do dedo aponta
+           para dentro da curva e o celular saia na diagonal. Quem segura um
+           telefone o alinha com o antebraco; e essa a referencia estavel. */
+        const pCotovelo = new THREE.Vector3();
+        const cotoveloD = m.ossos.RightForeArm;
+        if (cotoveloD) {
+          cotoveloD.getWorldPosition(pCotovelo);
+          eixoDedos.copy(pPunho).sub(pCotovelo).normalize();
+        } else {
+          eixoDedos.copy(pPonta).sub(pPunho).normalize();
+        }
         if (iIndic && iMinimo) {
           iIndic.getWorldPosition(pIndic);
           iMinimo.getWorldPosition(pMinimo);
