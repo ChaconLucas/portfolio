@@ -382,6 +382,51 @@ export function criarGabinete() {
     dentro.add(mang);
   }
 
+  /* --- reservatorio da water cooler: cilindro com liquido aceso ---
+     Peca alta e cilindrica no meio de tanta caixa: quebra a repeticao e ocupa o
+     vazio que sobrava entre o radiador e a placa. */
+  const tubo = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.024, 0.024, 0.150, 18, 1, true),
+    new THREE.MeshPhysicalMaterial({
+      color: 0xdfeaff, roughness: 0.06, metalness: 0,
+      transparent: true, opacity: 0.30, side: THREE.DoubleSide
+    })
+  );
+  tubo.position.set(-0.048, y + 0.052, -0.010);
+  dentro.add(tubo);
+  const liquido = new THREE.Mesh(new THREE.CylinderGeometry(0.020, 0.020, 0.112, 18), rgb(0xff5fa2));
+  liquido.position.set(-0.048, y + 0.036, -0.010);
+  dentro.add(liquido);
+  dentro.add(peca(new THREE.CylinderGeometry(0.027, 0.027, 0.012, 18), dissipador, -0.048, y + 0.130, -0.010));
+  dentro.add(peca(new THREE.CylinderGeometry(0.030, 0.030, 0.020, 18), matPreto(), -0.048, y - 0.030, -0.010));
+
+  /* --- SSDs e gaiola de disco em cima da tampa da fonte --- */
+  [0.0, 0.052].forEach((dz, i) => {
+    dentro.add(peca(caixa(0.070, 0.010, 0.044, 0.002), dissipador,
+      0.030, yShroud + 0.036, -0.070 + dz));
+    const led = new THREE.Mesh(new THREE.BoxGeometry(0.030, 0.003, 0.004), luzRoxa);
+    led.position.set(0.030, yShroud + 0.042, -0.050 + dz);
+    dentro.add(led);
+  });
+
+  /* --- suporte vertical da GPU, ligando ela a tampa da fonte --- */
+  dentro.add(peca(caixa(0.010, 0.044, 0.070, 0.003), matGrafite(), xBandeja - 0.104, yGPU - 0.030, 0.070));
+  dentro.add(peca(caixa(0.055, 0.006, 0.075, 0.002), dissipador, xBandeja - 0.082, yGPU - 0.050, 0.070));
+
+  /* --- mais cabos: um chicote grosso subindo pelo fundo --- */
+  for (let i = 0; i < 4; i++) {
+    const ch = new THREE.Mesh(
+      new THREE.TorusGeometry(0.070, 0.005, 6, 18, Math.PI * 0.45), capaCabo);
+    ch.position.set(xBandeja + 0.020, y - 0.010, -0.115 + i * 0.011);
+    ch.rotation.set(0, Math.PI / 2, -1.15);
+    dentro.add(ch);
+  }
+  // conectores na borda inferior da placa
+  for (let i = 0; i < 3; i++) {
+    dentro.add(peca(caixa(0.008, 0.012, 0.026, 0.002), rgb(0x2f3540),
+      xBandeja + 0.008, y - 0.058, -0.060 + i * 0.036));
+  }
+
   /* --- bonequinho de enfeite em cima da tampa da fonte --- */
   const boneco = new THREE.Group();
   const corBoneco = new THREE.MeshStandardMaterial({ color: 0xf2f2f4, roughness: 0.55 });
