@@ -99,6 +99,17 @@ export function criarRigCamera(camera, opcoes = {}) {
     /** chamado no resize: a distancia final depende do FOV e do aspecto */
     reenquadrar: enquadrarTela,
 
+    /**
+     * Move o alvo do enquadramento em tempo de execucao.
+     * Serve para quando o objeto de destino se mexe — no capitulo do FLASH o
+     * celular esta preso a mao do personagem e acompanha a animacao, entao um
+     * ponto fixo deixaria ele sair do quadro justamente no fim do zoom.
+     */
+    mirar(ponto) {
+      ALVO.x = ponto.x; ALVO.y = ponto.y; ALVO.z = ponto.z;
+      enquadrarTela();
+    },
+
     /** @param {number} x -1..1 @param {number} y -1..1 */
     apontar(x, y) { ponteiro.set(x, y); },
 

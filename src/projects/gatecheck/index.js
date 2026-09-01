@@ -384,19 +384,6 @@ export function montarCenaGatecheck(container, opcoes = {}) {
     estacao.tela.material.needsUpdate = true;
   }
 
-  /* Previa do iPhone: so com ?iphone=1. Fica em cima da mesa, em escala real,
-     para conferir proporcao e acabamento antes de existir capitulo do FLASH. */
-  try {
-    if (new URLSearchParams(location.search).get('iphone') === '1') {
-      import('../flash/iphone.js').then(({ criarIphone }) => {
-        const { grupo } = criarIphone();
-        grupo.position.set(0.30, ALTURA_TAMPO + 0.005, 0.30);
-        grupo.rotation.set(-Math.PI / 2, 0, -0.35);
-        scene.add(grupo);
-      });
-    }
-  } catch (e) {}
-
   // gancho de inspecao: so com ?dbg=1, para medir posicoes sem chutar
   try {
     if (new URLSearchParams(location.search).get('dbg') === '1') {
