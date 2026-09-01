@@ -7616,10 +7616,16 @@ html{
       // estava chumbado no CSS e descolava de qualquer mudanca de ritmo
       const FIM={hack:4.42,ai:4.86}[modo]||4.42;
       document.documentElement.style.setProperty('--nome-atraso',(FIM/VEL+.10).toFixed(2)+'s');
-      // ritmo global: um so numero acelera as duas aberturas sem mexer em cada delay
-      if(eb0.getAnimations) requestAnimationFrame(()=>{
-        try{ eb0.getAnimations({subtree:true}).forEach(a=>a.updatePlaybackRate(VEL)); }catch(e){}
-      });
+      // Ritmo global: um so numero acelera as duas aberturas sem mexer em cada delay.
+      // Aplicado de forma sincrona (com um flush de layout antes, para as animacoes ja
+      // existirem): em aba de fundo o requestAnimationFrame nao dispara, e a abertura
+      // rodava sem o acelerador enquanto o --nome-atraso ja contava com ele.
+      if(eb0.getAnimations){
+        const ritmo=()=>{ try{ eb0.getAnimations({subtree:true}).forEach(a=>a.updatePlaybackRate(VEL)); }catch(e){} };
+        void eb0.offsetHeight;
+        ritmo();
+        requestAnimationFrame(ritmo);   // rede: pega o que ainda nao existia
+      }
     }
   }
 
