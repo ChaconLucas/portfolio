@@ -133,3 +133,40 @@ export function texturaBlackout() {
   ctx.fillRect(0, 0, 256, 256);
   return finalizar(c, true);
 }
+
+/** Mousepad de tecido: trama fina, ruido leve e costura na borda. */
+export function texturaMousepad() {
+  const { c, ctx } = tela(512, 512);
+
+  ctx.fillStyle = '#ff5fa2';
+  ctx.fillRect(0, 0, 512, 512);
+
+  // trama: fios claros e escuros cruzados, bem sutis
+  ctx.globalAlpha = 0.10;
+  for (let i = 0; i < 512; i += 3) {
+    ctx.fillStyle = i % 6 === 0 ? '#ffffff' : '#7a1d45';
+    ctx.fillRect(i, 0, 1, 512);
+    ctx.fillRect(0, i, 512, 1);
+  }
+  ctx.globalAlpha = 1;
+
+  // grão irregular, para o tecido nao virar xadrez perfeito
+  const d = ctx.getImageData(0, 0, 512, 512);
+  for (let i = 0; i < d.data.length; i += 4) {
+    const n = ((i * 2654435761) % 23) - 11;
+    d.data[i] += n; d.data[i + 1] += n; d.data[i + 2] += n;
+  }
+  ctx.putImageData(d, 0, 0);
+
+  // costura da borda
+  ctx.strokeStyle = '#c2306e';
+  ctx.lineWidth = 10;
+  ctx.strokeRect(5, 5, 502, 502);
+  ctx.strokeStyle = 'rgba(255,255,255,.22)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([7, 6]);
+  ctx.strokeRect(12, 12, 488, 488);
+  ctx.setLineDash([]);
+
+  return finalizar(c);
+}

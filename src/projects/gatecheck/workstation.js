@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { texturaMousepad } from './textures.js';
 import {
   PALETA, matBranco, matBrancoFosco, matRosa, matRosaEscuro,
   matGrafite, matPreto, matMidnight, matTecido, matVidro
@@ -275,7 +276,7 @@ export function criarMousepadEMouse() {
 
   // mousepad quadrado rosa
   const pad = new THREE.Mesh(new THREE.PlaneGeometry(0.60, 0.60),
-    new THREE.MeshStandardMaterial({ color: PALETA.rosa, roughness: 0.95, metalness: 0 }));
+    new THREE.MeshStandardMaterial({ map: texturaMousepad(), roughness: 0.96, metalness: 0 }));
   pad.rotation.x = -Math.PI / 2;
   pad.position.set(0.09, ALTURA_MESA + 0.002, 0.05);
   pad.receiveShadow = true;
@@ -302,9 +303,10 @@ export function criarMousepadEMouse() {
       const z = pos.getZ(i);                 // -1 (frente) .. 1 (tras)
       const t = z * 0.5 + 0.5;              // 0 na frente, 1 atras
       pos.setX(i, pos.getX(i) * (0.70 + t * 0.30));
-      // o ponto alto de um mouse fica na parte de tras, onde a palma apoia.
-      // Com a cupula simetrica ele virava um seixo.
-      pos.setY(i, pos.getY(i) * (0.52 + t * 0.48));
+      /* Modulacao suave. Com 0,52+0,48t os aneis proximos ao polo, do lado de
+         tras, ficavam mais altos que o proprio polo — e aquilo virava um bico
+         apontando para cima na traseira. */
+      pos.setY(i, pos.getY(i) * (0.88 + t * 0.12));
     }
     pos.needsUpdate = true;
     cupula.computeVertexNormals();
