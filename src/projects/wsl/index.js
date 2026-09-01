@@ -41,56 +41,82 @@ function suportaWebGL() {
 }
 
 /**
- * Poe o personagem de pe encostando a mao no painel.
+ * Cinematica inversa de duas juntas (CCD), para a mao alcancar um ponto.
  *
- * Sem clipe de animacao o modelo fica na pose de repouso, de bracos abertos.
- * Aqui os bracos descem e o direito sobe ate a tela — a altura sai por busca
- * binaria, o mesmo metodo usado para pousar as maos no teclado do GateCheck,
- * porque acertar angulo no olho quebra assim que qualquer proporcao muda.
+ * A primeira versao girava um EIXO de cada vez — `rotation.z` no ombro e
+ * `rotation.x` no cotovelo — por busca binaria. O problema e que o eixo de
+ * flexao de cada osso do Mixamo nao coincide com nenhum eixo do mundo, entao o
+ * braco chegava perto do alvo mas torcido.
+ *
+ * Aqui nao ha eixo escolhido: a cada passo, para cada osso, calculo a rotacao
+ * que leva o vetor osso->mao ate o vetor osso->alvo e aplico ela por quaternion.
+ * Funciona com qualquer convencao de esqueleto.
  */
-function posarEmPe(m, alvoY, alvoZ) {
+function alcancar(ossos, ponta, alvo, iteracoes = 12) {
+  const pb = new THREE.Vector3();
+  const pe = new THREE.Vector3();
+  const v1 = new THREE.Vector3();
+  const v2 = new THREE.Vector3();
+  const q = new THREE.Quaternion();
+  const qMundo = new THREE.Quaternion();
+  const qPai = new THREE.Quaternion();
+
+  for (let i = 0; i < iteracoes; i++) {
+    // do osso mais proximo da mao para o mais distante: e a ordem do CCD
+    for (let k = ossos.length - 1; k >= 0; k--) {
+      const b = ossos[k];
+      if (!b) continue;
+      b.updateWorldMatrix(true, true);
+      pb.setFromMatrixPosition(b.matrixWorld);
+      pe.setFromMatrixPosition(ponta.matrixWorld);
+
+      v1.copy(pe).sub(pb);
+      v2.copy(alvo).sub(pb);
+      if (v1.lengthSq() < 1e-8 || v2.lengthSq() < 1e-8) continue;
+      v1.normalize(); v2.normalize();
+
+      q.setFromUnitVectors(v1, v2);
+      b.getWorldQuaternion(qMundo);
+      b.parent.getWorldQuaternion(qPai);
+      b.quaternion.copy(qPai.invert().multiply(q).multiply(qMundo));
+      b.updateWorldMatrix(false, true);
+    }
+  }
+}
+
+/**
+ * Poe o personagem de pe encostando a mao no painel.
+ * Sem clipe de animacao o modelo fica na pose de repouso, de bracos abertos:
+ * os dois descem, e o direito vai ate a tela pela IK acima.
+ */
+function posarEmPe(m, alvo) {
   const o = m.ossos;
   const g = (n) => o[n];
 
-  // bracos para baixo: em pose de repouso eles ficam na horizontal
-  if (g('LeftArm')) g('LeftArm').rotation.z = 1.30;
-  if (g('RightArm')) g('RightArm').rotation.z = -1.30;
-  if (g('LeftForeArm')) g('LeftForeArm').rotation.y = -0.28;
-  if (g('RightForeArm')) g('RightForeArm').rotation.y = 0.28;
-
+  // bracos para baixo, saindo da pose de repouso
+  if (g('LeftArm')) g('LeftArm').rotation.z = 1.32;
+  if (g('LeftForeArm')) g('LeftForeArm').rotation.y = -0.30;
+  if (g('RightArm')) g('RightArm').rotation.z = -1.32;
+  if (g('RightForeArm')) g('RightForeArm').rotation.y = 0.30;
   // leve contraposto, para nao ficar em posicao de sentido
   if (g('Spine')) g('Spine').rotation.z = 0.02;
   if (g('Hips')) g('Hips').rotation.z = -0.03;
+  m.raiz.updateMatrixWorld(true);
 
-  const braco = g('RightArm');
-  const ante = g('RightForeArm');
-  const mao = m.dedoD || m.maoD;
-  if (!braco || !mao) return null;
+  const cadeia = [g('RightArm'), g('RightForeArm')];
+  const mao = g('RightHand') || m.maoD;
+  if (!cadeia[0] || !mao) return null;
 
-  const v = new THREE.Vector3();
-  const medir = () => { m.raiz.updateMatrixWorld(true); return mao.getWorldPosition(v).clone(); };
+  alcancar(cadeia, mao, alvo);
 
-  // 1) levanta o braco ate a mao chegar na altura do ponto de toque
-  let lo = -1.30, hi = 0.60;
-  for (let i = 0; i < 26; i++) {
-    const meio = (lo + hi) / 2;
-    braco.rotation.z = meio;
-    if (medir().y > alvoY) hi = meio; else lo = meio;
-  }
-  braco.rotation.z = (lo + hi) / 2;
-
-  // 2) estende o antebraco ate a mao alcancar o painel em profundidade
-  if (ante) {
-    let a = -1.20, b = 1.20;
-    for (let i = 0; i < 26; i++) {
-      const meio = (a + b) / 2;
-      ante.rotation.x = meio;
-      if (medir().z < alvoZ) b = meio; else a = meio;
+  return {
+    ombro: cadeia[0],
+    cotovelo: cadeia[1],
+    base: {
+      ombro: cadeia[0].quaternion.clone(),
+      cotovelo: cadeia[1] ? cadeia[1].quaternion.clone() : null
     }
-    ante.rotation.x = (a + b) / 2;
-  }
-
-  return { base: { bracoZ: braco.rotation.z, anteX: ante ? ante.rotation.x : 0 }, braco, ante };
+  };
 }
 
 export function montarCenaWsl(container) {
@@ -183,12 +209,16 @@ export function montarCenaWsl(container) {
     modelo = m;
     // sem clipe: fica na pose de repouso, que e em pe
     if (m.mixer) m.mixer.stopAllAction();
-    m.raiz.position.set(0.06, 0, 0.92);
+    /* 0,52 e nao 0,92: o braco mede 50 cm do ombro a mao, e a 0,92 a tela
+       ficava a 87 cm — fora de alcance. A IK entao esticava o braco na direcao
+       certa sem chegar, e o resultado lia como braco quebrado. */
+    m.raiz.position.set(0.10, 0, 0.52);
     m.raiz.rotation.y = Math.PI;   // de costas para a camera, de frente para a TV
     scene.add(m.raiz);
 
     m.materiais().forEach((x) => materiaisPessoa.push(x));
-    pose = posarEmPe(m, PAINEL.y - 0.16, PAINEL.z + 0.16);
+    // ponto de toque: um pouco abaixo do centro da tela, na altura do ombro
+    pose = posarEmPe(m, new THREE.Vector3(PAINEL.x + 0.16, PAINEL.y - 0.22, PAINEL.z + 0.05));
     try { if (window.__wsl) window.__wsl.modelo = m; } catch (e) {}
   }).catch((e) => console.warn('modelo da WSL nao carregou', e));
 
@@ -221,6 +251,9 @@ export function montarCenaWsl(container) {
   let progresso = 0, progCamera = 0, rodando = true;
   let ultimo = performance.now();
   const relogio = new THREE.Clock();
+  const _giro = new THREE.Quaternion();
+  const _eixoY = new THREE.Vector3(0, 1, 0);
+  const _eixoX = new THREE.Vector3(1, 0, 0);
 
   try {
     if (new URLSearchParams(location.search).get('dbg') === '1') {
@@ -243,8 +276,14 @@ export function montarCenaWsl(container) {
        proposito — em pe, qualquer exagero vira dancinha. */
     const calma = 1 - rig.proximidade(progCamera);
     if (pose && !reduzido) {
-      pose.braco.rotation.z = pose.base.bracoZ + Math.sin(t * 0.5) * 0.045 * calma;
-      if (pose.ante) pose.ante.rotation.x = pose.base.anteX + Math.sin(t * 0.7 + 1.1) * 0.06 * calma;
+      /* Oscila em torno da pose resolvida, por quaternion — mexer num eixo solto
+         desfaria a orientacao que a IK encontrou. */
+      _giro.setFromAxisAngle(_eixoY, Math.sin(t * 0.5) * 0.05 * calma);
+      pose.ombro.quaternion.copy(pose.base.ombro).multiply(_giro);
+      if (pose.cotovelo && pose.base.cotovelo) {
+        _giro.setFromAxisAngle(_eixoX, Math.sin(t * 0.7 + 1.1) * 0.07 * calma);
+        pose.cotovelo.quaternion.copy(pose.base.cotovelo).multiply(_giro);
+      }
       if (modelo && modelo.tronco) modelo.tronco.rotation.y = Math.sin(t * 0.33) * 0.02 * calma;
     }
 
