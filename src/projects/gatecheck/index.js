@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
-import { criarEstacao, TOPO_TECLAS, TOPO_MOUSE } from './workstation.js';
+import { criarEstacao, TOPO_TECLAS, TOPO_MOUSE, ALTURA_MESA as ALTURA_TAMPO } from './workstation.js';
 import { criarPersonagem, animarPersonagem, pousarMaos } from './character.js';
 import { carregarPersonagem } from './character-glb.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -159,6 +159,25 @@ export function montarCenaGatecheck(container) {
     try { if (window.__gate) window.__gate.cadeiraPronta = c; } catch (e) {}
   }, undefined, (e) => console.warn('cadeira nao carregou, mantendo a de primitivas', e));
 
+  /* Gabinete pronto: 2.592 triangulos, 170 KB. O de primitivas nunca passou de
+     uma caixa de vidro com blocos dentro. */
+  new GLTFLoader().load('/assets/models/gabinete.glb', (gl) => {
+    const gb = gl.scene;
+    gb.traverse((x) => { if (x.isMesh) { x.castShadow = true; x.receiveShadow = true; } });
+    const b0 = new THREE.Box3().setFromObject(gb);
+    const alt = b0.max.y - b0.min.y;
+    if (alt > 0.001) gb.scale.setScalar(0.44 / alt);
+    gb.rotation.y = -0.30;
+    gb.updateMatrixWorld(true);
+    // mesma licao da cadeira: posicionar pela origem nao serve, o volume manda
+    const b = new THREE.Box3().setFromObject(gb);
+    gb.position.x += 0.92 - (b.min.x + b.max.x) / 2;
+    gb.position.z += -0.14 - (b.min.z + b.max.z) / 2;
+    gb.position.y += ALTURA_TAMPO - b.min.y;
+    scene.add(gb);
+    estacao.gabinete.visible = false;
+  }, undefined, (e) => console.warn('gabinete nao carregou, mantendo o de primitivas', e));
+
   carregarPersonagem('/assets/models/bryce.glb').then((m) => {
     modelo = m;
     m.raiz.position.set(0.02, 0, 0.60);
@@ -316,25 +335,29 @@ export function montarCenaGatecheck(container) {
     carregador.load(src, (tex) => {
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-      // enquadra como `object-fit: cover`, sem distorcer a screenshot
-      const r = tex.image.width / tex.image.height;
-      if (r > proporcaoTela) {
-        tex.repeat.set(proporcaoTela / r, 1);
-        tex.offset.set((1 - proporcaoTela / r) / 2, 0);
-      } else {
-        tex.repeat.set(1, r / proporcaoTela);
-        tex.offset.set(0, (1 - r / proporcaoTela) / 2);
-      }
+      /* Sem recorte. Antes eu enquadrava como `object-fit: cover` e a
+         screenshot era cortada — justamente onde o zoom termina, que e onde ela
+         precisa aparecer inteira. Agora a MALHA da tela e que se ajusta a
+         proporcao da imagem, dentro da moldura. Nada e cortado e nada distorce;
+         sobra moldura em cima e embaixo, como um video widescreen num monitor. */
+      tex.repeat.set(1, 1);
+      tex.offset.set(0, 0);
       texturas[i] = tex;
+      proporcoes[i] = tex.image.width / tex.image.height;
       if (i === telaAtual) aplicarTela(telaAtual);
     });
   });
 
+  const proporcoes = [];
   let telaAtual = 0;
   function aplicarTela(i) {
     telaAtual = i;
     const tex = texturas[i];
     if (!tex) return;
+    // ajusta a malha a proporcao da imagem, sem passar da moldura
+    const r = proporcoes[i] || proporcaoTela;
+    if (r > proporcaoTela) estacao.tela.scale.set(1, proporcaoTela / r, 1);
+    else estacao.tela.scale.set(r / proporcaoTela, 1, 1);
     estacao.tela.material.map = tex;
     estacao.tela.material.color.set(0xffffff);
     estacao.tela.material.needsUpdate = true;

@@ -202,12 +202,26 @@ export function criarMonitor() {
   cabeca.rotation.x = 0.045;
 
   const L = 1.24, A = 0.72;
-  cabeca.add(peca(caixa(L, A, 0.045, 0.016), matPreto(), 0, 0, -0.012));
+  /* Moldura fina: a caixa unica de 4,5 cm dava um monitor grosso, com cara de
+     televisao antiga. Agora sao a traseira em cunha e uma borda de 8 mm. */
+  const tras = peca(caixa(L - 0.06, A - 0.06, 0.022, 0.012, 4), matPreto(), 0, 0, -0.021);
+  cabeca.add(tras);
+  const moldura = new THREE.Mesh(
+    new THREE.RingGeometry(0, 1, 4, 1),
+    new THREE.MeshStandardMaterial({ color: 0x0d0f15, roughness: 0.5 })
+  );
+  moldura.visible = false;
+  // borda: quatro reguas finas em volta da tela
+  const bw = 0.009;
+  [[0, A / 2 - bw / 2, L, bw], [0, -A / 2 + bw / 2, L, bw],
+   [-L / 2 + bw / 2, 0, bw, A], [L / 2 - bw / 2, 0, bw, A]].forEach(([bx, by, bl, ba]) => {
+    cabeca.add(peca(caixa(bl, ba, 0.016, 0.004, 3), matPreto(), bx, by, -0.004));
+  });
   // haste de tras ligando ao braco
-  cabeca.add(peca(caixa(0.16, 0.16, 0.06, 0.02), matPreto(), 0, 0, -0.05));
+  cabeca.add(peca(caixa(0.13, 0.13, 0.05, 0.016), matPreto(), 0, 0, -0.045));
 
   const tela = new THREE.Mesh(
-    new THREE.PlaneGeometry(L - 0.055, A - 0.055),
+    new THREE.PlaneGeometry(L - 0.022, A - 0.022),
     new THREE.MeshBasicMaterial({ color: 0x0b0d14, toneMapped: false })
   );
   tela.position.z = 0.014;
