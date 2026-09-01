@@ -61,8 +61,11 @@ export function criarIphone(op = {}) {
   const g = new THREE.Group();
   g.name = 'iphone';
 
+  /* Titanio natural e escuro e fosco, nao cromado. Com 0x8f8f96 e rugosidade
+     0,34 ele refletia demais e o aro virava uma faixa clara em volta da tela —
+     que e a primeira coisa que denuncia o modelo. */
   const titanio = new THREE.MeshPhysicalMaterial({
-    color: op.cor || 0x8f8f96, roughness: 0.34, metalness: 0.9, clearcoat: 0.2
+    color: op.cor || 0x55565c, roughness: 0.52, metalness: 0.82, clearcoat: 0
   });
   const preto = new THREE.MeshStandardMaterial({ color: 0x0b0c10, roughness: 0.45, metalness: 0.3 });
   const vidroTras = new THREE.MeshPhysicalMaterial({
@@ -86,7 +89,7 @@ export function criarIphone(op = {}) {
      Estando atras, a face frontal do titanio aparecia inteira e virava uma
      borda clara e larga em volta da tela — num iPhone o que se ve de frente e
      preto, e o titanio e so o fio da lateral. */
-  const moldura = new THREE.Mesh(placa(L - 0.0008, A - 0.0008, 0.0008, raio - 0.0004, 0.0002), preto);
+  const moldura = new THREE.Mesh(placa(L - 0.0005, A - 0.0005, 0.0008, raio - 0.0002, 0.0002), preto);
   moldura.position.z = E / 2 - 0.0001;
   g.add(moldura);
 
