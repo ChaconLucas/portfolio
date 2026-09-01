@@ -70,6 +70,12 @@ export function criarRigCamera(camera, opcoes = {}) {
    * Aqui a distancia sai da lente — o monitor termina inteiro na tela, do jeito
    * que ele e.
    */
+  /* Direcao de onde a camera olha o painel. Por padrao e de frente em +Z, que
+     serve para tela em parede. No capitulo do FLASH ela e a normal da tela do
+     celular: o aparelho fica na pega natural da mao e quem se move e a camera —
+     o contrario disso era torcer o celular ate atravessar os dedos. */
+  const DIRECAO = new THREE.Vector3(0, 0, 1);
+
   function enquadrarTela() {
     const tv = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
     const th = tv * camera.aspect;
@@ -77,8 +83,14 @@ export function criarRigCamera(camera, opcoes = {}) {
        pagina aberta, nao como um monitor ligado. A folga precisa caber a borda,
        a haste e um pedaco do tampo. */
     const d = Math.max(ALVO.largura / 2 / th, ALVO.altura / 2 / tv) * FOLGA;
-    CHAVES[CHAVES.length - 1].pos = [ALVO.x, ALVO.y, ALVO.z + d];
-    CHAVES[CHAVES.length - 2].pos = [ALVO.x + 0.10, ALVO.y + 0.03, ALVO.z + d * 1.75];
+    CHAVES[CHAVES.length - 1].pos = [
+      ALVO.x + DIRECAO.x * d, ALVO.y + DIRECAO.y * d, ALVO.z + DIRECAO.z * d
+    ];
+    CHAVES[CHAVES.length - 2].pos = [
+      ALVO.x + DIRECAO.x * d * 1.75 + 0.06,
+      ALVO.y + DIRECAO.y * d * 1.75 + 0.03,
+      ALVO.z + DIRECAO.z * d * 1.75
+    ];
     CHAVES[CHAVES.length - 1].alvo = [ALVO.x, ALVO.y, ALVO.z - 0.01];
     CHAVES[CHAVES.length - 2].alvo = [ALVO.x, ALVO.y + 0.005, ALVO.z - 0.01];
   }
@@ -105,8 +117,9 @@ export function criarRigCamera(camera, opcoes = {}) {
      * celular esta preso a mao do personagem e acompanha a animacao, entao um
      * ponto fixo deixaria ele sair do quadro justamente no fim do zoom.
      */
-    mirar(ponto) {
+    mirar(ponto, normal) {
       ALVO.x = ponto.x; ALVO.y = ponto.y; ALVO.z = ponto.z;
+      if (normal) DIRECAO.copy(normal).normalize();
       enquadrarTela();
     },
 

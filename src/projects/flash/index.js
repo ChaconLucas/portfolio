@@ -227,31 +227,41 @@ export function montarCenaFlash(container, opcoes = {}) {
            fica logo depois da base do dedo, uns 8 cm. */
         const alvoMundo = pPunho.clone().lerp(pDedo, 1.05);
 
-        /* ORIENTACAO tirada da propria mao.
-           Antes eu usava `lookAt` para um ponto fixo perto da camera. Isso
-           acerta no instante em que e calculado e erra em todos os outros: a
-           mao continua se mexendo com a animacao e leva o aparelho junto, entao
-           ele ia ficando de lado.
-           Agora o celular e alinhado a MAO — eixo longo na direcao dos dedos,
-           face na direcao da palma. Fica preso como um celular fica, e o giro
-           para mostrar a tela acontece so no fim, quando o corpo sai de cena. */
         const eixoDedos = new THREE.Vector3();
         const atravessaPalma = new THREE.Vector3();
         const normalPalma = new THREE.Vector3();
+
+        /* O aparelho acompanha a MAO, na pega natural.
+           Forcar a tela a encarar a camera resolvia a visibilidade e criava um
+           problema pior: o celular deixava de seguir os dedos e os atravessava.
+           Quem se move para ver a tela agora e a camera. */
+        const pCotovelo = new THREE.Vector3();
+        const cotoveloD = m.ossos.RightForeArm;
+        if (cotoveloD) cotoveloD.getWorldPosition(pCotovelo); else pCotovelo.copy(pPunho);
+        eixoDedos.copy(pPunho).sub(pCotovelo).normalize();
+
         const pIndic = new THREE.Vector3();
         const pMinimo = new THREE.Vector3();
         const iIndic = m.ossos.RightHandIndex1;
         const iMinimo = m.ossos.RightHandPinky1;
+        if (iIndic && iMinimo) {
+          iIndic.getWorldPosition(pIndic);
+          iMinimo.getWorldPosition(pMinimo);
+          atravessaPalma.copy(pMinimo).sub(pIndic).normalize();
+        } else {
+          atravessaPalma.set(1, 0, 0);
+        }
+        normalPalma.crossVectors(eixoDedos, atravessaPalma).normalize();
+        atravessaPalma.crossVectors(normalPalma, eixoDedos).normalize();
 
-        /* ORIENTACAO NAO E MAIS DERIVADA DOS OSSOS.
-           Tentei tirar do dedo, da palma e do antebraco. Cada uma acerta numa
-           pose e erra nas outras, porque a mao gira ao longo do clipe e leva o
-           aparelho junto — ora de frente, ora de lado.
-           Agora a regra e outra: a MAO manda na posicao, a CAMERA manda na
-           orientacao. O celular fica onde a mao esta e sempre com a tela para
-           quem assiste, que e o unico jeito de o conteudo do app ser visto num
-           capitulo que existe para mostrar o app. */
-        celular.position.copy(maoD.worldToLocal(alvoMundo.clone()));
+        const base = new THREE.Matrix4().makeBasis(atravessaPalma, eixoDedos, normalPalma);
+        const qMundo = new THREE.Quaternion().setFromRotationMatrix(base);
+        const qPai = new THREE.Quaternion();
+        maoD.getWorldQuaternion(qPai);
+        celular.quaternion.copy(qPai.clone().invert().multiply(qMundo));
+
+        alvoMundo.add(normalPalma.clone().multiplyScalar(0.009));
+        celular.position.copy(maoD.worldToLocal(alvoMundo));
 
         celularNaMao = true;
         // guarda a pose na mao: e ela que volta quando o scroll sobe
@@ -334,6 +344,7 @@ export function montarCenaFlash(container, opcoes = {}) {
   const _p = new THREE.Vector3();
   const _q = new THREE.Quaternion();
   const _aux = new THREE.Object3D();
+  const _n = new THREE.Vector3();
 
   function quadro() {
     if (!rodando) return;
@@ -350,8 +361,9 @@ export function montarCenaFlash(container, opcoes = {}) {
        com a animacao. Sem isso a camera miraria um ponto fixo e o celular
        sairia do quadro justamente no fim do zoom. */
     if (progCamera > 0.2) {
-      celular.getWorldPosition(_p);
-      rig.mirar(_p);
+      tela.getWorldPosition(_p);
+      _n.set(0, 0, 1).applyQuaternion(tela.getWorldQuaternion(_q));
+      rig.mirar(_p, _n);
     }
 
     const s0 = Math.max(0, Math.min(1, (progCamera - 0.80) / 0.14));
@@ -378,17 +390,6 @@ export function montarCenaFlash(container, opcoes = {}) {
       celular.position.copy(poseNaMao.pos);
       celular.quaternion.copy(poseNaMao.quat);
       celularSolto = false;
-    }
-
-    /* Enquanto esta na mao, a tela e reorientada a cada quadro para encarar a
-       camera. A pose da mao continua mandando em ONDE ele esta. */
-    if (!celularSolto && celularNaMao) {
-      celular.getWorldPosition(_p);
-      _aux.position.copy(_p);
-      _aux.lookAt(camera.position);
-      _aux.rotateX(-0.22);   // leve inclinacao, como quem le a tela
-      modelo.ossos.RightHand.getWorldQuaternion(_q);
-      celular.quaternion.copy(_q.invert().multiply(_aux.quaternion));
     }
 
     if (celularSolto) {
