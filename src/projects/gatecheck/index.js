@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
 import { criarEstacao } from './workstation.js';
 import { criarPersonagem, animarPersonagem, pousarMaos } from './character.js';
+import { carregarPersonagem } from './character-glb.js';
 import { criarRigCamera } from './camera-rig.js';
 import { descartarMateriais } from './materials.js';
 
@@ -87,9 +88,38 @@ export function montarCenaGatecheck(container) {
     materiaisPessoa.push(m.material);
   });
 
-  const maos = pousarMaos(pessoa, 0.795);
+  let maos = pousarMaos(pessoa, 0.795);
   estacao.grupoTeclado.position.set(maos.esquerda.x, 0, THREE.MathUtils.clamp(maos.esquerda.z, 0.02, 0.34));
   estacao.grupoPad.position.set(maos.direita.x, 0, THREE.MathUtils.clamp(maos.direita.z, 0.02, 0.34));
+
+  /* Personagem de verdade, com esqueleto e animacao de digitacao. Enquanto ele
+     nao chega, o de primitivas segura a cena — se o carregamento falhar, a cena
+     nao fica vazia. */
+  let modelo = null;
+  carregarPersonagem('/assets/models/bryce.glb').then((m) => {
+    modelo = m;
+    m.raiz.position.set(0.02, 0, 0.60);
+    m.raiz.rotation.y = Math.PI;  // Mixamo exporta olhando para +Z; o monitor esta em -Z
+    scene.add(m.raiz);
+    materiaisPessoa.length = 0;
+    m.materiais().forEach((x) => materiaisPessoa.push(x));
+    pessoa.raiz.visible = false;
+
+    // Mesmo principio de antes: os perifericos vao para debaixo das maos. Com o
+    // modelo do Mixamo as maos ja param na altura do tampo, entao so falta o XZ.
+    m.mixer.update(0.001);
+    m.raiz.updateMatrixWorld(true);
+    const alvo = new THREE.Vector3();
+    if (m.maoE) {
+      m.maoE.getWorldPosition(alvo);
+      estacao.grupoTeclado.position.set(alvo.x, 0, THREE.MathUtils.clamp(alvo.z, 0.02, 0.34));
+    }
+    if (m.maoD) {
+      m.maoD.getWorldPosition(alvo);
+      estacao.grupoPad.position.set(alvo.x, 0, THREE.MathUtils.clamp(alvo.z, 0.02, 0.34));
+      if (estacao.mouse) estacao.mouse.position.x = 0;
+    }
+  }).catch((e) => console.warn('modelo nao carregou, seguindo com o boneco simples', e));
 
   /* ---------------------------------------------------------------- luz -- */
   scene.add(new THREE.HemisphereLight(0xbcc6ff, 0x14121c, 0.55));
@@ -214,13 +244,16 @@ export function montarCenaGatecheck(container) {
     // a vida do personagem some conforme a camera entra na tela: perto do
     // monitor, qualquer movimento do corpo vira tremor no quadro
     const calma = 1 - rig.proximidade(progCamera);
-    if (!reduzido) animarPersonagem(pessoa, t, calma);
+    if (modelo) modelo.atualizar(reduzido ? 0 : dt * calma);
+    else if (!reduzido) animarPersonagem(pessoa, t, calma);
 
     // Chegando na tela, o personagem se dissolve: o ponto de vista passa a ser
     // o dele. Ele nao pode ficar tapando a tela que a camera veio ver.
     const s0 = Math.max(0, Math.min(1, (progCamera - 0.58) / 0.34));
     const alfa = 1 - s0 * s0 * (3 - 2 * s0);
-    if (pessoa.raiz.visible !== alfa > 0.01) pessoa.raiz.visible = alfa > 0.01;
+    const vivo = alfa > 0.01;
+    if (modelo) { if (modelo.raiz.visible !== vivo) modelo.raiz.visible = vivo; }
+    else if (pessoa.raiz.visible !== vivo) pessoa.raiz.visible = vivo;
     for (let i = 0; i < materiaisPessoa.length; i++) materiaisPessoa[i].opacity = alfa;
 
     if (estacao.gabinete.userData.fans && !reduzido) {

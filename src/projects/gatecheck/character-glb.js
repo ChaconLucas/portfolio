@@ -1,121 +1,88 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { texturaCamisa, texturaTatuagem } from './textures.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 
 /**
- * Personagem a partir de um modelo com esqueleto de verdade.
+ * Personagem com esqueleto e animacao de captura de movimento.
  *
- * Modelo: "Rigged Figure" — © 2017 Cesium, CC BY 4.0, via glTF-Sample-Assets.
- * O credito vive em `public/assets/models/CREDITOS.md` e a licenca exige que ele
- * seja mantido. 50 KB, entao nao pesa no carregamento.
+ * Origem: Mixamo (Adobe) — personagem "Bryce" com o clipe "Typing".
+ * O arquivo passou por FBX -> glTF, textura reduzida para 1024 em WebP e malha
+ * em meshopt: 49,9 MB viraram 1,3 MB. Sem isso o modelo sozinho pesaria 26x o
+ * site inteiro.
  *
- * Devolve a MESMA forma que `criarPersonagem()` das primitivas, de proposito:
- * `pousarMaos()` e `animarPersonagem()` continuam funcionando sem saber de onde
- * veio o corpo.
+ * Atencao ao comprimir de novo: `gltf-transform optimize` roda `join` e
+ * `flatten`, que colapsam os nos usados pelo skin — o esqueleto cai de 109 para
+ * 8 ossos e o boneco derrete. Use so `resize`, `webp` e `meshopt`.
  */
 
-const OSSOS = {
-  tronco: ['torso_joint_1', 'torso_joint_2', 'torso_joint_3'],
-  pescoco: ['neck_joint_1', 'neck_joint_2'],
-  bracoE: ['arm_joint_L_1', 'arm_joint_L_2', 'arm_joint_L_3'],
-  bracoD: ['arm_joint_R_1', 'arm_joint_R_2', 'arm_joint_R_3'],
-  pernaE: ['leg_joint_L_1', 'leg_joint_L_2', 'leg_joint_L_3'],
-  pernaD: ['leg_joint_R_1', 'leg_joint_R_2', 'leg_joint_R_3']
+/** Ossos do Mixamo que a cena precisa alcancar, sem o prefixo `mixamorig:`. */
+const CHAVE = {
+  quadril: 'Hips',
+  tronco: 'Spine1',
+  cabeca: 'Head',
+  maoE: 'LeftHand',
+  maoD: 'RightHand'
 };
 
-/**
- * Separa a malha por influencia de osso: triangulo puxado pelos ossos do braco
- * vira pele tatuada, o resto vira camisa. E o unico jeito de ter dois materiais
- * num modelo que veio com uma malha so.
- */
-function pintarPorOsso(malha, nomes) {
-  const geo = malha.geometry;
-  const skinIndex = geo.getAttribute('skinIndex');
-  const skinWeight = geo.getAttribute('skinWeight');
-  if (!skinIndex || !geo.index) return false;
-
-  const ossosBraco = new Set();
-  malha.skeleton.bones.forEach((b, i) => {
-    if (/^arm_joint/.test(b.name)) ossosBraco.add(i);
-  });
-
-  const idx = geo.index.array;
-  const camisa = [];
-  const pele = [];
-
-  const dominante = (v) => {
-    let melhor = -1, peso = -1;
-    for (let k = 0; k < 4; k++) {
-      const w = skinWeight.getComponent(v, k);
-      if (w > peso) { peso = w; melhor = skinIndex.getComponent(v, k); }
-    }
-    return melhor;
-  };
-
-  for (let t = 0; t < idx.length; t += 3) {
-    const a = dominante(idx[t]), b = dominante(idx[t + 1]), c = dominante(idx[t + 2]);
-    const braco = (ossosBraco.has(a) ? 1 : 0) + (ossosBraco.has(b) ? 1 : 0) + (ossosBraco.has(c) ? 1 : 0);
-    (braco >= 2 ? pele : camisa).push(idx[t], idx[t + 1], idx[t + 2]);
-  }
-  if (!pele.length) return false;
-
-  geo.clearGroups();
-  const ordem = camisa.concat(pele);
-  geo.setIndex(ordem);
-  geo.addGroup(0, camisa.length, 0);
-  geo.addGroup(camisa.length, pele.length, 1);
-
-  malha.material = [
-    new THREE.MeshStandardMaterial({ map: texturaCamisa(), roughness: 0.86 }),
-    new THREE.MeshStandardMaterial({ map: texturaTatuagem(), roughness: 0.7 })
-  ];
-  return true;
-}
-
-/**
- * @param {string} url
- * @returns {Promise<object>} mesma interface do personagem de primitivas
- */
 export function carregarPersonagem(url) {
   return new Promise((resolve, reject) => {
-    new GLTFLoader().load(url, (gltf) => {
+    const loader = new GLTFLoader();
+    // o arquivo esta comprimido com EXT_meshopt_compression: sem o decodificador
+    // o carregamento falha em silencio
+    loader.setMeshoptDecoder(MeshoptDecoder);
+
+    loader.load(url, (gltf) => {
       const raiz = gltf.scene;
       const ossos = {};
+
       raiz.traverse((o) => {
-        if (o.isBone) ossos[o.name] = o;
-        if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; }
+        if (o.isBone) ossos[o.name.replace(/^mixamorig:?/i, '')] = o;
+        if (o.isMesh || o.isSkinnedMesh) {
+          o.castShadow = true;
+          // malha com esqueleto sai do frustum calculado na pose de repouso e
+          // some da tela; o teste de recorte tem que ser desligado
+          o.frustumCulled = false;
+        }
       });
 
-      const malha = raiz.getObjectByProperty('isSkinnedMesh', true);
-      if (malha) pintarPorOsso(malha, OSSOS);
+      const mixer = new THREE.AnimationMixer(raiz);
+      const clipe = gltf.animations && gltf.animations[0];
+      if (clipe) mixer.clipAction(clipe).play();
 
-      const pegar = (n) => ossos[n] || new THREE.Object3D();
+      const pegar = (n) => ossos[n] || null;
 
-      const montarBraco = (lista) => ({
-        ombro: pegar(lista[0]),
-        cotovelo: pegar(lista[1]),
-        mao: pegar(lista[2])
-      });
-
-      const p = {
+      resolve({
         raiz,
-        modelo: true,
+        mixer,
+        clipe,
         ossos,
-        tronco: pegar(OSSOS.tronco[0]),
-        cabeca: pegar(OSSOS.pescoco[1]),
-        bracoE: montarBraco(OSSOS.bracoE),
-        bracoD: montarBraco(OSSOS.bracoD)
-      };
+        quadril: pegar(CHAVE.quadril),
+        tronco: pegar(CHAVE.tronco),
+        cabeca: pegar(CHAVE.cabeca),
+        maoE: pegar(CHAVE.maoE),
+        maoD: pegar(CHAVE.maoD),
 
-      p.base = {
-        troncoX: p.tronco.rotation.x,
-        ombroE: p.bracoE.ombro.rotation.clone(),
-        ombroD: p.bracoD.ombro.rotation.clone(),
-        cotoveloE: p.bracoE.cotovelo.rotation.clone(),
-        cotoveloD: p.bracoD.cotovelo.rotation.clone()
-      };
+        /** @param {number} dt segundos */
+        atualizar(dt) { mixer.update(dt); },
 
-      resolve(p);
+        /** Materiais proprios, para o personagem sumir sem levar a estacao junto. */
+        materiais() {
+          const lista = [];
+          raiz.traverse((o) => {
+            if (!o.isMesh && !o.isSkinnedMesh) return;
+            const m = Array.isArray(o.material) ? o.material : [o.material];
+            o.material = Array.isArray(o.material) ? m.map(clonar) : clonar(m[0]);
+            (Array.isArray(o.material) ? o.material : [o.material]).forEach((x) => lista.push(x));
+          });
+          return lista;
+          function clonar(mat) {
+            if (!mat) return mat;
+            const c = mat.clone();
+            c.transparent = true;
+            return c;
+          }
+        }
+      });
     }, undefined, reject);
   });
 }
