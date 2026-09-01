@@ -3601,6 +3601,32 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
   font-size:8px;letter-spacing:.08em;
   color:#cbc2dc;
 }
+/* Links do capitulo: demo ao vivo e afins.
+   Fica entre a stack e o rotulo da tela porque e ali que a leitura ja parou —
+   quem chegou na lista de tecnologias e exatamente quem quer abrir o produto.
+   O bloco existe para os quatro capitulos; so aparece onde ha URL de verdade. */
+.chapter-links{
+  display:flex;flex-wrap:wrap;gap:8px;
+  margin-top:18px;
+}
+.chapter-links a{
+  display:inline-flex;align-items:center;gap:7px;
+  border:1px solid rgba(190,163,255,.22);
+  background:rgba(19,16,32,.62);
+  border-radius:999px;
+  padding:9px 14px;
+  font-size:9px;letter-spacing:.10em;
+  color:#e5dcf7;text-decoration:none;
+  transition:border-color .22s ease,background .22s ease,transform .22s ease;
+}
+.chapter-links a:hover,
+.chapter-links a:focus-visible{
+  border-color:rgba(190,163,255,.55);
+  background:rgba(30,24,50,.85);
+  transform:translateY(-1px);
+}
+.chapter-links svg{width:11px;height:11px;flex:none}
+
 .chapter-screen-label{
   margin-top:48px;
   display:grid;grid-template-columns:auto 1fr;
@@ -4820,6 +4846,7 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
 <h3>WSL<br/>Games</h3>
 <p>Experiência touch para evento: interação em tela grande, decisão do público, resultado e continuidade no celular.</p>
 <div class="chapter-stack"><span>React</span><span>TypeScript</span><span>FastAPI</span><span>SQLAlchemy</span></div>
+<div class="chapter-links"><a href="https://wsl-sportv-games.vercel.app" rel="noopener noreferrer" target="_blank" aria-label="Abrir a demo da WSL Games em nova aba"><svg aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42 9.3-9.29H14V3ZM5 5h5v2H6v11h11v-4h2v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"/></svg>ABRIR DEMO AO VIVO</a></div>
 <div class="chapter-screen-label"><b id="wslShotIndex">01</b><span id="wslShotLabel">Start</span></div>
 </div>
 <div class="real-project-stage wsl-real-stage">
@@ -7919,6 +7946,7 @@ window.__EN_DICT__ = {
   "Venda de ingressos, lotes, pedidos, QR Code individual, check-in em tempo real, auditoria e operação de eventos.": "Ticket sales, batches, orders, individual QR codes, real-time check-in, auditing and event operations.",
   "Operação / check-in": "Operations / check-in",
   "ROLE / EXPLORE O PRODUTO": "SCROLL / EXPLORE PRODUCT",
+  "ABRIR DEMO AO VIVO": "OPEN LIVE DEMO",
   "SISTEMA DE EVENTOS → EXPERIÊNCIA INTERATIVA": "EVENT SYSTEM → INTERACTIVE EXPERIENCE",
   "EXPERIÊNCIA INTERATIVA / EVENTO": "INTERACTIVE EXPERIENCE / EVENT",
   "Experiência touch para evento: interação em tela grande, decisão do público, resultado e continuidade no celular.": "Touch experience for events: big-screen interaction, audience decision, result and continuity on mobile.",
