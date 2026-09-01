@@ -176,7 +176,7 @@ function posarEmPe(m, alvo) {
    peito e dos ombros: alvo muito acima da cabeca deixa o braco quase reto, e e
    nessa posicao que qualquer imprecisao de torcao fica visivel. */
 const PONTOS = [
-  [0.16, -0.26], [-0.14, -0.08], [0.18, 0.04], [-0.04, -0.30], [0.10, -0.12]
+  [0.14, -0.16], [-0.12, 0.06], [0.16, 0.18], [-0.02, -0.20], [0.08, 0.02]
 ];
 const DUR = 3.6;
 
@@ -311,7 +311,11 @@ export function montarCenaWsl(container) {
     m.materiais().forEach((x) => materiaisPessoa.push(x));
     /* O alvo fica 14 cm a frente do vidro, nao 5. O osso da mao para no punho e
        os dedos seguem 8 cm adiante — com folga pequena, a mao atravessava a TV. */
-    pose = posarEmPe(m, new THREE.Vector3(PAINEL.x + 0.16, PAINEL.y - 0.24, PAINEL.z + 0.14));
+    /* Altura do toque na faixa do peito e do rosto (1,45 m), nao 1,28.
+       Com o ponto base baixo, a mao parava em y=1,08 — altura do quadril — e o
+       braco descia em vez de subir para a tela. Um painel de 1,72 m se usa na
+       metade de cima. */
+    pose = posarEmPe(m, new THREE.Vector3(PAINEL.x + 0.14, PAINEL.y - 0.07, PAINEL.z + 0.14));
     try { if (window.__wsl) window.__wsl.modelo = m; } catch (e) {}
   }).catch((e) => console.warn('modelo da WSL nao carregou', e));
 
