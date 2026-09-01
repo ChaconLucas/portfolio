@@ -313,6 +313,52 @@ export function criarGabinete() {
   // suporte ligando a GPU a tampa da fonte, para nao parecer suspensa
   dentro.add(peca(caixa(0.012, 0.040, 0.014, 0.003), matGrafite(), xBandeja - 0.100, yGPU - 0.032, 0.095));
 
+  /* Radiador com mangueiras: silhueta que so existe em PC, e o que faz o
+     interior parar de ler como uma pilha de retangulos. */
+  const rad = peca(caixa(0.020, 0.190, 0.115, 0.004), matPreto(), -L / 2 + 0.030, y + 0.050, -0.075);
+  dentro.add(rad);
+  for (let i = 0; i < 2; i++) {
+    const mang = new THREE.Mesh(
+      new THREE.TorusGeometry(0.042, 0.0055, 8, 20, Math.PI * 1.1),
+      new THREE.MeshStandardMaterial({ color: 0x14161d, roughness: 0.5 })
+    );
+    mang.position.set(-L / 2 + 0.052, y + 0.108 - i * 0.030, -0.030);
+    mang.rotation.set(0, Math.PI / 2, 1.1 + i * 0.4);
+    dentro.add(mang);
+  }
+
+  // pente de cabos descendo para a fonte
+  for (let i = 0; i < 5; i++) {
+    dentro.add(peca(caixa(0.006, 0.115, 0.006, 0.002), matPreto(),
+      xBandeja + 0.030, y - 0.062, -0.085 + i * 0.013));
+  }
+
+  /* Bonequinho de enfeite dentro do gabinete — daqueles de colecao que ficam
+     em cima da tampa da fonte. Puro detalhe, mas e o tipo de coisa que faz a
+     cena parecer de alguem. */
+  const boneco = new THREE.Group();
+  const corBoneco = new THREE.MeshStandardMaterial({ color: 0xf2f2f4, roughness: 0.55 });
+  const corRoxo = new THREE.MeshStandardMaterial({ color: 0x7a4fd8, roughness: 0.5 });
+  boneco.add(peca(caixa(0.030, 0.030, 0.020, 0.010, 5), corRoxo, 0, 0.016, 0));
+  const cab = new THREE.Mesh(new THREE.SphereGeometry(0.020, 16, 12), corBoneco);
+  cab.position.y = 0.048;
+  boneco.add(cab);
+  [-1, 1].forEach((lado) => {
+    boneco.add(peca(new THREE.CapsuleGeometry(0.006, 0.016, 4, 8), corRoxo, lado * 0.021, 0.016, 0));
+    boneco.add(peca(new THREE.CapsuleGeometry(0.006, 0.014, 4, 8), corRoxo, lado * 0.009, -0.006, 0));
+  });
+  // olhos, para nao ser so uma bola
+  [-1, 1].forEach((lado) => {
+    const olho = new THREE.Mesh(new THREE.SphereGeometry(0.0035, 8, 6),
+      new THREE.MeshBasicMaterial({ color: 0x14161d }));
+    olho.position.set(lado * 0.0075, 0.050, 0.018);
+    boneco.add(olho);
+  });
+  boneco.position.set(-0.045, yShroud + 0.031 + 0.014, 0.115);
+  boneco.rotation.y = 0.5;
+  boneco.scale.setScalar(1.25);
+  dentro.add(boneco);
+
   g.add(dentro);
 
   /* Ventoinhas rentes as chapas: duas no teto e uma no piso, exaustao e entrada.
@@ -350,10 +396,10 @@ export function criarGabinete() {
   fita.position.set(0, yTeto - 0.004, P / 2 - 0.045);
   g.add(fita);
 
-  const brilhoRosa = new THREE.PointLight(PALETA.rosa, 1.1, 0.55, 2);
+  const brilhoRosa = new THREE.PointLight(PALETA.rosa, 0.55, 0.42, 2);
   brilhoRosa.position.set(-0.04, y + 0.02, P / 2 - 0.08);
   g.add(brilhoRosa);
-  const preenche = new THREE.PointLight(0xe6eeff, 1.9, 1.0, 2);
+  const preenche = new THREE.PointLight(0xdfe7f5, 1.35, 0.85, 2);
   preenche.position.set(0.02, yTeto - 0.06, 0.02);
   g.add(preenche);
 
