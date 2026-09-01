@@ -7621,7 +7621,10 @@ html{
       // existirem): em aba de fundo o requestAnimationFrame nao dispara, e a abertura
       // rodava sem o acelerador enquanto o --nome-atraso ja contava com ele.
       if(eb0.getAnimations){
-        const ritmo=()=>{ try{ eb0.getAnimations({subtree:true}).forEach(a=>a.updatePlaybackRate(VEL)); }catch(e){} };
+        // `updatePlaybackRate` so agenda o novo ritmo: ele so vale quando a animacao fica
+        // "ready", o que exige um frame. Em aba de fundo nao ha frame, entao o ritmo nunca
+        // era aplicado. Atribuir direto vale na hora — e no tempo 0 nao ha salto nenhum.
+        const ritmo=()=>{ try{ eb0.getAnimations({subtree:true}).forEach(a=>{a.playbackRate=VEL}); }catch(e){} };
         void eb0.offsetHeight;
         ritmo();
         requestAnimationFrame(ritmo);   // rede: pega o que ainda nao existia
