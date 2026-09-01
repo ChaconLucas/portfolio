@@ -247,7 +247,7 @@ export function criarGabinete() {
   const g = new THREE.Group();
   g.name = 'gabinete';
 
-  const L = 0.32, A = 0.47, P = 0.43;
+  const L = 0.40, A = 0.47, P = 0.40;
   const y = ALTURA_MESA + A / 2;
 
   // estrutura: so as quinas, para o vidro dominar
@@ -763,17 +763,19 @@ export function criarEstacao() {
   raiz.add(monitor);
 
   const gabinete = criarGabinete();
-  /* O gabinete gira para o vidro LATERAL encarar a camera. Com 0,34 rad via-se
-     o interior de perfil: a bandeja da placa fica na parede direita e as pecas
-     apontam para o lado, entao de frente so aparecia o painel liso. A 2,5 rad a
-     placa-mae, a GPU e o cooler ficam de frente. */
-  gabinete.position.set(-0.86, 0, -0.14);
-  gabinete.rotation.y = 2.5;
+  /* De volta a direita da mesa. A esquerda ele ficava atras do personagem e nao
+     aparecia; foi por isso que eu girei o interior e a placa-mae acabou de
+     frente, o que nao existe em PC nenhum.
+     O angulo poe a QUINA entre os dois vidros — frontal e lateral — de frente
+     para a camera. E assim que se olha um aquario: pela quina, vendo a placa de
+     lado e a GPU de frente, cada peca montada onde deveria estar. */
+  gabinete.position.set(0.94, 0, -0.10);
+  gabinete.rotation.y = 1.38;
   raiz.add(gabinete);
 
   const macbook = criarMacbook();
-  macbook.position.set(0.80, 0, 0.06);
-  macbook.rotation.y = -0.62;
+  macbook.position.set(-0.78, 0, 0.06);
+  macbook.rotation.y = 0.66;
   raiz.add(macbook);
 
   const teclado = criarTeclado();
