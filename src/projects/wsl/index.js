@@ -40,48 +40,68 @@ function suportaWebGL() {
   } catch (e) { return false; }
 }
 
+const _v = new THREE.Vector3();
+const _S = new THREE.Vector3();
+const _E = new THREE.Vector3();
+const _H = new THREE.Vector3();
+const _dir = new THREE.Vector3();
+const _eixo = new THREE.Vector3();
+const _q = new THREE.Quaternion();
+const _qW = new THREE.Quaternion();
+const _qP = new THREE.Quaternion();
+const trava = (v, a, b) => Math.max(a, Math.min(b, v));
+
+/** Gira um osso para que seu filho aponte para um ponto do mundo. */
+function apontar(osso, filho, alvo) {
+  osso.updateWorldMatrix(true, false);
+  _S.setFromMatrixPosition(osso.matrixWorld);
+  _v.setFromMatrixPosition(filho.matrixWorld).sub(_S);
+  _dir.copy(alvo).sub(_S);
+  if (_v.lengthSq() < 1e-9 || _dir.lengthSq() < 1e-9) return;
+  _q.setFromUnitVectors(_v.normalize(), _dir.normalize());
+  osso.getWorldQuaternion(_qW);
+  osso.parent.getWorldQuaternion(_qP);
+  osso.quaternion.copy(_qP.invert().multiply(_q).multiply(_qW));
+  osso.updateWorldMatrix(false, true);
+}
+
 /**
- * Cinematica inversa de duas juntas (CCD), para a mao alcancar um ponto.
+ * Cinematica inversa analitica de DUAS juntas, com direcao de flexao.
  *
- * A primeira versao girava um EIXO de cada vez — `rotation.z` no ombro e
- * `rotation.x` no cotovelo — por busca binaria. O problema e que o eixo de
- * flexao de cada osso do Mixamo nao coincide com nenhum eixo do mundo, entao o
- * braco chegava perto do alvo mas torcido.
+ * A versao anterior usava CCD iterativo. Com dois ossos e nenhuma restricao, o
+ * CCD nao define para onde o cotovelo aponta — sobra um grau de liberdade de
+ * torcao que ele resolve de um jeito diferente a cada quadro. Dai o braco
+ * torto e o movimento aos trancos.
  *
- * Aqui nao ha eixo escolhido: a cada passo, para cada osso, calculo a rotacao
- * que leva o vetor osso->mao ate o vetor osso->alvo e aplico ela por quaternion.
- * Funciona com qualquer convencao de esqueleto.
+ * Aqui a solucao e fechada: a lei dos cossenos da o angulo do cotovelo, e o
+ * vetor `polo` decide de que lado ele dobra. Mesmo alvo, mesma pose, sempre —
+ * sem iteracao e sem tremor.
  */
-function alcancar(ossos, ponta, alvo, iteracoes = 12) {
-  const pb = new THREE.Vector3();
-  const pe = new THREE.Vector3();
-  const v1 = new THREE.Vector3();
-  const v2 = new THREE.Vector3();
-  const q = new THREE.Quaternion();
-  const qMundo = new THREE.Quaternion();
-  const qPai = new THREE.Quaternion();
+function ikBraco(ombro, cotovelo, mao, alvo, polo) {
+  ombro.updateWorldMatrix(true, true);
+  _S.setFromMatrixPosition(ombro.matrixWorld);
+  _E.setFromMatrixPosition(cotovelo.matrixWorld);
+  _H.setFromMatrixPosition(mao.matrixWorld);
 
-  for (let i = 0; i < iteracoes; i++) {
-    // do osso mais proximo da mao para o mais distante: e a ordem do CCD
-    for (let k = ossos.length - 1; k >= 0; k--) {
-      const b = ossos[k];
-      if (!b) continue;
-      b.updateWorldMatrix(true, true);
-      pb.setFromMatrixPosition(b.matrixWorld);
-      pe.setFromMatrixPosition(ponta.matrixWorld);
+  const a = _S.distanceTo(_E);
+  const b = _E.distanceTo(_H);
+  if (a < 1e-6 || b < 1e-6) return;
 
-      v1.copy(pe).sub(pb);
-      v2.copy(alvo).sub(pb);
-      if (v1.lengthSq() < 1e-8 || v2.lengthSq() < 1e-8) continue;
-      v1.normalize(); v2.normalize();
+  _dir.copy(alvo).sub(_S);
+  // alvo fora de alcance encosta no limite em vez de esticar torto
+  const d = trava(_dir.length(), Math.abs(a - b) + 1e-3, a + b - 1e-3);
+  _dir.normalize();
 
-      q.setFromUnitVectors(v1, v2);
-      b.getWorldQuaternion(qMundo);
-      b.parent.getWorldQuaternion(qPai);
-      b.quaternion.copy(qPai.invert().multiply(q).multiply(qMundo));
-      b.updateWorldMatrix(false, true);
-    }
-  }
+  // plano de flexao: perpendicular a direcao do alvo e ao polo
+  _eixo.crossVectors(_dir, polo);
+  if (_eixo.lengthSq() < 1e-8) _eixo.set(0, 1, 0);
+  _eixo.normalize();
+
+  const cos = trava((a * a + d * d - b * b) / (2 * a * d), -1, 1);
+  _v.copy(_dir).applyAxisAngle(_eixo, Math.acos(cos)).multiplyScalar(a).add(_S);
+
+  apontar(ombro, cotovelo, _v);
+  apontar(cotovelo, mao, alvo);
 }
 
 /**
@@ -93,23 +113,42 @@ function posarEmPe(m, alvo) {
   const o = m.ossos;
   const g = (n) => o[n];
 
-  // bracos para baixo, saindo da pose de repouso
+  // aproximacao inicial: tira os bracos da horizontal da pose de repouso
   if (g('LeftArm')) g('LeftArm').rotation.z = 1.32;
-  if (g('LeftForeArm')) g('LeftForeArm').rotation.y = -0.30;
   if (g('RightArm')) g('RightArm').rotation.z = -1.32;
-  if (g('RightForeArm')) g('RightForeArm').rotation.y = 0.30;
   // leve contraposto, para nao ficar em posicao de sentido
   if (g('Spine')) g('Spine').rotation.z = 0.02;
   if (g('Hips')) g('Hips').rotation.z = -0.03;
   m.raiz.updateMatrixWorld(true);
 
-  const cadeia = [g('RightArm'), g('RightForeArm')];
+  const ombro = g('RightArm');
+  const cotovelo = g('RightForeArm');
   const mao = g('RightHand') || m.maoD;
-  if (!cadeia[0] || !mao) return null;
+  if (!ombro || !cotovelo || !mao) return null;
 
-  alcancar(cadeia, mao, alvo);
+  /* Polo: para onde o cotovelo aponta. Para baixo e um pouco para fora, que e
+     como um braco dobra ao encostar numa tela na frente do corpo. */
+  const polo = new THREE.Vector3(0.55, -1, 0.15).normalize();
+  ikBraco(ombro, cotovelo, mao, alvo, polo);
 
-  return { cadeia, mao, alvo: alvo.clone() };
+  /* O braco esquerdo tambem vai por IK. Girando `rotation.z` no olho ele acabou
+     esticado para a FRENTE — a mao parava em z=0,080, dentro da TV, que fica em
+     0,036. Com um alvo caido ao lado do corpo isso nao acontece: o alvo e um
+     ponto no mundo, entao nao ha como ele terminar dentro da parede. */
+  const ombroE = g('LeftArm');
+  const cotoveloE = g('LeftForeArm');
+  const maoE = g('LeftHand') || m.maoE;
+  if (ombroE && cotoveloE && maoE) {
+    m.raiz.updateMatrixWorld(true);
+    const ps = new THREE.Vector3().setFromMatrixPosition(ombroE.matrixWorld);
+    ikBraco(
+      ombroE, cotoveloE, maoE,
+      new THREE.Vector3(ps.x - 0.05, ps.y - 0.46, ps.z + 0.06),
+      new THREE.Vector3(-0.55, -1, 0.15).normalize()
+    );
+  }
+
+  return { ombro, cotovelo, mao, polo, alvo: alvo.clone() };
 }
 
 /**
@@ -123,7 +162,7 @@ function posarEmPe(m, alvo) {
 const PONTOS = [
   [0.18, -0.30], [-0.16, -0.10], [0.20, 0.16], [-0.06, -0.34], [0.12, 0.02]
 ];
-const DUR = 2.4;
+const DUR = 3.6;
 
 function alvoDoToque(t, base, saida) {
   const total = PONTOS.length * DUR;
@@ -133,9 +172,10 @@ function alvoDoToque(t, base, saida) {
   const a = PONTOS[i];
   const b = PONTOS[(i + 1) % PONTOS.length];
 
-  // 0 a 0,55 desliza ate o proximo ponto; 0,55 a 1 encosta e segura
-  const k = f < 0.55 ? f / 0.55 : 1;
-  const suave = k * k * (3 - 2 * k);
+  // 0 a 0,45 desliza; o resto encosta e segura. Trajeto curto e pausa longa
+  // leem como alguem usando a tela, nao como braco varrendo o vidro.
+  const k = f < 0.45 ? f / 0.45 : 1;
+  const suave = k * k * k * (k * (k * 6 - 15) + 10);
   const x = a[0] + (b[0] - a[0]) * suave;
   const yy = a[1] + (b[1] - a[1]) * suave;
 
@@ -312,9 +352,7 @@ export function montarCenaWsl(container) {
     const calma = 1 - rig.proximidade(progCamera);
     if (pose && !reduzido && calma > 0.01) {
       alvoDoToque(t, pose.alvo, _alvo);
-      // 5 iteracoes por quadro bastam: a pose anterior ja e um bom ponto de
-      // partida, e o alvo anda pouco entre um quadro e o outro
-      alcancar(pose.cadeia, pose.mao, _alvo, 5);
+      ikBraco(pose.ombro, pose.cotovelo, pose.mao, _alvo, pose.polo);
       // peso do corpo acompanhando o braco, bem de leve
       if (modelo && modelo.ossos.Spine) {
         modelo.ossos.Spine.rotation.y = Math.sin(t * 0.42) * 0.05 * calma;

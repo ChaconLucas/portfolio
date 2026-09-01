@@ -345,13 +345,15 @@ export function montarCenaGatecheck(container) {
     carregador.load(src, (tex) => {
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-      /* Sem recorte. Antes eu enquadrava como `object-fit: cover` e a
-         screenshot era cortada — justamente onde o zoom termina, que e onde ela
-         precisa aparecer inteira. Agora a MALHA da tela e que se ajusta a
-         proporcao da imagem, dentro da moldura. Nada e cortado e nada distorce;
-         sobra moldura em cima e embaixo, como um video widescreen num monitor. */
-      tex.repeat.set(1, 1);
-      tex.offset.set(0, 0);
+      /* PREENCHE o painel, como na TV da WSL. Ajustando a malha sobrava faixa
+         em volta e a screenshot nao parecia estar rodando NO monitor.
+         O painel foi feito na proporcao media das quatro telas (2,089) e elas
+         vao de 1,959 a 2,146 — entao o recorte fica abaixo de 7%, sempre na
+         borda. */
+      const rr = tex.image.width / tex.image.height;
+      const pp = 1.218 / 0.583;
+      if (rr > pp) { tex.repeat.set(pp / rr, 1); tex.offset.set((1 - pp / rr) / 2, 0); }
+      else { tex.repeat.set(1, rr / pp); tex.offset.set(0, (1 - rr / pp) / 2); }
       texturas[i] = tex;
       proporcoes[i] = tex.image.width / tex.image.height;
       if (i === telaAtual) aplicarTela(telaAtual);
@@ -364,10 +366,7 @@ export function montarCenaGatecheck(container) {
     telaAtual = i;
     const tex = texturas[i];
     if (!tex) return;
-    // ajusta a malha a proporcao da imagem, sem passar da moldura
-    const r = proporcoes[i] || proporcaoTela;
-    if (r > proporcaoTela) estacao.tela.scale.set(1, proporcaoTela / r, 1);
-    else estacao.tela.scale.set(r / proporcaoTela, 1, 1);
+    estacao.tela.scale.set(1, 1, 1);
     estacao.tela.material.map = tex;
     estacao.tela.material.color.set(0xffffff);
     estacao.tela.material.needsUpdate = true;
