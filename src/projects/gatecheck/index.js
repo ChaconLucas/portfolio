@@ -3,6 +3,7 @@ import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLigh
 import { criarEstacao, TOPO_TECLAS, TOPO_MOUSE } from './workstation.js';
 import { criarPersonagem, animarPersonagem, pousarMaos } from './character.js';
 import { carregarPersonagem } from './character-glb.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { criarRigCamera } from './camera-rig.js';
 import { descartarMateriais } from './materials.js';
 
@@ -68,6 +69,23 @@ export function montarCenaGatecheck(container) {
   const estacao = criarEstacao();
   scene.add(estacao.raiz);
   let modelo = null;
+  let cadeiraPronta = null;
+
+  /* O assento tem que ficar sob o quadril, nao num Z fixo: com a cadeira
+     centrada em 0,76 e o quadril em 0,59, o personagem sentava na ponta.
+     Chamado quando qualquer um dos dois chega, porque a ordem de carregamento
+     entre cadeira e personagem nao e garantida. */
+  function encaixarCadeira() {
+    if (!cadeiraPronta || !modelo || !modelo.quadril) return;
+    const q = new THREE.Vector3();
+    modelo.quadril.getWorldPosition(q);
+    cadeiraPronta.updateMatrixWorld(true);
+    const cb = new THREE.Box3().setFromObject(cadeiraPronta);
+    // encosto atras do quadril: alinha o centro do assento com ele, com um
+    // pequeno recuo para o corpo nao atravessar o estofado
+    cadeiraPronta.position.z += (q.z + 0.06) - (cb.min.z + cb.max.z) / 2;
+    cadeiraPronta.position.x += q.x - (cb.min.x + cb.max.x) / 2;
+  }
 
   const pessoa = criarPersonagem();
   pessoa.raiz.position.set(0.02, 0, 0.68);
@@ -96,6 +114,48 @@ export function montarCenaGatecheck(container) {
   /* Personagem de verdade, com esqueleto e animacao de digitacao. Enquanto ele
      nao chega, o de primitivas segura a cena — se o carregamento falhar, a cena
      nao fica vazia. */
+  // Cadeira pronta (CC-BY, credito em CREDITOS.md): 2.222 triangulos, 64 KB,
+  // sem textura. Substitui a de primitivas, que nunca passou de caixas.
+  new GLTFLoader().load('/assets/models/cadeira.glb', (gl) => {
+    const c = gl.scene;
+    c.traverse((x) => { if (x.isMesh) { x.castShadow = true; x.receiveShadow = true; } });
+    // escala pela altura total: cadeira de escritorio tem ~1,12 m
+    const cx = new THREE.Box3().setFromObject(c);
+    const alt = cx.max.y - cx.min.y;
+    if (alt > 0.001) c.scale.setScalar(1.12 / alt);
+
+    /* Reposicionar pela ORIGEM nao funciona: o modelo tem transformacoes nos nos
+       internos e a geometria fica longe do ponto (0,0,0) dele — a cadeira caiu em
+       x=8,05 / z=-4,76. Entao a correcao vem da caixa envolvente. */
+    c.rotation.y = Math.PI;               // encosto para +Z, de frente para o monitor
+    c.updateMatrixWorld(true);
+    const b = new THREE.Box3().setFromObject(c);
+    c.position.x += 0.02 - (b.min.x + b.max.x) / 2;
+    c.position.z += 0.76 - (b.min.z + b.max.z) / 2;
+    c.position.y += -b.min.y;
+    cadeiraPronta = c;
+    encaixarCadeira();
+
+    // rosa com branco, como o resto da estacao
+    c.traverse((x) => {
+      if (!x.isMesh) return;
+      const mats = Array.isArray(x.material) ? x.material : [x.material];
+      mats.forEach((mm) => {
+        if (!mm || !mm.color) return;
+        /* Mapeamento por nome, nao por brilho: adivinhar pelo tom deixou a
+           cadeira inteira branca, porque as superficies grandes eram as escuras.
+           No modelo, `__1` e `__2` sao o estofado e o resto e estrutura. */
+        const estofado = /__1$|__2$/.test(mm.name || '');
+        mm.color.set(estofado ? 0xff5fa2 : 0xf0f0f3);
+        mm.roughness = estofado ? 0.66 : 0.38;
+        mm.metalness = 0.02;
+      });
+    });
+    scene.add(c);
+    estacao.cadeira.visible = false;
+    try { if (window.__gate) window.__gate.cadeiraPronta = c; } catch (e) {}
+  }, undefined, (e) => console.warn('cadeira nao carregou, mantendo a de primitivas', e));
+
   carregarPersonagem('/assets/models/bryce.glb').then((m) => {
     modelo = m;
     m.raiz.position.set(0.02, 0, 0.60);
@@ -104,6 +164,7 @@ export function montarCenaGatecheck(container) {
     materiaisPessoa.length = 0;
     m.materiais().forEach((x) => materiaisPessoa.push(x));
     pessoa.raiz.visible = false;
+    encaixarCadeira();
 
     /* Onde ficam teclado e mouse sai da propria animacao, nao de chute.
        Medindo a ponta do dedo medio ao longo dos 16,5 s do clipe:

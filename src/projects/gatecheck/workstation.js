@@ -47,55 +47,124 @@ export function criarMesa() {
 }
 
 /* -------------------------------------------------------------- CADEIRA ---- */
+/**
+ * Cadeira ergonomica. A diferenca para a versao anterior nao esta no numero de
+ * pecas, e na FORMA: o encosto deixou de ser uma placa inclinada e passou a ser
+ * uma pilha de almofadas seguindo uma curva com apoio lombar. Cada almofada
+ * acompanha a inclinacao da curva naquele ponto, entao aparecem os vincos do
+ * estofado e a silhueta em S de uma cadeira de verdade.
+ */
 export function criarCadeira() {
   const g = new THREE.Group();
   g.name = 'cadeira';
 
   const alturaAssento = 0.46;
 
-  // base estrela de 5 pontas com rodizios
+  /* ---- base estrela com rodizios ---- */
   const base = new THREE.Group();
   for (let i = 0; i < 5; i++) {
     const a = (i / 5) * Math.PI * 2;
-    const braco = peca(caixa(0.30, 0.035, 0.06, 0.014), matPreto(), 0, 0.05, 0);
-    braco.position.set(Math.cos(a) * 0.15, 0.05, Math.sin(a) * 0.15);
+    const braco = peca(caixa(0.32, 0.038, 0.07, 0.016, 4), matPreto(), 0, 0.055, 0);
+    braco.position.set(Math.cos(a) * 0.16, 0.055, Math.sin(a) * 0.16);
     braco.rotation.y = -a;
+    braco.rotation.z = 0.05;
     base.add(braco);
 
-    const roda = peca(new THREE.CylinderGeometry(0.035, 0.035, 0.022, 14), matGrafite(),
-      Math.cos(a) * 0.29, 0.035, Math.sin(a) * 0.29);
+    const garfo = peca(caixa(0.03, 0.05, 0.03, 0.008), matGrafite(),
+      Math.cos(a) * 0.30, 0.055, Math.sin(a) * 0.30);
+    base.add(garfo);
+    const roda = peca(new THREE.CylinderGeometry(0.036, 0.036, 0.024, 16), matGrafite(),
+      Math.cos(a) * 0.30, 0.036, Math.sin(a) * 0.30);
     roda.rotation.z = Math.PI / 2;
+    roda.rotation.y = -a;
     base.add(roda);
   }
   g.add(base);
 
-  // coluna a gas
-  g.add(peca(new THREE.CylinderGeometry(0.035, 0.045, alturaAssento - 0.10, 16), matGrafite(), 0, (alturaAssento - 0.10) / 2 + 0.06, 0));
+  /* ---- coluna a gas, com capa telescopica ---- */
+  g.add(peca(new THREE.CylinderGeometry(0.030, 0.030, alturaAssento - 0.12, 16), matGrafite(),
+    0, (alturaAssento - 0.12) / 2 + 0.07, 0));
+  g.add(peca(new THREE.CylinderGeometry(0.046, 0.052, 0.16, 16), matPreto(), 0, 0.18, 0));
+  // mecanismo sob o assento
+  g.add(peca(caixa(0.16, 0.05, 0.22, 0.014, 4), matPreto(), 0, alturaAssento - 0.055, 0.01));
 
-  // assento rosa com as bordas brancas (perfil gamer, rosa + branco)
-  // raios grandes e mais segmentos: estofado le como estofado, nao como caixa
-  const assento = peca(caixa(0.52, 0.11, 0.50, 0.055, 7), matRosa(), 0, alturaAssento, 0);
-  g.add(assento);
-  g.add(peca(caixa(0.11, 0.10, 0.46, 0.048, 7), matBranco(), -0.215, alturaAssento + 0.04, 0.01));
-  g.add(peca(caixa(0.11, 0.10, 0.46, 0.048, 7), matBranco(), 0.215, alturaAssento + 0.04, 0.01));
+  /* ---- assento: fatias de Z com a frente caindo (borda cascata) ---- */
+  const NA = 6;
+  for (let i = 0; i < NA; i++) {
+    const t = i / (NA - 1);                  // 0 = frente, 1 = fundo
+    const z = -0.22 + t * 0.44;
+    const queda = Math.pow(1 - t, 3) * 0.055;   // so a frente desce
+    const larg = 0.50 - Math.pow(1 - t, 2) * 0.05;
+    const fatia = peca(caixa(larg, 0.085, 0.078, 0.030, 5), matRosa(),
+      0, alturaAssento - queda, z);
+    fatia.rotation.x = -Math.pow(1 - t, 2) * 0.55;
+    g.add(fatia);
+  }
+  // bordas brancas do assento
+  [-1, 1].forEach((lado) => {
+    for (let i = 1; i < NA; i++) {
+      const t = i / (NA - 1);
+      const z = -0.22 + t * 0.44;
+      const y = alturaAssento + 0.028 - Math.pow(1 - t, 3) * 0.05;
+      const b = peca(caixa(0.075, 0.075, 0.082, 0.032, 5), matRosa(), lado * 0.235, y, z);
+      b.rotation.z = lado * 0.30;
+      g.add(b);
+      const vv = peca(caixa(0.014, 0.070, 0.078, 0.006, 4), matBranco(), lado * 0.268, y - 0.012, z);
+      vv.rotation.z = lado * 0.30;
+      g.add(vv);
+    }
+  });
 
-  // encosto inclinado, com as "asas" laterais da cadeira gamer
-  const encosto = new THREE.Group();
-  encosto.position.set(0, alturaAssento + 0.05, 0.22);
-  encosto.rotation.x = -0.20;
-  // encosto mais baixo de proposito: com 0,72 de altura ele cobria a cabeca e os
-  // ombros do personagem visto de tras, e a cena perdia quem estava trabalhando
-  encosto.add(peca(caixa(0.48, 0.52, 0.11, 0.055, 7), matRosa(), 0, 0.24, 0));
-  encosto.add(peca(caixa(0.09, 0.44, 0.14, 0.05, 7), matBranco(), -0.205, 0.22, -0.02));
-  encosto.add(peca(caixa(0.09, 0.44, 0.14, 0.05, 7), matBranco(), 0.205, 0.22, -0.02));
-  // apoio de cabeca, agora atras da nuca e nao na frente dela
-  encosto.add(peca(caixa(0.26, 0.12, 0.11, 0.05, 7), matBranco(), 0, 0.56, -0.01));
-  g.add(encosto);
+  /* ---- encosto: almofadas ao longo de uma curva com lombar ---- */
+  const NE = 8;
+  const perfilZ = (t) => 0.245 + t * 0.155 - Math.sin(t * Math.PI) * 0.075;
+  const perfilY = (t) => alturaAssento + 0.045 + t * 0.60;
+  for (let i = 0; i < NE; i++) {
+    const t = i / (NE - 1);
+    // inclinacao vem da propria curva: cada almofada acompanha a tangente
+    const dz = (perfilZ(Math.min(1, t + 0.02)) - perfilZ(Math.max(0, t - 0.02)));
+    const dy = (perfilY(Math.min(1, t + 0.02)) - perfilY(Math.max(0, t - 0.02)));
+    const ang = Math.atan2(dz, dy);
 
-  // apoios de braco
-  [-0.32, 0.32].forEach((x) => {
-    g.add(peca(caixa(0.07, 0.20, 0.07, 0.02), matPreto(), x, alturaAssento + 0.14, 0.10));
-    g.add(peca(caixa(0.09, 0.05, 0.28, 0.024, 6), matPreto(), x, alturaAssento + 0.25, 0.02));
+    const larg = 0.44 - Math.pow(Math.max(0, t - 0.55) / 0.45, 2) * 0.09;
+    const alm = peca(caixa(larg, 0.104, 0.11, 0.038, 6), matRosa(), 0, perfilY(t), perfilZ(t));
+    alm.rotation.x = -ang;
+    g.add(alm);
+
+    // asas laterais, mais salientes na altura do tronco
+    const saliencia = Math.sin(Math.min(1, t / 0.8) * Math.PI) * 0.055;
+    if (t < 0.9) {
+      [-1, 1].forEach((lado) => {
+        const asa = peca(caixa(0.070, 0.102, 0.115 + saliencia, 0.036, 6), matRosa(),
+          lado * (larg / 2 + 0.012), perfilY(t), perfilZ(t) - saliencia * 0.45);
+        asa.rotation.x = -ang;
+        asa.rotation.z = lado * 0.16;
+        g.add(asa);
+        // vivo branco: o contraste fica na quina, nao no volume inteiro
+        const vivo = peca(caixa(0.016, 0.098, 0.10 + saliencia, 0.007, 4), matBranco(),
+          lado * (larg / 2 + 0.046), perfilY(t), perfilZ(t) - saliencia * 0.45);
+        vivo.rotation.x = -ang;
+        vivo.rotation.z = lado * 0.16;
+        g.add(vivo);
+      });
+    }
+  }
+
+  // haste e apoio de cabeca
+  const topoY = perfilY(1), topoZ = perfilZ(1);
+  g.add(peca(caixa(0.05, 0.09, 0.05, 0.014), matPreto(), 0, topoY + 0.055, topoZ + 0.01));
+  const cabeceira = peca(caixa(0.26, 0.115, 0.10, 0.045, 5), matBranco(), 0, topoY + 0.135, topoZ - 0.005);
+  cabeceira.rotation.x = -0.22;
+  g.add(cabeceira);
+
+  /* ---- apoios de braco 4D ---- */
+  [-1, 1].forEach((lado) => {
+    const x = lado * 0.285;
+    g.add(peca(caixa(0.05, 0.19, 0.05, 0.016), matPreto(), x, alturaAssento + 0.10, 0.10));
+    g.add(peca(caixa(0.075, 0.028, 0.055, 0.012), matGrafite(), x, alturaAssento + 0.205, 0.10));
+    const apoio = peca(caixa(0.085, 0.038, 0.26, 0.018, 4), matPreto(), x, alturaAssento + 0.232, 0.03);
+    apoio.rotation.x = -0.04;
+    g.add(apoio);
   });
 
   return g;
