@@ -109,14 +109,42 @@ function posarEmPe(m, alvo) {
 
   alcancar(cadeia, mao, alvo);
 
-  return {
-    ombro: cadeia[0],
-    cotovelo: cadeia[1],
-    base: {
-      ombro: cadeia[0].quaternion.clone(),
-      cotovelo: cadeia[1] ? cadeia[1].quaternion.clone() : null
-    }
-  };
+  return { cadeia, mao, alvo: alvo.clone() };
+}
+
+/**
+ * Sequencia de toque.
+ *
+ * Em vez de procurar um clipe pronto, o que se anima aqui e o ALVO da IK: a mao
+ * vai de um ponto a outro da tela, encosta, recolhe um pouco e vai para o
+ * proximo. O braco inteiro acompanha sozinho, com cotovelo e ombro coerentes —
+ * que e justamente o que a IK resolve.
+ */
+const PONTOS = [
+  [0.18, -0.30], [-0.16, -0.10], [0.20, 0.16], [-0.06, -0.34], [0.12, 0.02]
+];
+const DUR = 2.4;
+
+function alvoDoToque(t, base, saida) {
+  const total = PONTOS.length * DUR;
+  const fase = (t % total) / DUR;
+  const i = Math.floor(fase);
+  const f = fase - i;
+  const a = PONTOS[i];
+  const b = PONTOS[(i + 1) % PONTOS.length];
+
+  // 0 a 0,55 desliza ate o proximo ponto; 0,55 a 1 encosta e segura
+  const k = f < 0.55 ? f / 0.55 : 1;
+  const suave = k * k * (3 - 2 * k);
+  const x = a[0] + (b[0] - a[0]) * suave;
+  const yy = a[1] + (b[1] - a[1]) * suave;
+
+  // a mao recua no trajeto e avanca para tocar: sem isso ela varre o vidro
+  const recuo = f < 0.55 ? Math.sin(suave * Math.PI) * 0.085 : 0;
+  // toque: um empurraozinho curto logo depois de chegar
+  const toque = f >= 0.55 && f < 0.68 ? -Math.sin(((f - 0.55) / 0.13) * Math.PI) * 0.022 : 0;
+
+  saida.set(base.x + x, base.y + yy, base.z + recuo + toque);
 }
 
 export function montarCenaWsl(container) {
@@ -190,11 +218,19 @@ export function montarCenaWsl(container) {
     telaAtual = i;
     const tex = texturas[i];
     if (!tex) return;
-    // a malha se ajusta a proporcao da imagem: as sete telas da WSL vao de
-    // 0,567 a 0,761, entao um recorte fixo cortaria quase todas
+    /* PREENCHE o painel. Ajustar a malha deixava faixa preta em volta e as
+       telas nao pareciam estar rodando NA TV. Como as sete sao retrato e o
+       painel tambem (0,651), o recorte fica entre 3% e 15% — sempre nas bordas,
+       que nessas capturas sao margem. */
+    tela.scale.set(1, 1, 1);
     const r = proporcoes[i] || proporcaoPainel;
-    if (r > proporcaoPainel) tela.scale.set(1, proporcaoPainel / r, 1);
-    else tela.scale.set(r / proporcaoPainel, 1, 1);
+    if (r > proporcaoPainel) {
+      tex.repeat.set(proporcaoPainel / r, 1);
+      tex.offset.set((1 - proporcaoPainel / r) / 2, 0);
+    } else {
+      tex.repeat.set(1, r / proporcaoPainel);
+      tex.offset.set(0, (1 - r / proporcaoPainel) / 2);
+    }
     tela.material.map = tex;
     tela.material.color.set(0xffffff);
     tela.material.needsUpdate = true;
@@ -217,8 +253,9 @@ export function montarCenaWsl(container) {
     scene.add(m.raiz);
 
     m.materiais().forEach((x) => materiaisPessoa.push(x));
-    // ponto de toque: um pouco abaixo do centro da tela, na altura do ombro
-    pose = posarEmPe(m, new THREE.Vector3(PAINEL.x + 0.16, PAINEL.y - 0.22, PAINEL.z + 0.05));
+    /* O alvo fica 14 cm a frente do vidro, nao 5. O osso da mao para no punho e
+       os dedos seguem 8 cm adiante — com folga pequena, a mao atravessava a TV. */
+    pose = posarEmPe(m, new THREE.Vector3(PAINEL.x + 0.16, PAINEL.y - 0.24, PAINEL.z + 0.14));
     try { if (window.__wsl) window.__wsl.modelo = m; } catch (e) {}
   }).catch((e) => console.warn('modelo da WSL nao carregou', e));
 
@@ -251,9 +288,7 @@ export function montarCenaWsl(container) {
   let progresso = 0, progCamera = 0, rodando = true;
   let ultimo = performance.now();
   const relogio = new THREE.Clock();
-  const _giro = new THREE.Quaternion();
-  const _eixoY = new THREE.Vector3(0, 1, 0);
-  const _eixoX = new THREE.Vector3(1, 0, 0);
+  const _alvo = new THREE.Vector3();
 
   try {
     if (new URLSearchParams(location.search).get('dbg') === '1') {
@@ -275,16 +310,16 @@ export function montarCenaWsl(container) {
        braco que toca e um balanco minimo no tronco. Amplitude pequena de
        proposito — em pe, qualquer exagero vira dancinha. */
     const calma = 1 - rig.proximidade(progCamera);
-    if (pose && !reduzido) {
-      /* Oscila em torno da pose resolvida, por quaternion — mexer num eixo solto
-         desfaria a orientacao que a IK encontrou. */
-      _giro.setFromAxisAngle(_eixoY, Math.sin(t * 0.5) * 0.05 * calma);
-      pose.ombro.quaternion.copy(pose.base.ombro).multiply(_giro);
-      if (pose.cotovelo && pose.base.cotovelo) {
-        _giro.setFromAxisAngle(_eixoX, Math.sin(t * 0.7 + 1.1) * 0.07 * calma);
-        pose.cotovelo.quaternion.copy(pose.base.cotovelo).multiply(_giro);
+    if (pose && !reduzido && calma > 0.01) {
+      alvoDoToque(t, pose.alvo, _alvo);
+      // 5 iteracoes por quadro bastam: a pose anterior ja e um bom ponto de
+      // partida, e o alvo anda pouco entre um quadro e o outro
+      alcancar(pose.cadeia, pose.mao, _alvo, 5);
+      // peso do corpo acompanhando o braco, bem de leve
+      if (modelo && modelo.ossos.Spine) {
+        modelo.ossos.Spine.rotation.y = Math.sin(t * 0.42) * 0.05 * calma;
+        modelo.ossos.Spine.rotation.z = 0.02 + Math.sin(t * 0.31) * 0.02 * calma;
       }
-      if (modelo && modelo.tronco) modelo.tronco.rotation.y = Math.sin(t * 0.33) * 0.02 * calma;
     }
 
     // chegando na tela o personagem se dissolve, como no GateCheck
