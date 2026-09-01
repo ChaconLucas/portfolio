@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { criarEstacao, TOPO_TECLAS, TOPO_MOUSE, ALTURA_MESA as ALTURA_TAMPO } from './workstation.js';
 import { criarPersonagem, animarPersonagem, pousarMaos } from './character.js';
 import { carregarPersonagem } from './character-glb.js';
@@ -62,6 +63,18 @@ export function montarCenaGatecheck(container) {
 
   const scene = new THREE.Scene();
   scene.fog = new THREE.Fog(0x05060d, 6.5, 13);
+
+  /* MAPA DE AMBIENTE — a peca que faltava.
+     Materiais fisicos (verniz, metal, vidro) so tem volume porque refletem
+     alguma coisa. Sem ambiente eles caem no difuso puro e a cena inteira fica
+     com aspecto de plastico chapado: era exatamente o "sem textura, sem
+     profundidade". `RoomEnvironment` e gerado em codigo, entao nao entra
+     nenhum arquivo no bundle. */
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  pmrem.compileEquirectangularShader();
+  const ambiente = pmrem.fromScene(new RoomEnvironment(), 0.035);
+  scene.environment = ambiente.texture;
+  scene.environmentIntensity = 0.62;
 
   const camera = new THREE.PerspectiveCamera(38, 1, 0.05, 60);
   const rig = criarRigCamera(camera);
@@ -545,6 +558,8 @@ export function montarCenaGatecheck(container) {
     });
     texturas.forEach((t) => t && t.dispose());
     descartarMateriais();
+    ambiente.texture.dispose();
+    pmrem.dispose();
     renderer.dispose();
     if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
   }

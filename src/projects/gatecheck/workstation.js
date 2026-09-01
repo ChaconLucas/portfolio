@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { texturaMousepad } from './textures.js';
+import { texturaMousepad, texturaEditor } from './textures.js';
 import {
   PALETA, matBranco, matBrancoFosco, matRosa, matRosaEscuro,
   matGrafite, matPreto, matMidnight, matTecido, matVidro
@@ -352,7 +352,7 @@ export function criarMacbook() {
   const g = new THREE.Group();
   g.name = 'macbook';
 
-  const L = 0.34, P = 0.235;
+  const L = 0.34, P = 0.213;   // 16:10, como um notebook de verdade
   g.add(peca(caixa(L, 0.014, P, 0.006), matMidnight(), 0, ALTURA_MESA + 0.007, 0));
   // pes de borracha, para nao parecer colado no tampo
   [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) => {
@@ -374,18 +374,15 @@ export function criarMacbook() {
   tampa.rotation.x = 0.28;
   tampa.add(peca(caixa(L, P, 0.008, 0.005), matMidnight(), 0, P / 2, 0));
   const telaMac = new THREE.Mesh(
-    new THREE.PlaneGeometry(L - 0.020, P - 0.024),
-    new THREE.MeshBasicMaterial({ color: 0x223458, toneMapped: false })
+    new THREE.PlaneGeometry(L - 0.018, P - 0.016),
+    new THREE.MeshBasicMaterial({ map: texturaEditor(), toneMapped: false })
   );
   telaMac.position.set(0, P / 2, 0.0055);
   tampa.add(telaMac);
-  // barra de menu, so para a tela nao ser um retangulo chapado
-  const barra = new THREE.Mesh(
-    new THREE.PlaneGeometry(L - 0.020, 0.012),
-    new THREE.MeshBasicMaterial({ color: 0x3a4e7a, toneMapped: false })
-  );
-  barra.position.set(0, P - 0.024, 0.006);
-  tampa.add(barra);
+  // a tela acesa ilumina o tampo em volta
+  const luzMac = new THREE.PointLight(0x9fb6ff, 0.5, 0.55, 2);
+  luzMac.position.set(0, P / 2, 0.10);
+  tampa.add(luzMac);
   g.add(tampa);
 
   return g;

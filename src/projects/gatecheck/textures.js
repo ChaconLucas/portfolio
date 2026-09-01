@@ -170,3 +170,108 @@ export function texturaMousepad() {
 
   return finalizar(c);
 }
+
+/**
+ * Tela do notebook: editor com terminal embaixo.
+ * Desenhada em formas, nao em texto de verdade — a essa distancia glifo nao se
+ * le, e barra colorida com o ritmo certo de indentacao le como codigo.
+ */
+export function texturaEditor() {
+  const L = 1024, A = 640;
+  const { c, ctx } = tela(L, A);
+
+  const FUNDO = '#1e1e1e', PAINEL = '#252526', BARRA = '#323233';
+  ctx.fillStyle = FUNDO; ctx.fillRect(0, 0, L, A);
+
+  // barra de atividades
+  ctx.fillStyle = '#333334'; ctx.fillRect(0, 0, 46, A);
+  ['#c5c5c5', '#6f6f6f', '#6f6f6f', '#6f6f6f', '#6f6f6f'].forEach((cor, i) => {
+    ctx.fillStyle = cor;
+    ctx.fillRect(14, 26 + i * 46, 18, 18);
+  });
+
+  // arvore de arquivos
+  ctx.fillStyle = PAINEL; ctx.fillRect(46, 0, 210, A);
+  ctx.fillStyle = '#8a8a8a';
+  ctx.font = '13px ui-monospace, monospace';
+  ctx.fillText('PORTFOLIO', 62, 26);
+  const arquivos = ['src', ' projects', '  gatecheck', '   index.js', '   scene.js', '   camera.js',
+                    'public', ' assets', 'index.html', 'package.json'];
+  arquivos.forEach((f, i) => {
+    ctx.fillStyle = f.includes('index.js') ? '#e7e7e7' : '#9d9d9d';
+    if (f.includes('index.js')) { ctx.fillStyle = '#37373d'; ctx.fillRect(46, 42 + i * 22, 210, 22); ctx.fillStyle = '#ffffff'; }
+    ctx.fillText(f, 62, 58 + i * 22);
+  });
+
+  // abas
+  ctx.fillStyle = BARRA; ctx.fillRect(256, 0, L - 256, 34);
+  ctx.fillStyle = FUNDO; ctx.fillRect(256, 0, 150, 34);
+  ctx.fillStyle = '#4ec9b0'; ctx.font = '12px ui-monospace, monospace';
+  ctx.fillText('index.js', 276, 22);
+
+  // codigo: barras coloridas com indentacao, no ritmo de codigo de verdade
+  const linhas = [
+    [1, ['#c586c0:6', '#9cdcfe:9', '#ce9178:14']],
+    [1, ['#c586c0:6', '#9cdcfe:7', '#ce9178:18']],
+    [0, []],
+    [1, ['#569cd6:5', '#dcdcaa:11', '#9cdcfe:6']],
+    [2, ['#c586c0:4', '#9cdcfe:8', '#b5cea8:3']],
+    [2, ['#9cdcfe:7', '#d4d4d4:2', '#dcdcaa:9', '#ce9178:11']],
+    [3, ['#9cdcfe:10', '#d4d4d4:1', '#b5cea8:4']],
+    [2, ['#d4d4d4:1']],
+    [2, ['#c586c0:6', '#9cdcfe:5']],
+    [1, ['#d4d4d4:1']],
+    [0, []],
+    [1, ['#6a9955:26']],
+    [1, ['#569cd6:5', '#dcdcaa:13', '#9cdcfe:4']],
+    [2, ['#9cdcfe:8', '#d4d4d4:2', '#4ec9b0:12']],
+    [2, ['#c586c0:6', '#9cdcfe:6', '#d4d4d4:1']]
+  ];
+  let y = 56;
+  linhas.forEach(([ind, segs]) => {
+    let x = 280 + ind * 22;
+    segs.forEach((sg) => {
+      const [cor, n] = sg.split(':');
+      ctx.fillStyle = cor;
+      ctx.fillRect(x, y, +n * 7.2, 8);
+      x += +n * 7.2 + 9;
+    });
+    y += 22;
+  });
+
+  // terminal
+  const topo = A - 210;
+  ctx.fillStyle = PAINEL; ctx.fillRect(256, topo, L - 256, 210);
+  ctx.fillStyle = '#3c3c3c'; ctx.fillRect(256, topo, L - 256, 30);
+  ctx.fillStyle = '#cccccc'; ctx.font = '12px ui-monospace, monospace';
+  ctx.fillText('TERMINAL', 276, topo + 20);
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(272, topo + 28, 74, 2);
+
+  ctx.font = '13px ui-monospace, monospace';
+  const saida = [
+    ['#4ec9b0', '➜  portfolio '], ['#dcdcaa', 'npm run dev'],
+    null,
+    ['#8a8a8a', '  VITE v7.1.3  ready in 214 ms'],
+    null,
+    ['#8a8a8a', '  ➜  Local:   '], ['#4ec9b0', 'http://localhost:5173/'],
+    null,
+    ['#4ec9b0', '➜  portfolio '], ['#dcdcaa', 'git status'],
+    null,
+    ['#8a8a8a', '  modified: src/projects/gatecheck/index.js']
+  ];
+  let ty = topo + 56, tx = 276;
+  saida.forEach((it) => {
+    if (!it) { ty += 20; tx = 276; return; }
+    ctx.fillStyle = it[0];
+    ctx.fillText(it[1], tx, ty);
+    tx += ctx.measureText(it[1]).width;
+  });
+  // cursor
+  ctx.fillStyle = '#cccccc';
+  ctx.fillRect(276, ty + 12, 8, 15);
+
+  // barra de status
+  ctx.fillStyle = '#7048d6'; ctx.fillRect(0, A - 24, L, 24);
+
+  return finalizar(c);
+}
