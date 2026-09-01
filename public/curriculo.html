@@ -51,6 +51,14 @@ body{
 }
 .voltar:hover{border-color:var(--acento);color:var(--texto)}
 
+/* Foco visivel proprio: o anel padrao do navegador some no fundo escuro
+   dependendo do tema do sistema. */
+a:focus-visible{
+  outline:2px solid var(--acento);
+  outline-offset:3px;
+  border-radius:4px;
+}
+
 header{border-bottom:1px solid var(--linha);padding-bottom:22px;margin-bottom:30px}
 h1{font-size:clamp(26px,5vw,36px);line-height:1.05;letter-spacing:-.02em;font-weight:700}
 .cargo{color:var(--acento);font-size:12px;letter-spacing:.14em;margin-top:9px;text-transform:uppercase}
