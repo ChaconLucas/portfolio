@@ -59,6 +59,17 @@ export function criarRigCamera(camera, opcoes = {}) {
      distancia calculada fica MAIOR que o ponto de partida e a camera recua no
      meio do percurso — entra, sai e entra de novo. */
   const FOLGA = opcoes.folga || 1.55;
+  /* A folga do desktop nao serve para o retrato do celular.
+     Ela existe para caber moldura, haste e um pedaco do tampo num quadro
+     deitado. Num quadro alto, uma tela deitada ja cabe pela largura com muita
+     sobra, e a folga so afasta mais: o monitor terminava com metade da largura
+     no meio de uma tela vazia, e a captura — que e o motivo do zoom existir —
+     ficava pequena demais para ler. No celular ela cai para perto do minimo —
+     nao ao minimo: no FLASH a camera mira o celular na MAO, que nao esta no
+     eixo, e sem nenhuma margem esse desvio cortava a tela pela direita. */
+  const folgaAtual = () => (
+    typeof innerWidth === 'number' && innerWidth <= 900 ? Math.min(FOLGA, 1.14) : FOLGA
+  );
   // copia propria: o enquadramento final e recalculado por cena e por resize
   const CHAVES = BASE.map((c) => ({ p: c.p, pos: c.pos.slice(), alvo: c.alvo.slice() }));
 
@@ -82,7 +93,7 @@ export function criarRigCamera(camera, opcoes = {}) {
     /* 1,55 de folga: com 1,22 a moldura saia do quadro e a tela lia como uma
        pagina aberta, nao como um monitor ligado. A folga precisa caber a borda,
        a haste e um pedaco do tampo. */
-    const d = Math.max(ALVO.largura / 2 / th, ALVO.altura / 2 / tv) * FOLGA;
+    const d = Math.max(ALVO.largura / 2 / th, ALVO.altura / 2 / tv) * folgaAtual();
     CHAVES[CHAVES.length - 1].pos = [
       ALVO.x + DIRECAO.x * d, ALVO.y + DIRECAO.y * d, ALVO.z + DIRECAO.z * d
     ];
