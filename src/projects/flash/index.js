@@ -152,6 +152,8 @@ export function montarCenaFlash(container, opcoes = {}) {
 
   /* -------------------------------------------------------- personagem -- */
   let modelo = null;
+  let celularNaMao = false;
+  let celularSolto = false;
   const materiaisPessoa = [];
 
   carregarPersonagem('/assets/models/bryce.glb').then((m) => {
@@ -195,23 +197,45 @@ export function montarCenaFlash(container, opcoes = {}) {
         if (dedoD) dedoD.getWorldPosition(pDedo); else pDedo.copy(pPunho);
         const alvoMundo = pPunho.clone().lerp(pDedo, 0.75);
 
-        /* ORIENTACAO por calculo. Um auxiliar olha do aparelho para o lado da
-           camera e a rotacao dele vira a do celular, trazida para o espaco da
-           mao. Sem giro extra: medindo o alinhamento da tela com a camera,
-           `lookAt` puro da 0,99 — a inclinacao que eu tinha somado antes
-           derrubava para -0,19, ou seja, tela quase de lado. */
-        const aux = new THREE.Object3D();
-        aux.position.copy(alvoMundo);
-        aux.lookAt(new THREE.Vector3(0.55, 1.45, 2.10));
-        aux.updateMatrixWorld(true);
+        /* ORIENTACAO tirada da propria mao.
+           Antes eu usava `lookAt` para um ponto fixo perto da camera. Isso
+           acerta no instante em que e calculado e erra em todos os outros: a
+           mao continua se mexendo com a animacao e leva o aparelho junto, entao
+           ele ia ficando de lado.
+           Agora o celular e alinhado a MAO — eixo longo na direcao dos dedos,
+           face na direcao da palma. Fica preso como um celular fica, e o giro
+           para mostrar a tela acontece so no fim, quando o corpo sai de cena. */
+        const eixoDedos = new THREE.Vector3();
+        const atravessaPalma = new THREE.Vector3();
+        const normalPalma = new THREE.Vector3();
+        const pIndic = new THREE.Vector3();
+        const pMinimo = new THREE.Vector3();
+        const iIndic = m.ossos.RightHandIndex1;
+        const iMinimo = m.ossos.RightHandPinky1;
+
+        eixoDedos.copy(pDedo).sub(pPunho).normalize();
+        if (iIndic && iMinimo) {
+          iIndic.getWorldPosition(pIndic);
+          iMinimo.getWorldPosition(pMinimo);
+          atravessaPalma.copy(pMinimo).sub(pIndic).normalize();
+        } else {
+          atravessaPalma.set(1, 0, 0);
+        }
+        normalPalma.crossVectors(eixoDedos, atravessaPalma).normalize();
+        atravessaPalma.crossVectors(normalPalma, eixoDedos).normalize();
+
+        const base = new THREE.Matrix4().makeBasis(atravessaPalma, eixoDedos, normalPalma);
+        const qMundo = new THREE.Quaternion().setFromRotationMatrix(base);
 
         const qPai = new THREE.Quaternion();
         maoD.getWorldQuaternion(qPai);
-        celular.quaternion.copy(qPai.clone().invert().multiply(aux.quaternion));
+        celular.quaternion.copy(qPai.clone().invert().multiply(qMundo));
 
         // afasta da palma pela espessura do aparelho, para nao afundar na mao
-        alvoMundo.add(new THREE.Vector3(0, 0, 1).applyQuaternion(aux.quaternion).multiplyScalar(0.006));
+        alvoMundo.add(normalPalma.clone().multiplyScalar(0.008));
         celular.position.copy(maoD.worldToLocal(alvoMundo));
+
+        celularNaMao = true;
       }
     }).catch(() => { /* sem o clipe, ele fica na pose de repouso */ });
   }).catch((e) => console.warn('modelo do FLASH nao carregou', e));
@@ -252,6 +276,8 @@ export function montarCenaFlash(container, opcoes = {}) {
   } catch (e) {}
 
   const _p = new THREE.Vector3();
+  const _q = new THREE.Quaternion();
+  const _aux = new THREE.Object3D();
 
   function quadro() {
     if (!rodando) return;
@@ -272,13 +298,33 @@ export function montarCenaFlash(container, opcoes = {}) {
       rig.mirar(_p);
     }
 
-    const s0 = Math.max(0, Math.min(1, (progCamera - 0.86) / 0.13));
+    const s0 = Math.max(0, Math.min(1, (progCamera - 0.80) / 0.14));
     const alfa = 1 - s0 * s0 * (3 - 2 * s0);
+
+    /* O celular SAI DA MAO antes do corpo sumir.
+       Visibilidade em three e herdada: preso ao osso, ele desaparecia junto com
+       o personagem — e era justamente o objeto que a camera veio ver. Ao soltar,
+       o aparelho passa a ser filho da cena e mantem a posicao que tinha, entao
+       nao ha salto no momento da troca. */
+    if (!celularSolto && celularNaMao && alfa < 0.55) {
+      celular.getWorldPosition(_p);
+      celular.getWorldQuaternion(_q);
+      scene.add(celular);
+      celular.position.copy(_p);
+      celular.quaternion.copy(_q);
+      celularSolto = true;
+    }
+
+    if (celularSolto) {
+      // gira devagar ate a tela encarar a camera, e sobe para o centro do quadro
+      _aux.position.copy(celular.position);
+      _aux.lookAt(camera.position);
+      celular.quaternion.slerp(_aux.quaternion, 1 - Math.pow(0.02, dt));
+    }
+
     const vivo = alfa > 0.01;
     if (modelo && modelo.raiz.visible !== vivo) modelo.raiz.visible = vivo;
     for (let i = 0; i < materiaisPessoa.length; i++) materiaisPessoa[i].opacity = alfa;
-    // o celular nunca some: e ele que a camera veio ver
-    celular.visible = true;
 
     rig.atualizar(progCamera, dt);
     renderer.render(scene, camera);
