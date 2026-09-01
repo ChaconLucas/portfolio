@@ -249,60 +249,32 @@ export function montarCenaFlash(container, opcoes = {}) {
         const atravessaPalma = new THREE.Vector3();
         const normalPalma = new THREE.Vector3();
 
-        /* O aparelho acompanha a MAO, na pega natural.
-           Forcar a tela a encarar a camera resolvia a visibilidade e criava um
-           problema pior: o celular deixava de seguir os dedos e os atravessava.
-           Quem se move para ver a tela agora e a camera. */
-        const pCotovelo = new THREE.Vector3();
-        const cotoveloD = m.ossos.RightForeArm;
-        if (cotoveloD) cotoveloD.getWorldPosition(pCotovelo); else pCotovelo.copy(pPunho);
-        eixoDedos.copy(pPunho).sub(pCotovelo).normalize();
+        /* ORIENTACAO SIMPLES: em pe, retrato, tela para fora.
+           Derivar do antebraco punha o aparelho deitado, porque com o braco
+           dobrado na altura do peito o antebraco fica na horizontal. Mas
+           ninguem segura o celular acompanhando o antebraco — segura EM PE.
+           Entao o eixo longo e a vertical do mundo, e a tela olha para fora do
+           corpo. A mao continua mandando em onde ele fica. */
+        const paraFora = new THREE.Vector3();
+        const pQuadril = new THREE.Vector3();
+        (m.ossos.Hips || m.raiz).getWorldPosition(pQuadril);
+        paraFora.copy(alvoMundo).sub(pQuadril);
+        paraFora.y = 0;
+        if (paraFora.lengthSq() < 1e-6) paraFora.set(0, 0, 1);
+        paraFora.normalize();
 
-        const pIndic = new THREE.Vector3();
-        const pMinimo = new THREE.Vector3();
-        const iIndic = m.ossos.RightHandIndex1;
-        const iMinimo = m.ossos.RightHandPinky1;
-        if (iIndic && iMinimo) {
-          iIndic.getWorldPosition(pIndic);
-          iMinimo.getWorldPosition(pMinimo);
-          atravessaPalma.copy(pMinimo).sub(pIndic).normalize();
-        } else {
-          atravessaPalma.set(1, 0, 0);
-        }
-        normalPalma.crossVectors(eixoDedos, atravessaPalma).normalize();
-        atravessaPalma.crossVectors(normalPalma, eixoDedos).normalize();
-
-        const base = new THREE.Matrix4().makeBasis(atravessaPalma, eixoDedos, normalPalma);
+        const cima = new THREE.Vector3(0, 1, 0);
+        const lado = new THREE.Vector3().crossVectors(cima, paraFora).normalize();
+        const base = new THREE.Matrix4().makeBasis(lado, cima, paraFora);
         const qMundo = new THREE.Quaternion().setFromRotationMatrix(base);
 
-        /* INCLINACAO PARA O ROSTO.
-           Medindo a mao: a normal da palma aponta para cima (0,9 em Y). Deitado
-           assim o aparelho fica com a tela para o teto — anatomicamente correto
-           e visualmente de perfil, que e o "em pe" que se via.
-           Ninguem usa celular na horizontal: inclina para o rosto. Aqui a
-           inclinacao gira em torno do eixo do antebraco, e o SENTIDO e escolhido
-           medindo qual dos dois aproxima a tela da cabeca — sem depender de
-           qual mao e nem de como o esqueleto foi montado. */
-        const pCabeca = new THREE.Vector3();
-        const oCabeca = m.ossos.Head || m.ossos.Neck;
-        if (oCabeca) {
-          oCabeca.getWorldPosition(pCabeca);
-          const paraCabeca = pCabeca.clone().sub(alvoMundo).normalize();
-          const testar = (ang) => {
-            const q = new THREE.Quaternion().setFromAxisAngle(eixoDedos, ang).multiply(qMundo);
-            return new THREE.Vector3(0, 0, 1).applyQuaternion(q).dot(paraCabeca);
-          };
-          const passo = 0.95;
-          qMundo.premultiply(
-            new THREE.Quaternion().setFromAxisAngle(eixoDedos, testar(passo) > testar(-passo) ? passo : -passo)
-          );
-        }
+        // inclina o topo para tras, como quem le a tela
+        qMundo.premultiply(new THREE.Quaternion().setFromAxisAngle(lado, -0.30));
+
         const qPai = new THREE.Quaternion();
         maoD.getWorldQuaternion(qPai);
         celular.quaternion.copy(qPai.clone().invert().multiply(qMundo));
-
-        alvoMundo.add(normalPalma.clone().multiplyScalar(0.016));
-        celular.position.copy(maoD.worldToLocal(alvoMundo));
+        celular.position.copy(maoD.worldToLocal(alvoMundo.clone()));
 
         celularNaMao = true;
         // guarda a pose na mao: e ela que volta quando o scroll sobe
@@ -393,13 +365,9 @@ export function montarCenaFlash(container, opcoes = {}) {
       const pintar = () => {
         const p3 = celular.position, r3 = celular.rotation;
         hud.textContent =
-          'AJUSTE DO CELULAR   (clique na pagina antes)
-' +
-          'setas mover · Q/E fundo · WASD e Z/X girar
-
-' +
-          'celular.position.set(' + [p3.x, p3.y, p3.z].map((v) => v.toFixed(4)).join(', ') + ');
-' +
+          'AJUSTE DO CELULAR   (clique na pagina antes)' + String.fromCharCode(10) +
+          'setas mover - Q/E fundo - WASD e Z/X girar' + String.fromCharCode(10,10) +
+          'celular.position.set(' + [p3.x, p3.y, p3.z].map((v) => v.toFixed(4)).join(', ') + ');' + String.fromCharCode(10) +
           'celular.rotation.set(' + [r3.x, r3.y, r3.z].map((v) => v.toFixed(3)).join(', ') + ');';
       };
       pintar();
@@ -414,6 +382,16 @@ export function montarCenaFlash(container, opcoes = {}) {
   const _q = new THREE.Quaternion();
   const _aux = new THREE.Object3D();
   const _n = new THREE.Vector3();
+  const _pq = new THREE.Vector3();
+  const _fora = new THREE.Vector3();
+  const _lado = new THREE.Vector3();
+  const _cima = new THREE.Vector3(0, 1, 0);
+  const _base = new THREE.Matrix4();
+  const _qm = new THREE.Quaternion();
+  const _tilt = new THREE.Quaternion();
+  const _apoio = new THREE.Vector3();
+  const _t = new THREE.Vector3();
+  const DEDOS_APOIO = ['RightHandMiddle2', 'RightHandRing2', 'RightHandPinky2'];
 
   function quadro() {
     if (!rodando) return;
@@ -459,6 +437,45 @@ export function montarCenaFlash(container, opcoes = {}) {
       celular.position.copy(poseNaMao.pos);
       celular.quaternion.copy(poseNaMao.quat);
       celularSolto = false;
+    }
+
+    /* ORIENTACAO A CADA QUADRO, enquanto esta na mao.
+       Definir uma vez nao basta: a mao gira com a animacao e leva o aparelho
+       junto, entao a pose que estava em pe vai deitando. Recalculando por
+       quadro, ele fica sempre em pe e com a tela para fora — que e como se
+       segura um celular. A mao continua mandando em ONDE ele esta. */
+    if (!celularSolto && celularNaMao && modelo) {
+      const mao = modelo.ossos.RightHand;
+      celular.getWorldPosition(_p);
+      (modelo.ossos.Hips || modelo.raiz).getWorldPosition(_pq);
+      _fora.copy(_p).sub(_pq); _fora.y = 0;
+      if (_fora.lengthSq() < 1e-6) _fora.set(0, 0, 1);
+      _fora.normalize();
+      _lado.crossVectors(_cima, _fora).normalize();
+      _base.makeBasis(_lado, _cima, _fora);
+      _qm.setFromRotationMatrix(_base);
+      _qm.premultiply(_tilt.setFromAxisAngle(_lado, -0.28));
+      mao.getWorldQuaternion(_q);
+      celular.quaternion.copy(_q.invert().multiply(_qm));
+
+      /* POSICAO tambem por quadro, afastada da palma.
+         A prateleira dos dedos e onde ele APOIA, mas o corpo do aparelho tem
+         8 mm e os dedos se fecham por cima — parado exatamente no apoio, ele
+         atravessava a carne. Empurrando 2,6 cm para fora, os dedos ficam atras
+         dele em vez de dentro. */
+      _apoio.set(0, 0, 0);
+      let quantos = 0;
+      for (let i = 0; i < DEDOS_APOIO.length; i++) {
+        const b = modelo.ossos[DEDOS_APOIO[i]];
+        if (!b) continue;
+        b.getWorldPosition(_t);
+        _apoio.add(_t);
+        quantos++;
+      }
+      if (quantos) {
+        _apoio.divideScalar(quantos).addScaledVector(_fora, 0.026);
+        celular.position.copy(mao.worldToLocal(_apoio));
+      }
     }
 
     if (celularSolto) {
