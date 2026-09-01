@@ -468,7 +468,8 @@ export function montarCenaGatecheck(container) {
 
     if (estacao.gabinete.userData.fans && !reduzido) {
       estacao.gabinete.userData.fans.children.forEach((f, i) => {
-        f.rotation.z = t * (1.6 + i * 0.4);
+        // so as pas: girar o grupo levava a moldura e o aro junto
+        if (f.userData.pas) f.userData.pas.rotation.z = t * (2.2 + i * 0.35);
       });
     }
 

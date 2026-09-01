@@ -299,23 +299,32 @@ export function criarGabinete() {
   /* --- ventoinha reutilizavel: aro aceso, moldura e pas --- */
   const geoAro = new THREE.TorusGeometry(0.052, 0.008, 12, 30);
   const geoMold = new THREE.BoxGeometry(0.118, 0.118, 0.024);
-  const geoPa = new THREE.BoxGeometry(0.082, 0.004, 0.020);
+  const geoPa = new THREE.BoxGeometry(0.076, 0.0028, 0.024);
   const geoCubo = new THREE.CylinderGeometry(0.018, 0.018, 0.012, 14);
   const matAro = aceso(0xc06bff, 1.9);
+  /* As pas ficam num subgrupo proprio.
+     Girando o grupo inteiro, a moldura e o aro giravam junto — o gabinete
+     parecia ter tudo rodando la dentro. So `userData.pas` gira. */
+  const matPa = new THREE.MeshStandardMaterial({ color: 0x2b2f3a, roughness: 0.62, metalness: 0.2 });
   function ventoinha() {
     const u = new THREE.Group();
     const m = new THREE.Mesh(geoMold, escuro);
     m.position.z = -0.014;
     u.add(m);
     u.add(new THREE.Mesh(geoAro, matAro));
-    for (let k = 0; k < 9; k++) {
-      const pa2 = new THREE.Mesh(geoPa, metal);
-      pa2.rotation.z = (k / 9) * Math.PI * 2;
-      pa2.rotation.y = 0.4;
-      pa2.position.set(Math.cos(pa2.rotation.z) * 0.026, Math.sin(pa2.rotation.z) * 0.026, 0);
-      u.add(pa2);
+
+    const pas = new THREE.Group();
+    for (let k = 0; k < 11; k++) {
+      // pa escura e fina: com pa clara e grossa a ventoinha virava uma flor
+      const pa2 = new THREE.Mesh(geoPa, matPa);
+      pa2.rotation.z = (k / 11) * Math.PI * 2;
+      pa2.rotation.y = 0.55;
+      pa2.position.set(Math.cos(pa2.rotation.z) * 0.028, Math.sin(pa2.rotation.z) * 0.028, 0);
+      pas.add(pa2);
     }
-    u.add(new THREE.Mesh(geoCubo, escuro));
+    pas.add(new THREE.Mesh(geoCubo, escuro));
+    u.add(pas);
+    u.userData.pas = pas;
     return u;
   }
 
