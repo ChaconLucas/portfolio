@@ -17,7 +17,8 @@ import { descartarMateriais } from './materials.js';
  * FLASH no celular) com a mesma interface, trocando so o conteudo.
  */
 
-const TELAS = [
+/** Telas padrao. Outro capitulo passa a lista dele em `opcoes.telas`. */
+const TELAS_PADRAO = [
   '/assets/projects/gatecheck-1.webp',
   '/assets/projects/gatecheck-2.webp',
   '/assets/projects/gatecheck-3.webp',
@@ -38,8 +39,19 @@ function suportaWebGL() {
  * @param {HTMLElement} container
  * @returns {null | {definirProgresso(p:number):void, definirTela(i:number):void, destruir():void}}
  */
-export function montarCenaGatecheck(container) {
+/**
+ * @param {HTMLElement} container
+ * @param {object} [opcoes]
+ * @param {string[]} [opcoes.telas]  screenshots para o monitor
+ *
+ * A cena e a MESMA para o GateCheck e para o Rare7 — mesma estacao, mesma
+ * camera, mesmo personagem. O que muda e o que roda no monitor, entao a unica
+ * coisa parametrizada e a lista de telas. Duplicar o modulo para trocar quatro
+ * caminhos de arquivo criaria duas copias para manter.
+ */
+export function montarCenaGatecheck(container, opcoes = {}) {
   if (!container || !suportaWebGL()) return null;
+  const TELAS = opcoes.telas && opcoes.telas.length ? opcoes.telas : TELAS_PADRAO;
 
   const reduzido = menosMovimento();
 
