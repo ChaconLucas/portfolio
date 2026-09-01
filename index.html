@@ -4676,7 +4676,6 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
 <div class="intro-layer intro-hero" id="introHero">
 <div class="hero-v6-top">
 <div class="hero-kicker">FULL STACK DEVELOPER / RIO DE JANEIRO</div>
-<div class="hero-status"><span class="status-dot"></span> DISPONÍVEL PARA OPORTUNIDADES</div>
 </div>
 <div class="hero-v6-main">
 <div class="hero-v6-left">
@@ -5401,6 +5400,46 @@ const stackData={
    caseCopy:'A IA acelera a execução; arquitetura, validação, revisão e decisões permanecem sob controle humano.'
  }
 };
+
+/* Nivel real por tecnologia, extraido da tabela de dominios acima.
+   O painel do Arquivo Tecnico rotulava as tres primeiras de cada lista como
+   `Primary` e todo o resto como `Working` — derivado da POSICAO no array, nao
+   de dado nenhum. Quem le entende aquilo como declaracao de nivel de uma
+   pessoa real, entao era informacao inventada sobre o Lucas no ar.
+
+   A tabela acima ja traz o nivel de verdade de cada tecnologia (Core, Primary,
+   Regular, Daily, Professional, Working, Study). Aqui ela vira consulta por
+   nome normalizado, porque as duas listas escrevem alguns nomes diferente
+   ('Tailwind' e 'Tailwind CSS'). O que nao estiver na tabela fica SEM rotulo:
+   ausencia e melhor que palpite. */
+const NIVEL_TECNOLOGIA = (() => {
+  const chave = (n) => String(n).toLowerCase().replace(/[^a-z0-9]/g, '');
+  const mapa = Object.create(null);
+  Object.keys(stackData).forEach((dominio) => {
+    (stackData[dominio].tech || []).forEach((linha) => {
+      if (linha && linha[0] && linha[1]) mapa[chave(linha[0])] = linha[1];
+    });
+  });
+  /* As duas listas encurtam alguns nomes de jeitos diferentes: 'Tailwind' aqui
+     e 'Tailwind CSS' la, 'Actions' e 'GitHub Actions'. Quando nao ha acerto
+     exato, vale a correspondencia por conteudo — mas SO se todas as candidatas
+     concordarem no mesmo nivel. Havendo duvida, fica sem rotulo: o objetivo e
+     nao voltar a exibir palpite. */
+  const nomes = Object.keys(mapa);
+  const aproximar = (k) => {
+    const niveis = new Set();
+    nomes.forEach((n) => {
+      if (n.indexOf(k) >= 0 || k.indexOf(n) >= 0) niveis.add(mapa[n]);
+    });
+    return niveis.size === 1 ? [...niveis][0] : '';
+  };
+  return {
+    de: (nome) => {
+      const k = chave(nome);
+      return mapa[k] || aproximar(k);
+    }
+  };
+})();
 
 function renderStack(key){
  const d=stackData[key];
@@ -6245,7 +6284,7 @@ if(mount){
  const raycaster=new THREE.Raycaster(),mouse=new THREE.Vector2();
  const stackPanel=document.getElementById('threeStackPanel'),techsEl=document.getElementById('threeTechs'),detailEl=document.getElementById('threeTechDetail');
  function selectPlanet(mesh){selected=mesh;labels.forEach(l=>l.classList.toggle('active',l.dataset.key===mesh.userData.key));renderStack(mesh.userData.key,mesh.userData.index);stackPanel.classList.add('open');focusAmount=1;}
- function renderStack(key,index){const [desc,techs]=stackData[key];document.getElementById('threeStackIndex').textContent=String(index+1).padStart(2,'0')+' / 09';document.getElementById('threeStackTitle').textContent=domains[index][1];document.getElementById('threeStackDesc').textContent=desc;detailEl.className='three-tech-detail';detailEl.innerHTML='';techsEl.innerHTML='';techs.forEach((name,i)=>{const b=document.createElement('button');b.className='three-tech';const used=projectsByTech[name];b.innerHTML=`<small>${i<3?'Primary':'Working'}</small><b>${name}</b>${used?`<em>${used.join(' · ')}</em>`:''}`;b.onclick=()=>{techsEl.querySelectorAll('.active').forEach(x=>x.classList.remove('active'));b.classList.add('active');const ps=projectsByTech[name];detailEl.innerHTML=`<div class="three-tech-detail-grid"><div><span>Uso</span><strong>${name} aplicado dentro de ${domains[index][1]}.</strong></div>${ps?`<div><span>Projetos relacionados</span><div class="three-projects">${ps.map(p=>`<button class="three-project" data-project="${p}">${p} ↗</button>`).join('')}</div></div>`:''}</div>`;detailEl.classList.add('open');detailEl.querySelectorAll('.three-project').forEach(p=>p.onclick=()=>window.dispatchEvent(new CustomEvent('stack-project-focus',{detail:{project:p.dataset.project}})));};techsEl.appendChild(b)});}
+ function renderStack(key,index){const [desc,techs]=stackData[key];document.getElementById('threeStackIndex').textContent=String(index+1).padStart(2,'0')+' / 09';document.getElementById('threeStackTitle').textContent=domains[index][1];document.getElementById('threeStackDesc').textContent=desc;detailEl.className='three-tech-detail';detailEl.innerHTML='';techsEl.innerHTML='';techs.forEach((name,i)=>{const b=document.createElement('button');b.className='three-tech';const used=projectsByTech[name];const nivel=(typeof NIVEL_TECNOLOGIA!=='undefined')?NIVEL_TECNOLOGIA.de(name):'';b.innerHTML=`${nivel?`<small>${nivel}</small>`:''}<b>${name}</b>${used?`<em>${used.join(' · ')}</em>`:''}`;b.onclick=()=>{techsEl.querySelectorAll('.active').forEach(x=>x.classList.remove('active'));b.classList.add('active');const ps=projectsByTech[name];detailEl.innerHTML=`<div class="three-tech-detail-grid"><div><span>Uso</span><strong>${name} aplicado dentro de ${domains[index][1]}.</strong></div>${ps?`<div><span>Projetos relacionados</span><div class="three-projects">${ps.map(p=>`<button class="three-project" data-project="${p}">${p} ↗</button>`).join('')}</div></div>`:''}</div>`;detailEl.classList.add('open');detailEl.querySelectorAll('.three-project').forEach(p=>p.onclick=()=>window.dispatchEvent(new CustomEvent('stack-project-focus',{detail:{project:p.dataset.project}})));};techsEl.appendChild(b)});}
  document.getElementById('threeStackClose').onclick=()=>{stackPanel.classList.remove('open');detailEl.className='three-tech-detail';selected=null;focusAmount=0;labels.forEach(l=>l.classList.remove('active'))};
 
  function resize(){const w=mount.clientWidth,h=mount.clientHeight;if(!w||!h)return;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()} new ResizeObserver(resize).observe(mount);resize();
@@ -7959,7 +7998,6 @@ window.__EN_DICT__ = {
   "Projetos": "Projects",
   "Contato": "Contact",
   "Escuro": "Dark",
-  "DISPONÍVEL PARA OPORTUNIDADES": "AVAILABLE FOR OPPORTUNITIES",
   "WEB · MOBILE · APIs · SEGURANÇA · IA": "WEB · MOBILE · APIs · SECURITY · AI",
   "Construo produtos digitais completos — da interface ao backend, banco de dados,\n            integrações, autenticação e segurança.": "I build complete digital products — from the interface to the backend, database, integrations, authentication and security.",
   "Ver projetos": "View projects",
