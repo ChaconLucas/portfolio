@@ -392,6 +392,9 @@ export function montarCenaGatecheck(container) {
       mouseZona.k += (bruto - mouseZona.k) * (1 - Math.pow(0.02, dt));
       mouseZona.segura = THREE.MathUtils.smoothstep(_dedo.x, mouseZona.limiar + 0.04, mouseZona.limiar + 0.11);
 
+      // altura no mundo, guardada antes da conversao: e ela que diz se a mao
+      // ainda esta pousada no mouse
+      const alturaDedo = _dedo.y;
       estacao.grupoPad.worldToLocal(_dedo);
       const px = THREE.MathUtils.clamp(_dedo.x, -0.24, 0.24);
       const pz = THREE.MathUtils.clamp(_dedo.z + 0.03, -0.24, 0.24);
@@ -411,7 +414,10 @@ export function montarCenaGatecheck(container) {
            centimetros a esquerda de onde a mao volta no ciclo seguinte. Com raio
            apertado essa diferenca se acumulava a cada volta ate a mao nunca mais
            alcancar. */
-        if (mouseZona.segura > 0.60 && dist < 0.13) {
+        /* Pega no instante do CONTATO. Medido no clipe: com a mao pousada o
+           dedo fica em 0,803-0,805, e o topo do mouse esta em 0,7975 — ou seja,
+           menos de 8 mm acima. Aproximando, ele vem de 0,829. */
+        if (mouseZona.segura > 0.50 && dist < 0.13 && alturaDedo < TOPO_MOUSE + 0.0095) {
           mouseZona.pego = true;
           /* Guarda a folga do momento da pegada, limitada a 1 cm: o mouse anda
              RIGIDO com a mao a partir daqui, sem pulo no instante em que pega e
@@ -419,7 +425,15 @@ export function montarCenaGatecheck(container) {
           mouseZona.folgaX = THREE.MathUtils.clamp(estacao.mouse.position.x - px, -0.010, 0.010);
           mouseZona.folgaZ = THREE.MathUtils.clamp(estacao.mouse.position.z - pz, -0.010, 0.010);
         }
-      } else if (mouseZona.segura < 0.45 || dist > 0.17) {
+      } else if (
+        /* Solta no instante em que a mao SOBE. No clipe ela passa de 0,803 para
+           0,810 ao sair; 1 cm acima do topo do mouse ja e mao no ar. O X vira
+           so guarda de zona, com folga grande, porque enquanto o dedo estiver
+           pousado ele ainda esta empurrando o mouse — e correto arrastar. */
+        alturaDedo > TOPO_MOUSE + 0.010 ||
+        mouseZona.segura < 0.12 ||
+        dist > 0.17
+      ) {
         mouseZona.pego = false;
       }
 
