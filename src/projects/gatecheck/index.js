@@ -323,7 +323,7 @@ export function montarCenaGatecheck(container) {
   const FIM_APROXIMACAO = 0.55;
   /* Estado da mao direita: o clipe alterna entre digitar e ir para a zona do
      mouse. O mouse acompanha a mao no segundo trecho e e largado no primeiro. */
-  const mouseZona = { limiar: 0, ativo: false, k: 0, segura: 0, pego: false, osso: null, giro: 0 };
+  const mouseZona = { limiar: 0, ativo: false, k: 0, segura: 0, pego: false, folgaX: 0, folgaZ: 0, osso: null, giro: 0 };
   const _dedo = new THREE.Vector3();
 
 
@@ -407,16 +407,25 @@ export function montarCenaGatecheck(container) {
          como um mouse funciona: voce pega ele onde ele esta. */
       const dist = Math.hypot(px - estacao.mouse.position.x, pz - estacao.mouse.position.z);
       if (!mouseZona.pego) {
-        // pega: precisa estar na zona e praticamente encostando
-        if (mouseZona.segura > 0.60 && dist < 0.055) mouseZona.pego = true;
-      } else if (mouseZona.segura < 0.45 || dist > 0.11) {
-        // larga: sai da zona ou a mao se afasta do corpo do mouse
+        /* Raio de pegada generoso, porque o mouse fica onde foi largado — uns
+           centimetros a esquerda de onde a mao volta no ciclo seguinte. Com raio
+           apertado essa diferenca se acumulava a cada volta ate a mao nunca mais
+           alcancar. */
+        if (mouseZona.segura > 0.60 && dist < 0.13) {
+          mouseZona.pego = true;
+          /* Guarda a folga do momento da pegada, limitada a 1 cm: o mouse anda
+             RIGIDO com a mao a partir daqui, sem pulo no instante em que pega e
+             sem se arrastar antes dela chegar. */
+          mouseZona.folgaX = THREE.MathUtils.clamp(estacao.mouse.position.x - px, -0.010, 0.010);
+          mouseZona.folgaZ = THREE.MathUtils.clamp(estacao.mouse.position.z - pz, -0.010, 0.010);
+        }
+      } else if (mouseZona.segura < 0.45 || dist > 0.17) {
         mouseZona.pego = false;
       }
 
       if (mouseZona.pego) {
-        estacao.mouse.position.x = px;
-        estacao.mouse.position.z = pz;
+        estacao.mouse.position.x = px + mouseZona.folgaX;
+        estacao.mouse.position.z = pz + mouseZona.folgaZ;
       }
     }
 
