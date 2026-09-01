@@ -77,7 +77,16 @@ function apontar(osso, filho, alvo) {
  * vetor `polo` decide de que lado ele dobra. Mesmo alvo, mesma pose, sempre —
  * sem iteracao e sem tremor.
  */
-function ikBraco(ombro, cotovelo, mao, alvo, polo) {
+function ikBraco(ombro, cotovelo, mao, alvo, polo, repouso) {
+  /* Volta a pose de referencia antes de resolver.
+     Sem isso, cada quadro parte do resultado do quadro anterior — e como
+     `setFromUnitVectors` devolve a rotacao MINIMA a partir da direcao atual, a
+     torcao em torno do proprio osso vai se acumulando. O braco chega no alvo
+     certo, mas girado, e a cada quadro mais girado. */
+  if (repouso) {
+    ombro.quaternion.copy(repouso.ombro);
+    cotovelo.quaternion.copy(repouso.cotovelo);
+  }
   ombro.updateWorldMatrix(true, true);
   _S.setFromMatrixPosition(ombro.matrixWorld);
   _E.setFromMatrixPosition(cotovelo.matrixWorld);
@@ -129,7 +138,9 @@ function posarEmPe(m, alvo) {
   /* Polo: para onde o cotovelo aponta. Para baixo e um pouco para fora, que e
      como um braco dobra ao encostar numa tela na frente do corpo. */
   const polo = new THREE.Vector3(0.55, -1, 0.15).normalize();
-  ikBraco(ombro, cotovelo, mao, alvo, polo);
+  // pose de referencia: guardada ANTES de qualquer solucao
+  const repouso = { ombro: ombro.quaternion.clone(), cotovelo: cotovelo.quaternion.clone() };
+  ikBraco(ombro, cotovelo, mao, alvo, polo, repouso);
 
   /* O braco esquerdo tambem vai por IK. Girando `rotation.z` no olho ele acabou
      esticado para a FRENTE — a mao parava em z=0,080, dentro da TV, que fica em
@@ -148,7 +159,7 @@ function posarEmPe(m, alvo) {
     );
   }
 
-  return { ombro, cotovelo, mao, polo, alvo: alvo.clone() };
+  return { ombro, cotovelo, mao, polo, repouso, alvo: alvo.clone() };
 }
 
 /**
@@ -159,8 +170,11 @@ function posarEmPe(m, alvo) {
  * proximo. O braco inteiro acompanha sozinho, com cotovelo e ombro coerentes —
  * que e justamente o que a IK resolve.
  */
+/* Pontos de toque, em metros a partir do ponto base. Mantidos na faixa do
+   peito e dos ombros: alvo muito acima da cabeca deixa o braco quase reto, e e
+   nessa posicao que qualquer imprecisao de torcao fica visivel. */
 const PONTOS = [
-  [0.18, -0.30], [-0.16, -0.10], [0.20, 0.16], [-0.06, -0.34], [0.12, 0.02]
+  [0.16, -0.26], [-0.14, -0.08], [0.18, 0.04], [-0.04, -0.30], [0.10, -0.12]
 ];
 const DUR = 3.6;
 
@@ -172,17 +186,17 @@ function alvoDoToque(t, base, saida) {
   const a = PONTOS[i];
   const b = PONTOS[(i + 1) % PONTOS.length];
 
-  // 0 a 0,45 desliza; o resto encosta e segura. Trajeto curto e pausa longa
-  // leem como alguem usando a tela, nao como braco varrendo o vidro.
-  const k = f < 0.45 ? f / 0.45 : 1;
+  // 60% deslizando, 40% parado. Com 45/55 o movimento parecia teleporte
+  // seguido de congelamento; o olho le como falta de fluidez.
+  const k = f < 0.60 ? f / 0.60 : 1;
   const suave = k * k * k * (k * (k * 6 - 15) + 10);
   const x = a[0] + (b[0] - a[0]) * suave;
   const yy = a[1] + (b[1] - a[1]) * suave;
 
   // a mao recua no trajeto e avanca para tocar: sem isso ela varre o vidro
-  const recuo = f < 0.55 ? Math.sin(suave * Math.PI) * 0.085 : 0;
+  const recuo = f < 0.60 ? Math.sin(suave * Math.PI) * 0.075 : 0;
   // toque: um empurraozinho curto logo depois de chegar
-  const toque = f >= 0.55 && f < 0.68 ? -Math.sin(((f - 0.55) / 0.13) * Math.PI) * 0.022 : 0;
+  const toque = f >= 0.60 && f < 0.74 ? -Math.sin(((f - 0.60) / 0.14) * Math.PI) * 0.020 : 0;
 
   saida.set(base.x + x, base.y + yy, base.z + recuo + toque);
 }
@@ -329,6 +343,8 @@ export function montarCenaWsl(container) {
   let ultimo = performance.now();
   const relogio = new THREE.Clock();
   const _alvo = new THREE.Vector3();
+  const _alvoBruto = new THREE.Vector3();
+  let _alvoIniciado = false;
 
   try {
     if (new URLSearchParams(location.search).get('dbg') === '1') {
@@ -351,8 +367,13 @@ export function montarCenaWsl(container) {
        proposito — em pe, qualquer exagero vira dancinha. */
     const calma = 1 - rig.proximidade(progCamera);
     if (pose && !reduzido && calma > 0.01) {
-      alvoDoToque(t, pose.alvo, _alvo);
-      ikBraco(pose.ombro, pose.cotovelo, pose.mao, _alvo, pose.polo);
+      alvoDoToque(t, pose.alvo, _alvoBruto);
+      /* Amortece o ALVO, nao o braco. Suavizar as juntas depois da IK desfaria a
+         solucao; suavizando o ponto de destino, a IK continua exata e o
+         movimento perde qualquer canto que a curva ainda tenha. */
+      if (!_alvoIniciado) { _alvo.copy(_alvoBruto); _alvoIniciado = true; }
+      _alvo.lerp(_alvoBruto, 1 - Math.pow(0.0025, dt));
+      ikBraco(pose.ombro, pose.cotovelo, pose.mao, _alvo, pose.polo, pose.repouso);
       // peso do corpo acompanhando o braco, bem de leve
       if (modelo && modelo.ossos.Spine) {
         modelo.ossos.Spine.rotation.y = Math.sin(t * 0.42) * 0.05 * calma;
