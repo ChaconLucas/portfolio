@@ -168,6 +168,16 @@ export function montarCenaFlash(container, opcoes = {}) {
   let celularNaMao = false;
   let celularSolto = false;
   const poseNaMao = { pos: new THREE.Vector3(), quat: new THREE.Quaternion(), osso: null };
+  /* Ultima pega boa, ja em coordenadas DA MAO.
+     A pega e montada num eixo do CORPO, o que deixa o aparelho sempre em pe no
+     mundo. Com a mao levantada isso e exatamente o que se quer. Mas mao baixa
+     gira, e um celular preso ao horizonte em vez de a mao acaba de lado,
+     atravessando os dedos — que e o que aparecia ao descer o braco e ao voltar
+     o scroll. Guardando a pega em espaco local, ela pode ser reusada como
+     transformacao rigida quando a mao sai da altura de uso. */
+  const pegaFixa = { pos: new THREE.Vector3(), quat: new THREE.Quaternion(), tem: false };
+  const _qLive = new THREE.Quaternion();
+  const _pLive = new THREE.Vector3();
   const materiaisPessoa = [];
 
   carregarPersonagem('/assets/models/bryce.glb').then((m) => {
@@ -323,12 +333,14 @@ export function montarCenaFlash(container, opcoes = {}) {
   /* Valores encontrados na tela, com o ajuste ao vivo. Nenhum deles saiu de
      calculo meu: `gira: -3.54` e mais de meia volta e `tomba: -1.10` sao 63
      graus de inclinacao — combinacoes que so aparecem olhando. */
+  /* Afastamento extra da palma quando o braco esta pendendo. */
+  const FOLGA_BAIXO = 0.008;
   const PEGA = { fora: 0.006, cima: 0.022, lado: -0.048, tomba: -1.10, gira: -3.54, rola: 0 };
 
   try {
     const q = new URLSearchParams(location.search);
     if (q.get('dbg') === '1') {
-      window.__flash = { scene, camera, celular, tela, get modelo() { return modelo; } };
+      window.__flash = { scene, camera, celular, tela, get modelo() { return modelo; }, get prog() { return progresso; }, get progCam() { return progCamera; }, get solto() { return celularSolto; } };
     }
 
     /* AJUSTE AO VIVO — `?tune=1`.
@@ -473,7 +485,7 @@ export function montarCenaFlash(container, opcoes = {}) {
       if (PEGA.gira) _qm.premultiply(_tilt.setFromAxisAngle(_cima, PEGA.gira));
       if (PEGA.rola) _qm.premultiply(_tilt.setFromAxisAngle(_fora, PEGA.rola));
       mao.getWorldQuaternion(_q);
-      celular.quaternion.copy(_q.invert().multiply(_qm));
+      _qLive.copy(_q.invert().multiply(_qm));
 
       /* POSICAO tambem por quadro, afastada da palma.
          A prateleira dos dedos e onde ele APOIA, mas o corpo do aparelho tem
@@ -498,7 +510,33 @@ export function montarCenaFlash(container, opcoes = {}) {
            como eu fazia, a mao ficava no meio dele e nao lia como segurar. */
         _apoio.addScaledVector(_cima, PEGA.cima);
         if (PEGA.lado) _apoio.addScaledVector(_lado, PEGA.lado);
-        celular.position.copy(mao.worldToLocal(_apoio));
+        _pLive.copy(mao.worldToLocal(_apoio));
+
+        /* Peso da pega viva: 1 com a mao em uso, 0 com o braco pendendo.
+           No clipe a mao em uso passa de 1,08 m e pendendo fica perto de 0,87.
+           A faixa de troca e larga o bastante para nao existir salto. */
+        mao.getWorldPosition(_t);
+        const u = Math.max(0, Math.min(1, (_t.y - 0.98) / 0.10));
+        const k = u * u * (3 - 2 * u);
+
+        if (k > 0.995) {
+          pegaFixa.pos.copy(_pLive);
+          pegaFixa.quat.copy(_qLive);
+          pegaFixa.tem = true;
+        }
+
+        if (k >= 0.995 || !pegaFixa.tem) {
+          celular.position.copy(_pLive);
+          celular.quaternion.copy(_qLive);
+        } else {
+          celular.position.copy(pegaFixa.pos).lerp(_pLive, k);
+          celular.quaternion.copy(pegaFixa.quat).slerp(_qLive, k);
+          /* Folga extra so na mao baixa. A pega guardada veio da mao aberta em
+             uso; embaixo os dedos fecham mais e o aparelho encostava na carne.
+             O empurrao e ao longo do proprio eixo do celular (Z local = lado da
+             tela), entao ele sai da palma sem mudar de angulo. */
+          celular.translateZ(FOLGA_BAIXO * (1 - k));
+        }
       }
     }
 
