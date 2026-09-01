@@ -334,8 +334,7 @@ export function montarCenaFlash(container, opcoes = {}) {
         else return;
         ev.preventDefault();
         console.log(
-          'celular.position.set(' + [p2.x, p2.y, p2.z].map((v) => v.toFixed(4)).join(', ') + ');
-' +
+          'celular.position.set(' + [p2.x, p2.y, p2.z].map((v) => v.toFixed(4)).join(', ') + ');' + String.fromCharCode(10) +
           'celular.rotation.set(' + [r2.x, r2.y, r2.z].map((v) => v.toFixed(3)).join(', ') + ');'
         );
       });
