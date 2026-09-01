@@ -56,7 +56,10 @@ export function criarRigCamera(camera) {
   function enquadrarTela() {
     const tv = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
     const th = tv * camera.aspect;
-    const d = Math.max(TELA.largura / 2 / th, TELA.altura / 2 / tv) * 1.22;
+    /* 1,55 de folga: com 1,22 a moldura saia do quadro e a tela lia como uma
+       pagina aberta, nao como um monitor ligado. A folga precisa caber a borda,
+       a haste e um pedaco do tampo. */
+    const d = Math.max(TELA.largura / 2 / th, TELA.altura / 2 / tv) * 1.55;
     CHAVES[CHAVES.length - 1].pos = [TELA.x, TELA.y, TELA.z + d];
     CHAVES[CHAVES.length - 2].pos = [TELA.x + 0.10, TELA.y + 0.03, TELA.z + d * 1.75];
     CHAVES[CHAVES.length - 1].alvo = [TELA.x, TELA.y, TELA.z - 0.01];

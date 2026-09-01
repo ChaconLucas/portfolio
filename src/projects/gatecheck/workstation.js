@@ -289,9 +289,19 @@ export function criarGabinete() {
     dentro.add(peca(caixa(0.006, 0.088, 0.016, 0.002), matBrancoFosco(), 0.100, y + 0.10, 0.045 + i * 0.021));
   }
 
-  // placa de video: e a peca que ocupa o meio e mata a sensacao de vazio
-  dentro.add(peca(caixa(0.095, 0.040, 0.225, 0.008), matPreto(), 0.058, y - 0.035, 0.005));
-  dentro.add(peca(caixa(0.092, 0.014, 0.225, 0.004), matGrafite(), 0.058, y - 0.060, 0.005));
+  /* Placa de video com backplate e as duas ventoinhas viradas para baixo, que e
+     a leitura que faz reconhecer uma GPU. Antes eram duas caixas empilhadas. */
+  dentro.add(peca(caixa(0.098, 0.034, 0.24, 0.006), matPreto(), 0.056, y - 0.030, 0.005));
+  dentro.add(peca(caixa(0.101, 0.006, 0.245, 0.003), matGrafite(), 0.056, y - 0.011, 0.005));
+  [-0.055, 0.055].forEach((dz) => {
+    const fg = new THREE.Mesh(new THREE.TorusGeometry(0.028, 0.004, 8, 18),
+      new THREE.MeshStandardMaterial({ color: 0x2a2d36, roughness: 0.6 }));
+    fg.rotation.x = Math.PI / 2;
+    fg.position.set(0.056, y - 0.048, 0.005 + dz);
+    dentro.add(fg);
+  });
+  // conector de energia com cabo saindo por cima
+  dentro.add(peca(caixa(0.020, 0.010, 0.030, 0.003), matGrafite(), 0.056, y - 0.008, -0.085));
 
   // tampa da fonte, embaixo
   dentro.add(peca(caixa(0.155, 0.070, 0.29, 0.008), matGrafite(), 0.035, y - 0.155, 0));
@@ -305,8 +315,10 @@ export function criarGabinete() {
   // ventoinhas: duas na frente e uma sobre a GPU, todas com anel aceso
   const fans = new THREE.Group();
   fans.name = 'ventoinhas';
-  const aro = new THREE.TorusGeometry(0.042, 0.007, 8, 22);
-  const pa = new THREE.BoxGeometry(0.070, 0.0035, 0.006);
+  const aro = new THREE.TorusGeometry(0.044, 0.006, 10, 26);
+  // moldura quadrada da ventoinha, como nas de verdade
+  const molduraFan = new THREE.BoxGeometry(0.098, 0.098, 0.020);
+  const pa = new THREE.BoxGeometry(0.062, 0.0035, 0.016);
   const luzRosa = new THREE.MeshBasicMaterial({ color: PALETA.rosa, toneMapped: false });
 
   [[-0.055, y + 0.115, P / 2 - 0.045, 0],
@@ -315,14 +327,20 @@ export function criarGabinete() {
     const u = new THREE.Group();
     u.position.set(fx, fy, fz);
     u.rotation.x = rx;
+    const carcaca = new THREE.Mesh(molduraFan, matPreto());
+    carcaca.position.z = -0.012;
+    u.add(carcaca);
     u.add(new THREE.Mesh(aro, luzRosa));
-    // 7 pas finas: com 3 barras grossas a ventoinha virava um X
-    for (let k = 0; k < 7; k++) {
+    // 9 pas inclinadas: pa reta e sem inclinacao lia como raio de bicicleta
+    for (let k = 0; k < 9; k++) {
       const p2 = new THREE.Mesh(pa, matGrafite());
-      p2.rotation.z = (k / 7) * Math.PI * 2;
+      p2.rotation.z = (k / 9) * Math.PI * 2;
+      p2.rotation.y = 0.42;
+      p2.position.x = Math.cos(p2.rotation.z) * 0.022;
+      p2.position.y = Math.sin(p2.rotation.z) * 0.022;
       u.add(p2);
     }
-    u.add(new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.008, 12), matPreto()));
+    u.add(new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.010, 14), matPreto()));
     fans.add(u);
   });
   g.add(fans);
