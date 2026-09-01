@@ -105,43 +105,59 @@ export function montarCenaGatecheck(container) {
     m.materiais().forEach((x) => materiaisPessoa.push(x));
     pessoa.raiz.visible = false;
 
-    /* O clipe e "Typing": as DUAS maos ficam no teclado o tempo todo. Entao o
-       teclado vai no meio das duas — nao debaixo de uma so, que era o motivo de
-       ele digitar no ar — e o mousepad fica ao lado, parado.
+    /* Onde ficam teclado e mouse sai da propria animacao, nao de chute.
+       Medindo a ponta do dedo medio ao longo dos 16,5 s do clipe:
 
-       As maos se mexem durante a animacao, entao um unico quadro nao serve como
-       referencia: a media ao longo do clipe e que da o centro real da digitacao. */
+         mao esquerda   percorre  2,7 cm  -> fica no teclado o tempo todo
+         mao direita    percorre 37,6 cm  -> tem DOIS pontos de permanencia:
+                                             52% junto da esquerda (digitando)
+                                             30% a 32 cm a direita (no mouse)
+
+       Ou seja, o gesto de ir ao mouse ja existe no clipe. Separando os dois
+       agrupamentos, o teclado vai no primeiro e o mouse no segundo — e a mao
+       encontra os dois sozinha. */
     if (m.dedoE && m.dedoD && m.clipe) {
-      const somaE = new THREE.Vector3();
-      const somaD = new THREE.Vector3();
-      const tmp = new THREE.Vector3();
-      const N = 24;
+      const N = 120;
       const passo = m.clipe.duration / N;
+      const tmp = new THREE.Vector3();
+      const esq = [];
+      const dir = [];
       for (let i = 0; i < N; i++) {
         m.mixer.update(i === 0 ? 0.0001 : passo);
         m.raiz.updateMatrixWorld(true);
-        somaE.add(m.dedoE.getWorldPosition(tmp));
-        somaD.add(m.dedoD.getWorldPosition(tmp));
+        esq.push(m.dedoE.getWorldPosition(tmp).clone());
+        dir.push(m.dedoD.getWorldPosition(tmp).clone());
       }
-      somaE.divideScalar(N);
-      somaD.divideScalar(N);
 
-      /* Altura e posicao saem das PONTAS DOS DEDOS. Medindo pelo punho, o
-         teclado ficava 15 cm atras do ponto de contato e ele digitava no ar. */
-      const SUPERFICIE = SUPERFICIE_TECLAS;
-      const mediaY = (somaE.y + somaD.y) / 2;
-      m.raiz.position.y += SUPERFICIE - mediaY;
+      const media = (a, eixo) => a.reduce((s2, v) => s2 + v[eixo], 0) / a.length;
+
+      // corte entre os dois agrupamentos: meio do percurso da mao direita
+      const xs = dir.map((v) => v.x);
+      const corte = (Math.min(...xs) + Math.max(...xs)) / 2;
+      const digitando = dir.filter((v) => v.x < corte);
+      const noMouse = dir.filter((v) => v.x >= corte);
+
+      /* Altura pelo que esta digitando, nao pela media geral: a excursao ate o
+         mouse puxava a media e os dedos afundavam nas teclas. A folga tira o
+         dedo de dentro da tecla. */
+      const alvoY = SUPERFICIE_TECLAS + 0.010;
+      const yAtual = (media(esq, 'y') + media(digitando.length ? digitando : dir, 'y')) / 2;
+      const ajuste = alvoY - yAtual;
+      m.raiz.position.y += ajuste;
       m.raiz.updateMatrixWorld(true);
-      somaE.y += SUPERFICIE - mediaY;
-      somaD.y += SUPERFICIE - mediaY;
 
-      const cx = (somaE.x + somaD.x) / 2;
-      const cz = THREE.MathUtils.clamp((somaE.z + somaD.z) / 2, 0.02, 0.34);
-      estacao.grupoTeclado.position.set(cx, 0, cz);
-      // largura util entre as maos, com folga para as bordas do teclado
-      estacao.definirLarguraTeclado(Math.abs(somaD.x - somaE.x) + 0.15);
-      // mousepad encostado na direita do teclado, como numa mesa de verdade
-      estacao.grupoPad.position.set(cx + Math.abs(somaD.x - somaE.x) / 2 + 0.32, 0, cz + 0.03);
+      const ex = media(esq, 'x'), ez = media(esq, 'z');
+      const dx = media(digitando.length ? digitando : dir, 'x');
+      const dz = media(digitando.length ? digitando : dir, 'z');
+
+      estacao.grupoTeclado.position.set((ex + dx) / 2, 0, (ez + dz) / 2);
+      estacao.definirLarguraTeclado(Math.abs(dx - ex) + 0.16);
+
+      if (noMouse.length > N * 0.08) {
+        estacao.grupoPad.position.set(media(noMouse, 'x'), 0, media(noMouse, 'z'));
+      } else {
+        estacao.grupoPad.position.set((ex + dx) / 2 + 0.45, 0, (ez + dz) / 2);
+      }
     }
   }).catch((e) => console.warn('modelo nao carregou, seguindo com o boneco simples', e));
 

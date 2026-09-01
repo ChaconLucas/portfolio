@@ -274,14 +274,14 @@ export function criarMousepadEMouse() {
   g.name = 'mousepad';
 
   // mousepad quadrado rosa
-  const pad = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34),
+  const pad = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.46),
     new THREE.MeshStandardMaterial({ color: PALETA.rosa, roughness: 0.95, metalness: 0 }));
   pad.rotation.x = -Math.PI / 2;
   pad.position.set(0, ALTURA_MESA + 0.002, 0);
   pad.receiveShadow = true;
   g.add(pad);
   // costura da borda
-  const borda = new THREE.Mesh(new THREE.RingGeometry(0.233, 0.240, 4),
+  const borda = new THREE.Mesh(new THREE.RingGeometry(0.316, 0.324, 4),
     new THREE.MeshBasicMaterial({ color: PALETA.rosaEscuro }));
   borda.rotation.set(-Math.PI / 2, 0, Math.PI / 4);
   borda.position.set(0, ALTURA_MESA + 0.003, 0);
@@ -293,7 +293,6 @@ export function criarMousepadEMouse() {
   const corpo = peca(new THREE.SphereGeometry(0.038, 20, 14), matRosa(), 0, ALTURA_MESA + 0.016, 0);
   corpo.scale.set(1, 0.62, 1.45);
   mouse.add(corpo);
-  mouse.position.set(-0.03, 0, 0.02);
   const risco = new THREE.Mesh(new THREE.PlaneGeometry(0.004, 0.05),
     new THREE.MeshBasicMaterial({ color: PALETA.rosaEscuro }));
   risco.rotation.x = -Math.PI / 2;
@@ -318,10 +317,41 @@ export function criarTeclado() {
   // mais fundo e mais alto: o formato anterior era uma regua fina
   g.add(peca(caixa(0.44, ESPESSURA_TECLADO, 0.21, 0.010, 5), matRosa(),
     0, ALTURA_MESA + ESPESSURA_TECLADO / 2, 0));
-  const teclas = new THREE.Mesh(new THREE.PlaneGeometry(0.40, 0.175),
-    new THREE.MeshStandardMaterial({ color: PALETA.rosaEscuro, roughness: 0.85 }));
-  teclas.rotation.x = -Math.PI / 2;
-  teclas.position.set(0, SUPERFICIE_TECLAS, 0);
+  // fundo escuro entre as teclas
+  const fundo = new THREE.Mesh(new THREE.PlaneGeometry(0.40, 0.175),
+    new THREE.MeshStandardMaterial({ color: 0x8c2a58, roughness: 0.9 }));
+  fundo.rotation.x = -Math.PI / 2;
+  fundo.position.set(0, SUPERFICIE_TECLAS - 0.004, 0);
+  g.add(fundo);
+
+  // teclas de verdade: uma placa lisa nao le como teclado a essa distancia.
+  // InstancedMesh porque sao 70 pecas iguais e nao vale 70 draw calls.
+  const COLS = 14, LINHAS = 5, PX = 0.0278, PZ = 0.0335;
+  const tecla = new THREE.Mesh(
+    caixa(0.0235, 0.009, 0.0255, 0.004, 3),
+    new THREE.MeshStandardMaterial({ color: 0xf6dbe6, roughness: 0.62 })
+  );
+  const teclas = new THREE.InstancedMesh(tecla.geometry, tecla.material, COLS * LINHAS);
+  teclas.castShadow = true;
+  const _m = new THREE.Matrix4();
+  let n = 0;
+  for (let l = 0; l < LINHAS; l++) {
+    for (let c = 0; c < COLS; c++) {
+      // a barra de espaco ocupa o meio da ultima linha: sem ela nao le como teclado
+      const barra = l === LINHAS - 1 && c > 3 && c < 10;
+      if (barra && c !== 4) continue;
+      const larg = barra ? 6 : 1;
+      _m.makeScale(larg, 1, 1);
+      _m.setPosition(
+        (c - (COLS - 1) / 2 + (barra ? 2.5 : 0)) * PX,
+        SUPERFICIE_TECLAS + 0.0025,
+        (l - (LINHAS - 1) / 2) * PZ
+      );
+      teclas.setMatrixAt(n++, _m);
+    }
+  }
+  teclas.count = n;
+  teclas.instanceMatrix.needsUpdate = true;
   g.add(teclas);
   return g;
 }
