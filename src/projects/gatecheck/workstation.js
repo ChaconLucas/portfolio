@@ -308,24 +308,24 @@ export function criarMousepadEMouse() {
     cupula.computeVertexNormals();
   }
   const corpo = new THREE.Mesh(cupula, matRosa());
-  corpo.scale.set(0.036, 0.028, 0.058);
+  corpo.scale.set(0.032, 0.043, 0.056);
   corpo.position.y = ALTURA_MESA + 0.0015;
   corpo.castShadow = true;
   mouse.add(corpo);
 
   // base fechando a cupula por baixo
   const base = new THREE.Mesh(new THREE.CircleGeometry(1, 30), matRosaEscuro());
-  base.geometry.scale(0.033, 0.055, 1);
+  base.geometry.scale(0.030, 0.054, 1);
   base.rotation.x = Math.PI / 2;
   base.position.y = ALTURA_MESA + 0.0016;
   mouse.add(base);
 
   // divisao dos dois botoes: um sulco escuro da frente ate o meio
   const sulco = new THREE.Mesh(
-    new THREE.BoxGeometry(0.0022, 0.012, 0.040),
+    new THREE.BoxGeometry(0.0024, 0.016, 0.042),
     new THREE.MeshStandardMaterial({ color: PALETA.rosaEscuro, roughness: 0.7 })
   );
-  sulco.position.set(0, ALTURA_MESA + 0.024, -0.016);
+  sulco.position.set(0, ALTURA_MESA + 0.038, -0.014);
   mouse.add(sulco);
 
   // rodinha entre os botoes
@@ -334,7 +334,7 @@ export function criarMousepadEMouse() {
     new THREE.MeshStandardMaterial({ color: 0x2a2230, roughness: 0.55 })
   );
   roda.rotation.z = Math.PI / 2;
-  roda.position.set(0, ALTURA_MESA + 0.0295, 0.002);
+  roda.position.set(0, ALTURA_MESA + 0.0435, 0.000);
   mouse.add(roda);
 
   g.add(mouse);
