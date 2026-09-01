@@ -286,11 +286,15 @@ export function criarGabinete() {
   const yPiso = y - A / 2 + 0.009;
   const yTeto = y + A / 2 - 0.009;
 
-  const rgb = (cor) => new THREE.MeshBasicMaterial({ color: cor, toneMapped: false });
+  /* Emissivo com tone mapping LIGADO: com `toneMapped:false` a cor saia crua e
+     estourava. Assim ela continua acesa, mas dentro da faixa da cena. */
+  const rgb = (cor) => new THREE.MeshStandardMaterial({
+    color: 0x1a1420, emissive: cor, emissiveIntensity: 1.25, roughness: 0.5
+  });
   const luzRosa = rgb(PALETA.rosa);
   const luzRoxa = rgb(0xa77bff);
-  const metal = new THREE.MeshStandardMaterial({ color: 0xa8aeb9, roughness: 0.38, metalness: 0.6 });
-  const escuro = new THREE.MeshStandardMaterial({ color: 0x0e1117, roughness: 0.74 });
+  const metal = new THREE.MeshStandardMaterial({ color: 0xc3c9d4, roughness: 0.34, metalness: 0.55 });
+  const escuro = new THREE.MeshStandardMaterial({ color: 0x090b10, roughness: 0.8 });
 
   // 1. bandeja escura ao fundo: e o contraste dela que faz o resto aparecer
   dentro.add(peca(caixa(0.010, A - 0.07, P - 0.07, 0.003), escuro, xParede, y + 0.010, 0));
@@ -334,7 +338,8 @@ export function criarGabinete() {
   );
   tubo.position.set(-0.070, y + 0.070, -0.090);
   dentro.add(tubo);
-  const liquido = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.120, 18), luzRosa);
+  const liquido = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.120, 18),
+    new THREE.MeshStandardMaterial({ color: 0x8e2352, emissive: 0xff5fa2, emissiveIntensity: 0.55, roughness: 0.35 }));
   liquido.position.set(-0.070, y + 0.052, -0.090);
   dentro.add(liquido);
   dentro.add(peca(new THREE.CylinderGeometry(0.030, 0.030, 0.014, 18), metal, -0.070, y + 0.155, -0.090));
@@ -406,12 +411,15 @@ export function criarGabinete() {
   fita.position.set(0, yTeto - 0.004, P / 2 - 0.045);
   g.add(fita);
 
-  const brilhoRosa = new THREE.PointLight(PALETA.rosa, 0.55, 0.42, 2);
-  brilhoRosa.position.set(-0.04, y + 0.02, P / 2 - 0.08);
-  g.add(brilhoRosa);
-  const preenche = new THREE.PointLight(0xdfe7f5, 1.35, 0.85, 2);
-  preenche.position.set(0.02, yTeto - 0.06, 0.02);
-  g.add(preenche);
+  /* Sem luz pontual dentro da caixa.
+     Ela existia para o interior nao ficar preto, mas acabou fazendo o oposto:
+     estourava as pecas proximas e o gabinete virava um borrao claro com uma
+     barra rosa no meio. O que ilumina agora e a luz da cena mais o ambiente, e
+     as peças aparecem pelo CONTRASTE entre o escuro delas e a chapa branca —
+     que e exatamente como se ve um aquario de verdade. */
+  const ambienteInterno = new THREE.PointLight(0xbcd0ff, 0.35, 0.62, 2);
+  ambienteInterno.position.set(0.02, yTeto - 0.08, P / 2 - 0.10);
+  g.add(ambienteInterno);
 
   g.userData.fans = fans;
   return g;
