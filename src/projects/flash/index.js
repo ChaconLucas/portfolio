@@ -454,7 +454,7 @@ export function montarCenaFlash(container, opcoes = {}) {
       _lado.crossVectors(_cima, _fora).normalize();
       _base.makeBasis(_lado, _cima, _fora);
       _qm.setFromRotationMatrix(_base);
-      _qm.premultiply(_tilt.setFromAxisAngle(_lado, -0.28));
+      _qm.premultiply(_tilt.setFromAxisAngle(_lado, -0.20));
       mao.getWorldQuaternion(_q);
       celular.quaternion.copy(_q.invert().multiply(_qm));
 
@@ -473,7 +473,13 @@ export function montarCenaFlash(container, opcoes = {}) {
         quantos++;
       }
       if (quantos) {
-        _apoio.divideScalar(quantos).addScaledVector(_fora, 0.026);
+        _apoio.divideScalar(quantos);
+        // fora da palma, para os dedos ficarem atras e nao dentro
+        _apoio.addScaledVector(_fora, 0.026);
+        /* E ACIMA da mao. Nas fotos de referencia a mao segura o TERCO DE BAIXO
+           do aparelho e o resto sobe — centrando o celular no ponto de apoio,
+           como eu fazia, a mao ficava no meio dele e nao lia como segurar. */
+        _apoio.addScaledVector(_cima, 0.046);
         celular.position.copy(mao.worldToLocal(_apoio));
       }
     }
