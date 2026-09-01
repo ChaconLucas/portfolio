@@ -4794,6 +4794,7 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
 <div class="chapter-screen-label"><b id="gateShotIndex">01</b><span id="gateShotLabel">Dashboard operacional</span></div>
 </div>
 <div class="real-project-stage gate-real-stage">
+<div class="gate-scene" id="gateScene"></div>
 <div class="real-stage-glow"></div>
 <div class="real-browser">
 <div class="real-shot-stack">
@@ -6666,6 +6667,18 @@ if(mount){
   .experience-stop-tags span{font-size:7px;padding:4px 6px}
 }
 
+/* CENA 3D DO GATECHECK — o palco deixa de ser uma moldura com print e vira a
+   estacao de trabalho. As screenshots reais viram a textura do monitor, entao o
+   zoom termina no produto de verdade em vez de numa interface inventada. */
+.gate-scene{position:absolute;inset:0;z-index:2;border-radius:inherit;overflow:hidden}
+.gate-scene canvas{display:block;width:100%;height:100%}
+/* com a cena no ar, a pilha de prints sai de cena e o balanco do driver e
+   desligado: quem move o quadro agora e a camera 3D, e os dois somados
+   davam um flutuar duplo */
+.gate-real-stage.tem-3d .real-browser,
+.gate-real-stage.tem-3d .real-scan-line{opacity:0;pointer-events:none}
+.gate-real-stage.tem-3d{transform:none!important}
+
 /* Indice de dominios: os botoes se dimensionavam pelo texto (130, 100, 151px...)
    e como a divisoria e o border-bottom de cada um, cada linha tinha um
    comprimento — a escadinha. E o ativo ganhava 8px a mais de recuo, saindo do
@@ -8102,6 +8115,52 @@ window.__EN_DICT__ = {
 
   apply();
 })();
+</script>
+<script type="module">
+/* Monta a cena 3D do capitulo GateCheck.
+   Este bloco nao toca no driver de capitulos que ja existe: ele le o progresso
+   do proprio elemento e descobre a tela ativa pelo rotulo que o driver escreve.
+   Se o WebGL nao subir, nada acontece e a pilha de screenshots continua no ar. */
+import { montarCenaGatecheck } from '/src/projects/gatecheck/index.js';
+
+const alvo = document.getElementById('gateScene');
+const capitulo = document.getElementById('project-gatecheck');
+const palco = alvo && alvo.closest('.real-project-stage');
+const rotulo = document.getElementById('gateShotIndex');
+
+if (alvo && capitulo && palco) {
+  const cena = montarCenaGatecheck(alvo);
+  if (cena) {
+    palco.classList.add('tem-3d');
+
+    // mesma conta de progresso do driver de capitulos, para os dois andarem juntos
+    const progresso = () => {
+      const r = capitulo.getBoundingClientRect();
+      const util = Math.max(1, capitulo.offsetHeight - innerHeight);
+      return Math.max(0, Math.min(1, -r.top / util));
+    };
+
+    let agendado = false;
+    const aoRolar = () => {
+      if (agendado) return;
+      agendado = true;
+      requestAnimationFrame(() => { agendado = false; cena.definirProgresso(progresso()); });
+    };
+    addEventListener('scroll', aoRolar, { passive: true });
+    addEventListener('resize', aoRolar, { passive: true });
+    aoRolar();
+
+    // a tela do monitor acompanha o passo que o driver ja calcula
+    if (rotulo) {
+      const sincronizar = () => {
+        const i = parseInt(rotulo.textContent, 10);
+        if (!Number.isNaN(i)) cena.definirTela(i - 1);
+      };
+      new MutationObserver(sincronizar).observe(rotulo, { childList: true, characterData: true, subtree: true });
+      sincronizar();
+    }
+  }
+}
 </script>
 </body>
 </html>
