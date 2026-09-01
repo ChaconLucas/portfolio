@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
-import { criarEstacao } from './workstation.js';
+import { criarEstacao, ALTURA_MESA } from './workstation.js';
 import { criarPersonagem, animarPersonagem, pousarMaos } from './character.js';
 import { carregarPersonagem } from './character-glb.js';
 import { criarRigCamera } from './camera-rig.js';
@@ -67,6 +67,7 @@ export function montarCenaGatecheck(container) {
 
   const estacao = criarEstacao();
   scene.add(estacao.raiz);
+  let modelo = null;
 
   const pessoa = criarPersonagem();
   pessoa.raiz.position.set(0.02, 0, 0.68);
@@ -95,7 +96,6 @@ export function montarCenaGatecheck(container) {
   /* Personagem de verdade, com esqueleto e animacao de digitacao. Enquanto ele
      nao chega, o de primitivas segura a cena — se o carregamento falhar, a cena
      nao fica vazia. */
-  let modelo = null;
   carregarPersonagem('/assets/models/bryce.glb').then((m) => {
     modelo = m;
     m.raiz.position.set(0.02, 0, 0.60);
@@ -126,11 +126,21 @@ export function montarCenaGatecheck(container) {
       somaE.divideScalar(N);
       somaD.divideScalar(N);
 
+      /* Altura: a media das duas maos ao longo do clipe tem que cair na
+         superficie das teclas. Sem isso as maos ficavam 2,5 cm ABAIXO do tampo,
+         atravessando a mesa — e nenhuma posicao de teclado ia salvar. */
+      const SUPERFICIE = ALTURA_MESA + 0.021;
+      const mediaY = (somaE.y + somaD.y) / 2;
+      m.raiz.position.y += SUPERFICIE - mediaY;
+      m.raiz.updateMatrixWorld(true);
+      somaE.y += SUPERFICIE - mediaY;
+      somaD.y += SUPERFICIE - mediaY;
+
       const cx = (somaE.x + somaD.x) / 2;
       const cz = THREE.MathUtils.clamp((somaE.z + somaD.z) / 2, 0.02, 0.34);
       estacao.grupoTeclado.position.set(cx, 0, cz);
       // largura util entre as maos, com folga para as bordas do teclado
-      estacao.definirLarguraTeclado(Math.abs(somaD.x - somaE.x) + 0.20);
+      estacao.definirLarguraTeclado(Math.abs(somaD.x - somaE.x) + 0.30);
       // mousepad a direita do teclado, fora do alcance da digitacao
       estacao.grupoPad.position.set(cx + Math.abs(somaD.x - somaE.x) / 2 + 0.42, 0, cz);
     }
@@ -200,6 +210,13 @@ export function montarCenaGatecheck(container) {
     estacao.tela.material.color.set(0xffffff);
     estacao.tela.material.needsUpdate = true;
   }
+
+  // gancho de inspecao: so com ?dbg=1, para medir posicoes sem chutar
+  try {
+    if (new URLSearchParams(location.search).get('dbg') === '1') {
+      window.__gate = { scene, camera, estacao, pessoa, get modelo() { return modelo; } };
+    }
+  } catch (e) {}
 
   /* ------------------------------------------------------- dimensionar -- */
   function dimensionar() {
