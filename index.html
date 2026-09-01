@@ -8214,10 +8214,14 @@ import { montarCenaGatecheck } from '/src/projects/gatecheck/index.js';
   if (alvoF && capF) {
     const { montarCenaFlash } = await import('/src/projects/flash/index.js');
     const cenaF = montarCenaFlash(alvoF, {
+      /* So a quarta imagem, repetida quatro vezes: ela ocupa o capitulo
+         inteiro em vez de trocar de tela. Quando as capturas definitivas
+         chegarem, e trocar esta lista. */
       telas: [
-        '/assets/projects/flash-1.webp',
-        '/assets/projects/flash-2.webp',
-        '/assets/projects/flash-3.webp'
+        '/assets/projects/flash-4.webp',
+        '/assets/projects/flash-4.webp',
+        '/assets/projects/flash-4.webp',
+        '/assets/projects/flash-4.webp'
       ]
     });
     if (cenaF) {

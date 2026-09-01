@@ -125,17 +125,25 @@ export function montarCenaFlash(container, opcoes = {}) {
 
   const carregador = new THREE.TextureLoader();
   const texturas = [];
+  const proporcoes = [];
   let telaAtual = 0;
 
   TELAS.forEach((src, i) => {
     carregador.load(src, (tex) => {
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-      // preenche a tela do aparelho, como nos outros capitulos
+      /* Preencher so quando a proporcao e parecida. A tela do aparelho e
+         retrato (0,46); uma imagem em paisagem preenchida perderia 70% da
+         largura, entao ela CABE inteira e a malha e que se ajusta. */
       const r = tex.image.width / tex.image.height;
       const p = ALVO_TELA.largura / ALVO_TELA.altura;
-      if (r > p) { tex.repeat.set(p / r, 1); tex.offset.set((1 - p / r) / 2, 0); }
-      else { tex.repeat.set(1, r / p); tex.offset.set(0, (1 - r / p) / 2); }
+      proporcoes[i] = r;
+      if (r < p * 1.6) {
+        if (r > p) { tex.repeat.set(p / r, 1); tex.offset.set((1 - p / r) / 2, 0); }
+        else { tex.repeat.set(1, r / p); tex.offset.set(0, (1 - r / p) / 2); }
+      } else {
+        tex.repeat.set(1, 1); tex.offset.set(0, 0);
+      }
       texturas[i] = tex;
       if (i === telaAtual) aplicarTela(telaAtual);
     });
@@ -145,6 +153,11 @@ export function montarCenaFlash(container, opcoes = {}) {
     telaAtual = i;
     const tex = texturas[i];
     if (!tex) return;
+    const r = proporcoes[i] || 1;
+    const p = ALVO_TELA.largura / ALVO_TELA.altura;
+    // imagem muito mais larga que a tela: encolhe a malha em vez de cortar
+    if (r >= p * 1.6) tela.scale.set(1, (p / r), 1);
+    else tela.scale.set(1, 1, 1);
     tela.material.map = tex;
     tela.material.color.set(0xffffff);
     tela.material.needsUpdate = true;
@@ -290,8 +303,43 @@ export function montarCenaFlash(container, opcoes = {}) {
   let ultimo = performance.now();
 
   try {
-    if (new URLSearchParams(location.search).get('dbg') === '1') {
+    const q = new URLSearchParams(location.search);
+    if (q.get('dbg') === '1') {
       window.__flash = { scene, camera, celular, tela, get modelo() { return modelo; } };
+    }
+
+    /* AJUSTE AO VIVO — `?tune=1`.
+       Encaixar um aparelho na mao de uma animacao pronta tem posicao e rotacao
+       para acertar ao mesmo tempo, e o clipe foi feito com um prop que eu nao
+       tenho. Adivinhar isso de fora custa uma ida e volta por tentativa; com o
+       controle na tela converge em segundos, e o valor final e colado no
+       codigo. Setas movem, WASD giram, Q/E aproximam, e o console imprime. */
+    if (q.get('tune') === '1') {
+      const passo = 0.004, giro = 0.06;
+      addEventListener('keydown', (ev) => {
+        const k = ev.key.toLowerCase();
+        const p2 = celular.position, r2 = celular.rotation;
+        if (k === 'arrowleft') p2.x -= passo;
+        else if (k === 'arrowright') p2.x += passo;
+        else if (k === 'arrowup') p2.y += passo;
+        else if (k === 'arrowdown') p2.y -= passo;
+        else if (k === 'q') p2.z -= passo;
+        else if (k === 'e') p2.z += passo;
+        else if (k === 'a') r2.y -= giro;
+        else if (k === 'd') r2.y += giro;
+        else if (k === 'w') r2.x -= giro;
+        else if (k === 's') r2.x += giro;
+        else if (k === 'z') r2.z -= giro;
+        else if (k === 'x') r2.z += giro;
+        else return;
+        ev.preventDefault();
+        console.log(
+          'celular.position.set(' + [p2.x, p2.y, p2.z].map((v) => v.toFixed(4)).join(', ') + ');
+' +
+          'celular.rotation.set(' + [r2.x, r2.y, r2.z].map((v) => v.toFixed(3)).join(', ') + ');'
+        );
+      });
+      console.info('Ajuste do celular ligado: setas movem, Q/E profundidade, WASD e Z/X giram.');
     }
   } catch (e) {}
 
