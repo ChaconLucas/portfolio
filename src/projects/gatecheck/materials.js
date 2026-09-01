@@ -62,10 +62,19 @@ export const matPele = () => memo('pele', () => new THREE.MeshStandardMaterial({
   color: PALETA.pele, roughness: 0.78, metalness: 0
 }));
 
-/** O gabinete aquario: vidro de verdade, para o interior aparecer. */
+/**
+ * Vidro do gabinete.
+ *
+ * SEM `transmission`: transmissao precisa de mapa de ambiente para refratar
+ * alguma coisa, e nesta cena nao ha nenhum — o painel renderizava o fundo
+ * escuro e o gabinete lia como uma caixa branca fechada. Um transparente
+ * simples com verniz deixa o interior aparecer e ainda custa menos.
+ */
 export const matVidro = () => memo('vidro', () => new THREE.MeshPhysicalMaterial({
-  color: 0xdcecf6, roughness: 0.03, metalness: 0, transmission: 0.97,
-  thickness: 0.012, ior: 1.45, transparent: true, opacity: 0.22, side: THREE.DoubleSide
+  color: 0xe8f4ff, roughness: 0.04, metalness: 0,
+  transparent: true, opacity: 0.10,
+  clearcoat: 1, clearcoatRoughness: 0.03,
+  side: THREE.DoubleSide, depthWrite: false
 }));
 
 /** Libera tudo que foi memoizado. Chamado so no descarte da cena. */

@@ -324,7 +324,7 @@ export function montarCenaGatecheck(container) {
   /* ------------------------------------------------- telas reais na tela -- */
   const carregador = new THREE.TextureLoader();
   const texturas = [];
-  const proporcaoTela = 1.185 / 0.665; // proporcao do painel do monitor
+  const proporcaoTela = 1.218 / 0.583; // proporcao do painel do monitor
 
   TELAS.forEach((src, i) => {
     carregador.load(src, (tex) => {

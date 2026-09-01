@@ -201,7 +201,11 @@ export function criarMonitor() {
   cabeca.position.set(0, ALTURA_MESA + 0.46, zClamp + 0.32);
   cabeca.rotation.x = 0.045;
 
-  const L = 1.24, A = 0.72;
+  /* Painel na proporcao do conteudo. As quatro screenshots do GateCheck vao de
+     1,959 a 2,146 — sao todas ultrawide. Com o painel em 16:9 sobrava faixa
+     preta em cima e embaixo; em 2,05 o encaixe fica dentro de 5% e as faixas
+     somem. Monitor ultrawide tambem casa melhor com estacao de dev. */
+  const L = 1.24, A = 0.605;
   /* Moldura fina: a caixa unica de 4,5 cm dava um monitor grosso, com cara de
      televisao antiga. Agora sao a traseira em cunha e uma borda de 8 mm. */
   const tras = peca(caixa(L - 0.06, A - 0.06, 0.022, 0.012, 4), matPreto(), 0, 0, -0.021);
@@ -330,10 +334,10 @@ export function criarGabinete() {
      uma caixa branca com dois aneis acesos — nada do interior aparecia, que e o
      ponto inteiro de um aquario. Duas fontes: o rosa das ventoinhas e um
      preenchimento frio fraco para as pecas terem volume. */
-  const brilhoRosa = new THREE.PointLight(PALETA.rosa, 1.5, 0.9, 2);
-  brilhoRosa.position.set(-0.02, y + 0.02, P / 2 - 0.10);
+  const brilhoRosa = new THREE.PointLight(PALETA.rosa, 2.4, 1.0, 2);
+  brilhoRosa.position.set(-0.04, y + 0.02, P / 2 - 0.08);
   g.add(brilhoRosa);
-  const preenche = new THREE.PointLight(0xcfe0ff, 0.85, 0.8, 2);
+  const preenche = new THREE.PointLight(0xdfe9ff, 1.5, 0.9, 2);
   preenche.position.set(0.02, y + A / 2 - 0.07, 0.02);
   g.add(preenche);
 
@@ -521,13 +525,13 @@ export function criarEstacao() {
   raiz.add(monitor);
 
   const gabinete = criarGabinete();
-  gabinete.position.set(0.92, 0, -0.16);
-  gabinete.rotation.y = -0.28;
+  gabinete.position.set(-0.86, 0, -0.14);
+  gabinete.rotation.y = 0.34;
   raiz.add(gabinete);
 
   const macbook = criarMacbook();
-  macbook.position.set(-0.90, 0, 0.02);
-  macbook.rotation.y = 0.78;
+  macbook.position.set(0.80, 0, 0.06);
+  macbook.rotation.y = -0.62;
   raiz.add(macbook);
 
   const teclado = criarTeclado();

@@ -11,7 +11,7 @@ import * as THREE from 'three';
  */
 
 /** Centro e tamanho do painel do monitor, no mundo. */
-export const TELA = { x: 0, y: 1.210, z: -0.106, largura: 1.185, altura: 0.665 };
+export const TELA = { x: 0, y: 1.210, z: -0.106, largura: 1.218, altura: 0.583 };
 
 /** Chaves do percurso: de plano geral ate a tela ocupar o quadro. */
 const CHAVES_BASE = [
