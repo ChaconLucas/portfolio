@@ -64,7 +64,7 @@ function criarParede() {
   const poca = new THREE.Mesh(
     new THREE.PlaneGeometry(2.6, 2.2),
     new THREE.MeshBasicMaterial({
-      color: 0x6f8bff, transparent: true, opacity: 0.10,
+      color: 0xaebbd6, transparent: true, opacity: 0.055,
       blending: THREE.AdditiveBlending, depthWrite: false
     })
   );
@@ -124,34 +124,29 @@ function criarFundo() {
 }
 
 /**
- * Focos de luz com cone visivel.
- * O cone e geometria aditiva, nao volumetrico de verdade — a essa distancia da
- * a mesma leitura por uma fracao do custo.
+ * Iluminacao de teto, sem cone visivel.
+ *
+ * A versao anterior tinha tres cones aditivos em azul, ciano e roxo. Funcionava
+ * como efeito, mas dava leitura de balada — e o capitulo e uma ativacao de
+ * marca, nao uma festa. Aqui ficam so os corpos dos refletores na treliça e uma
+ * luz branca fraca vinda deles: o ambiente ganha origem para a luz sem nenhum
+ * facho colorido no ar.
  */
 function criarFocos() {
   const g = new THREE.Group();
   g.name = 'focos';
 
-  const cores = [0x5f7dff, 0x00d0c0, 0x8a5bff];
-  [[-2.9, 2.2, 0.20], [2.7, 3.0, -0.18], [0.3, 4.1, 0.04]].forEach(([x, z, inc], i) => {
-    const cone = new THREE.Mesh(
-      new THREE.ConeGeometry(1.15, 3.4, 22, 1, true),
-      new THREE.MeshBasicMaterial({
-        color: cores[i], transparent: true, opacity: 0.055,
-        blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
-      })
-    );
-    cone.position.set(x, 2.05, z);
-    cone.rotation.z = inc;
-    g.add(cone);
+  const corpo = new THREE.MeshStandardMaterial({ color: 0x0d0f16, roughness: 0.7, metalness: 0.3 });
 
-    // corpo do refletor no alto
-    g.add(peca(caixa(0.20, 0.24, 0.20, 0.03), new THREE.MeshStandardMaterial({
-      color: 0x0d0f16, roughness: 0.7
-    }), x, 3.78, z));
+  [[-2.9, 2.2], [2.7, 3.0], [0.3, 4.1], [-1.4, 3.6], [1.5, 2.0]].forEach(([x, z]) => {
+    g.add(peca(caixa(0.18, 0.22, 0.18, 0.03), corpo, x, 3.72, z));
+    g.add(peca(caixa(0.05, 0.16, 0.05, 0.01), corpo, x, 3.88, z));
+  });
 
-    const luz = new THREE.PointLight(cores[i], 0.5, 6, 2);
-    luz.position.set(x, 3.35, z);
+  // duas fontes brancas fracas, so para o teto nao ser uma fonte invisivel
+  [[-2.2, 2.6], [2.2, 3.2]].forEach(([x, z]) => {
+    const luz = new THREE.PointLight(0xf2f4ff, 0.30, 7, 2);
+    luz.position.set(x, 3.5, z);
     g.add(luz);
   });
 
