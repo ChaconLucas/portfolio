@@ -274,14 +274,14 @@ export function criarMousepadEMouse() {
   g.name = 'mousepad';
 
   // mousepad quadrado rosa
-  const pad = new THREE.Mesh(new THREE.PlaneGeometry(0.50, 0.50),
+  const pad = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34),
     new THREE.MeshStandardMaterial({ color: PALETA.rosa, roughness: 0.95, metalness: 0 }));
   pad.rotation.x = -Math.PI / 2;
   pad.position.set(0, ALTURA_MESA + 0.002, 0);
   pad.receiveShadow = true;
   g.add(pad);
   // costura da borda
-  const borda = new THREE.Mesh(new THREE.RingGeometry(0.344, 0.353, 4),
+  const borda = new THREE.Mesh(new THREE.RingGeometry(0.233, 0.240, 4),
     new THREE.MeshBasicMaterial({ color: PALETA.rosaEscuro }));
   borda.rotation.set(-Math.PI / 2, 0, Math.PI / 4);
   borda.position.set(0, ALTURA_MESA + 0.003, 0);
@@ -290,9 +290,10 @@ export function criarMousepadEMouse() {
   // mouse sem fio: corpo baixo, sem cabo saindo
   const mouse = new THREE.Group();
   mouse.name = 'mouse';
-  const corpo = peca(new THREE.SphereGeometry(0.045, 20, 14), matRosa(), 0, ALTURA_MESA + 0.018, 0);
+  const corpo = peca(new THREE.SphereGeometry(0.038, 20, 14), matRosa(), 0, ALTURA_MESA + 0.016, 0);
   corpo.scale.set(1, 0.62, 1.45);
   mouse.add(corpo);
+  mouse.position.set(-0.03, 0, 0.02);
   const risco = new THREE.Mesh(new THREE.PlaneGeometry(0.004, 0.05),
     new THREE.MeshBasicMaterial({ color: PALETA.rosaEscuro }));
   risco.rotation.x = -Math.PI / 2;
@@ -305,14 +306,22 @@ export function criarMousepadEMouse() {
 }
 
 /* ------------------------------------------------------- TECLADO ---- */
+/** Espessura do teclado. Exportada porque a altura do personagem e ajustada
+ *  para as pontas dos dedos cairem exatamente nesta superficie — o numero nao
+ *  pode viver em dois arquivos. */
+export const ESPESSURA_TECLADO = 0.034;
+export const SUPERFICIE_TECLAS = ALTURA_MESA + ESPESSURA_TECLADO + 0.002;
+
 export function criarTeclado() {
   const g = new THREE.Group();
   g.name = 'teclado';
-  g.add(peca(caixa(0.44, 0.020, 0.15, 0.008, 5), matRosa(), 0, ALTURA_MESA + 0.010, 0));
-  const teclas = new THREE.Mesh(new THREE.PlaneGeometry(0.41, 0.12),
+  // mais fundo e mais alto: o formato anterior era uma regua fina
+  g.add(peca(caixa(0.44, ESPESSURA_TECLADO, 0.21, 0.010, 5), matRosa(),
+    0, ALTURA_MESA + ESPESSURA_TECLADO / 2, 0));
+  const teclas = new THREE.Mesh(new THREE.PlaneGeometry(0.40, 0.175),
     new THREE.MeshStandardMaterial({ color: PALETA.rosaEscuro, roughness: 0.85 }));
   teclas.rotation.x = -Math.PI / 2;
-  teclas.position.set(0, ALTURA_MESA + 0.021, 0);
+  teclas.position.set(0, SUPERFICIE_TECLAS, 0);
   g.add(teclas);
   return g;
 }

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
-import { criarEstacao, ALTURA_MESA } from './workstation.js';
+import { criarEstacao, SUPERFICIE_TECLAS } from './workstation.js';
 import { criarPersonagem, animarPersonagem, pousarMaos } from './character.js';
 import { carregarPersonagem } from './character-glb.js';
 import { criarRigCamera } from './camera-rig.js';
@@ -111,7 +111,7 @@ export function montarCenaGatecheck(container) {
 
        As maos se mexem durante a animacao, entao um unico quadro nao serve como
        referencia: a media ao longo do clipe e que da o centro real da digitacao. */
-    if (m.maoE && m.maoD && m.clipe) {
+    if (m.dedoE && m.dedoD && m.clipe) {
       const somaE = new THREE.Vector3();
       const somaD = new THREE.Vector3();
       const tmp = new THREE.Vector3();
@@ -120,16 +120,15 @@ export function montarCenaGatecheck(container) {
       for (let i = 0; i < N; i++) {
         m.mixer.update(i === 0 ? 0.0001 : passo);
         m.raiz.updateMatrixWorld(true);
-        somaE.add(m.maoE.getWorldPosition(tmp));
-        somaD.add(m.maoD.getWorldPosition(tmp));
+        somaE.add(m.dedoE.getWorldPosition(tmp));
+        somaD.add(m.dedoD.getWorldPosition(tmp));
       }
       somaE.divideScalar(N);
       somaD.divideScalar(N);
 
-      /* Altura: a media das duas maos ao longo do clipe tem que cair na
-         superficie das teclas. Sem isso as maos ficavam 2,5 cm ABAIXO do tampo,
-         atravessando a mesa — e nenhuma posicao de teclado ia salvar. */
-      const SUPERFICIE = ALTURA_MESA + 0.021;
+      /* Altura e posicao saem das PONTAS DOS DEDOS. Medindo pelo punho, o
+         teclado ficava 15 cm atras do ponto de contato e ele digitava no ar. */
+      const SUPERFICIE = SUPERFICIE_TECLAS;
       const mediaY = (somaE.y + somaD.y) / 2;
       m.raiz.position.y += SUPERFICIE - mediaY;
       m.raiz.updateMatrixWorld(true);
@@ -140,9 +139,9 @@ export function montarCenaGatecheck(container) {
       const cz = THREE.MathUtils.clamp((somaE.z + somaD.z) / 2, 0.02, 0.34);
       estacao.grupoTeclado.position.set(cx, 0, cz);
       // largura util entre as maos, com folga para as bordas do teclado
-      estacao.definirLarguraTeclado(Math.abs(somaD.x - somaE.x) + 0.30);
-      // mousepad a direita do teclado, fora do alcance da digitacao
-      estacao.grupoPad.position.set(cx + Math.abs(somaD.x - somaE.x) / 2 + 0.42, 0, cz);
+      estacao.definirLarguraTeclado(Math.abs(somaD.x - somaE.x) + 0.15);
+      // mousepad encostado na direita do teclado, como numa mesa de verdade
+      estacao.grupoPad.position.set(cx + Math.abs(somaD.x - somaE.x) / 2 + 0.32, 0, cz + 0.03);
     }
   }).catch((e) => console.warn('modelo nao carregou, seguindo com o boneco simples', e));
 

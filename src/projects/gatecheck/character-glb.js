@@ -21,7 +21,11 @@ const CHAVE = {
   tronco: 'Spine1',
   cabeca: 'Head',
   maoE: 'LeftHand',
-  maoD: 'RightHand'
+  maoD: 'RightHand',
+  // O contato com o teclado e a PONTA DO DEDO, nao o punho: entre os dois ha
+  // 15 cm, e alinhar pelo punho joga os dedos para fora do teclado.
+  dedoE: 'LeftHandMiddle3',
+  dedoD: 'RightHandMiddle3'
 };
 
 /**
@@ -177,6 +181,8 @@ export function carregarPersonagem(url) {
         cabeca: pegar(CHAVE.cabeca),
         maoE: pegar(CHAVE.maoE),
         maoD: pegar(CHAVE.maoD),
+        dedoE: pegar(CHAVE.dedoE) || pegar(CHAVE.maoE),
+        dedoD: pegar(CHAVE.dedoD) || pegar(CHAVE.maoD),
 
         /** @param {number} dt segundos */
         atualizar(dt) { mixer.update(dt); },
