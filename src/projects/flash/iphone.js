@@ -18,6 +18,41 @@ export const TELA = { largura: 0.0654, altura: 0.1414 };   // 2556 x 1179
 const caixa = (l, a, p, r, s = 4) => new RoundedBoxGeometry(l, a, p, s, r);
 
 /**
+ * Retangulo de cantos arredondados, extrudado.
+ *
+ * `RoundedBoxGeometry` nao serve para o corpo do aparelho: ela arredonda TODAS
+ * as arestas com o mesmo raio, e esse raio e limitado pela metade da menor
+ * dimensao. Com 8,25 mm de espessura, o canto de 10,5 mm era cortado para 4 mm
+ * — e e exatamente por isso que o celular saia com cara de bloco.
+ * Extrudando um contorno, o canto do CONTORNO fica com o raio certo e a
+ * espessura fica livre.
+ */
+function placa(l, a, esp, raio, bisel = 0.0006) {
+  const f = new THREE.Shape();
+  const w = l / 2, h = a / 2, r = Math.min(raio, w, h);
+  f.moveTo(-w + r, -h);
+  f.lineTo(w - r, -h);
+  f.quadraticCurveTo(w, -h, w, -h + r);
+  f.lineTo(w, h - r);
+  f.quadraticCurveTo(w, h, w - r, h);
+  f.lineTo(-w + r, h);
+  f.quadraticCurveTo(-w, h, -w, h - r);
+  f.lineTo(-w, -h + r);
+  f.quadraticCurveTo(-w, -h, -w + r, -h);
+
+  const g = new THREE.ExtrudeGeometry(f, {
+    depth: esp - bisel * 2,
+    bevelEnabled: bisel > 0,
+    bevelThickness: bisel,
+    bevelSize: bisel,
+    bevelSegments: 2,
+    curveSegments: 16
+  });
+  g.translate(0, 0, -(esp - bisel * 2) / 2);
+  return g;
+}
+
+/**
  * @param {object} [op]
  * @param {number} [op.cor]  cor do titanio
  * @returns {{grupo:THREE.Group, tela:THREE.Mesh, luz:THREE.PointLight}}
@@ -38,25 +73,25 @@ export function criarIphone(op = {}) {
   const raio = 0.0105;   // canto do iPhone e bem arredondado
 
   // aro de titanio: e a peca que da a silhueta
-  const aro = new THREE.Mesh(caixa(L, A, E, raio, 5), titanio);
+  const aro = new THREE.Mesh(placa(L, A, E, raio, 0.0009), titanio);
   aro.castShadow = true;
   g.add(aro);
 
   // vidro traseiro, levemente rebaixado do aro
-  const tras = new THREE.Mesh(caixa(L - 0.0022, A - 0.0022, 0.0012, raio - 0.001, 5), vidroTras);
-  tras.position.z = -E / 2 + 0.0004;
+  const tras = new THREE.Mesh(placa(L - 0.0024, A - 0.0024, 0.0010, raio - 0.0012, 0.0002), vidroTras);
+  tras.position.z = -E / 2 + 0.0006;
   g.add(tras);
 
   // moldura preta em volta da tela
-  const moldura = new THREE.Mesh(caixa(L - 0.0016, A - 0.0016, 0.0012, raio - 0.0008, 5), preto);
-  moldura.position.z = E / 2 - 0.0004;
+  const moldura = new THREE.Mesh(placa(L - 0.0018, A - 0.0018, 0.0010, raio - 0.0009, 0.0002), preto);
+  moldura.position.z = E / 2 - 0.0006;
   g.add(moldura);
 
   /* Tela com cantos arredondados de verdade: um plano reto denuncia o modelo,
      porque o canto quadrado nao existe em nenhum iPhone. */
   const forma = new THREE.Shape();
   {
-    const w = TELA.largura / 2, h = TELA.altura / 2, r = 0.0088;
+    const w = TELA.largura / 2, h = TELA.altura / 2, r = 0.0092;
     forma.moveTo(-w + r, -h);
     forma.lineTo(w - r, -h);
     forma.quadraticCurveTo(w, -h, w, -h + r);
@@ -108,7 +143,7 @@ export function criarIphone(op = {}) {
 
   /* Modulo de camera: tres lentes em triangulo, na quina de cima a esquerda.
      E o detalhe que faz reconhecer o aparelho por tras. */
-  const modulo = new THREE.Mesh(caixa(0.0290, 0.0290, 0.0022, 0.0075, 4), vidroTras);
+  const modulo = new THREE.Mesh(placa(0.0290, 0.0290, 0.0022, 0.0082, 0.0002), vidroTras);
   modulo.position.set(-L / 2 + 0.0210, A / 2 - 0.0210, -E / 2 - 0.0010);
   g.add(modulo);
   [[-0.0062, 0.0062], [0.0062, 0.0062], [0, -0.0068]].forEach(([dx, dy]) => {
