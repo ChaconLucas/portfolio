@@ -231,7 +231,7 @@ export function montarCenaWsl(container) {
   scene.environmentIntensity = 0.26;
 
   const camera = new THREE.PerspectiveCamera(38, 1, 0.05, 60);
-  const rig = criarRigCamera(camera, { chaves: CHAVES, tela: PAINEL, folga: 1.14 });
+  const rig = criarRigCamera(camera, { chaves: CHAVES, tela: PAINEL, folga: 1.32 });   // 14% cortava a moldura; 32% deixa a TV inteira no quadro
 
   const { raiz: sala, tela } = criarAmbiente();
   scene.add(sala);
