@@ -187,15 +187,24 @@ export function montarCenaFlash(container, opcoes = {}) {
         maoD.add(celular);
         m.raiz.updateMatrixWorld(true);
 
-        /* POSICAO pela anatomia, nao por deslocamento chutado.
-           O osso da mao fica no PUNHO; a palma esta mais adiante, na direcao da
-           base do dedo medio. Colocando o aparelho nesse meio do caminho ele
-           assenta na mao em vez de flutuar ao lado dela. */
+        /* POSICAO: ENTRE AS DUAS MAOS.
+           No clipe de Texting as duas maos seguram o aparelho juntas, uma de
+           cada lado. Colocando na palma de uma so, ele ficava ao lado do gesto
+           em vez de dentro dele — que e o que lia como bugado.
+           O ponto e a media das duas maos, empurrada na direcao dos dedos. */
         const pPunho = new THREE.Vector3();
         const pDedo = new THREE.Vector3();
+        const pOutra = new THREE.Vector3();
         maoD.getWorldPosition(pPunho);
         if (dedoD) dedoD.getWorldPosition(pDedo); else pDedo.copy(pPunho);
-        const alvoMundo = pPunho.clone().lerp(pDedo, 0.75);
+        /* NAO fica entre as duas maos: medindo o clipe, elas estao a 48 cm uma
+           da outra — a esquerda pende ao lado do corpo e so a direita segura.
+           Puxar o aparelho para o meio das duas o deixava boiando a 22 cm da
+           mao que segura. Fica na palma da direita mesmo. */
+        /* O centro do aparelho fica um pouco ALEM da palma, na direcao dos
+           dedos: assim os dedos fecham sobre a metade de baixo dele, como quem
+           segura, em vez de o celular ficar centrado no punho. */
+        const alvoMundo = pPunho.clone().lerp(pDedo, 1.55);
 
         /* ORIENTACAO tirada da propria mao.
            Antes eu usava `lookAt` para um ponto fixo perto da camera. Isso
@@ -213,7 +222,11 @@ export function montarCenaFlash(container, opcoes = {}) {
         const iIndic = m.ossos.RightHandIndex1;
         const iMinimo = m.ossos.RightHandPinky1;
 
-        eixoDedos.copy(pDedo).sub(pPunho).normalize();
+        // eixo longo do aparelho: a direcao de pega, do punho para os dedos
+        const pPonta = new THREE.Vector3();
+        const dedoPonta = m.ossos.RightHandMiddle3;
+        if (dedoPonta) dedoPonta.getWorldPosition(pPonta); else pPonta.copy(pDedo);
+        eixoDedos.copy(pPonta).sub(pPunho).normalize();
         if (iIndic && iMinimo) {
           iIndic.getWorldPosition(pIndic);
           iMinimo.getWorldPosition(pMinimo);

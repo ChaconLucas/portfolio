@@ -82,9 +82,12 @@ export function criarIphone(op = {}) {
   tras.position.z = -E / 2 + 0.0006;
   g.add(tras);
 
-  // moldura preta em volta da tela
-  const moldura = new THREE.Mesh(placa(L - 0.0018, A - 0.0018, 0.0010, raio - 0.0009, 0.0002), preto);
-  moldura.position.z = E / 2 - 0.0006;
+  /* Moldura preta POR CIMA do aro, nao atras dele.
+     Estando atras, a face frontal do titanio aparecia inteira e virava uma
+     borda clara e larga em volta da tela — num iPhone o que se ve de frente e
+     preto, e o titanio e so o fio da lateral. */
+  const moldura = new THREE.Mesh(placa(L - 0.0008, A - 0.0008, 0.0008, raio - 0.0004, 0.0002), preto);
+  moldura.position.z = E / 2 - 0.0001;
   g.add(moldura);
 
   /* Tela com cantos arredondados de verdade: um plano reto denuncia o modelo,
@@ -118,7 +121,7 @@ export function criarIphone(op = {}) {
     color: 0x0a0b0f, toneMapped: false
   }));
   tela.name = 'telaIphone';
-  tela.position.z = E / 2 + 0.0004;
+  tela.position.z = E / 2 + 0.0005;
   g.add(tela);
 
   // ilha dinamica
@@ -127,7 +130,7 @@ export function criarIphone(op = {}) {
     new THREE.MeshBasicMaterial({ color: 0x000000 })
   );
   ilha.rotation.z = Math.PI / 2;
-  ilha.position.set(0, A / 2 - 0.0135, E / 2 + 0.0009);
+  ilha.position.set(0, A / 2 - 0.0135, E / 2 + 0.0010);
   g.add(ilha);
 
   // botoes: volume e acao a esquerda, energia a direita

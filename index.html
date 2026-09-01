@@ -4860,7 +4860,7 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
 <h3>FLASH</h3>
 <p>Aplicativo mobile em React Native: navegacao, estado global, persistencia local e experiencia touch-first.</p>
 <div class="chapter-stack"><span>React Native</span><span>Expo</span><span>TypeScript</span></div>
-<div class="chapter-screen-label"><b id="flashShotIndex">--</b><span id="flashShotLabel">Telas em breve</span></div>
+<div class="chapter-screen-label"><b id="flashShotIndex">01</b><span id="flashShotLabel">Catálogo</span></div>
 </div>
 <div class="real-project-stage flash-real-stage">
 <div class="chapter-progress"><i></i></div>
@@ -8213,7 +8213,13 @@ import { montarCenaGatecheck } from '/src/projects/gatecheck/index.js';
   const capF = document.getElementById('project-flash');
   if (alvoF && capF) {
     const { montarCenaFlash } = await import('/src/projects/flash/index.js');
-    const cenaF = montarCenaFlash(alvoF, { telas: [] });
+    const cenaF = montarCenaFlash(alvoF, {
+      telas: [
+        '/assets/projects/flash-1.webp',
+        '/assets/projects/flash-2.webp',
+        '/assets/projects/flash-3.webp'
+      ]
+    });
     if (cenaF) {
       const progF = () => {
         const r = capF.getBoundingClientRect();
