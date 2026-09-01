@@ -348,42 +348,90 @@ export function criarGabinete() {
 }
 
 /* --------------------------------------------------- MACBOOK MIDNIGHT ---- */
+/**
+ * Notebook. O anterior era uma placa grossa: base de 1,4 cm e tampa de 8 mm,
+ * sem teclado nem trackpad. Um notebook real tem base de ~1 cm com aresta
+ * chanfrada e tampa de 4 mm — a espessura e justamente o que denuncia.
+ */
 export function criarMacbook() {
   const g = new THREE.Group();
   g.name = 'macbook';
 
-  const L = 0.34, P = 0.213;   // 16:10, como um notebook de verdade
-  g.add(peca(caixa(L, 0.014, P, 0.006), matMidnight(), 0, ALTURA_MESA + 0.007, 0));
-  // pes de borracha, para nao parecer colado no tampo
-  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) => {
-    g.add(peca(new THREE.CylinderGeometry(0.006, 0.006, 0.003, 10), matPreto(),
-      sx * (L / 2 - 0.03), ALTURA_MESA + 0.0015, sz * (P / 2 - 0.03)));
+  const L = 0.34, P = 0.213;          // 16:10
+  const ESP = 0.0092;                 // espessura da base
+  const yBase = ALTURA_MESA + ESP / 2 + 0.0018;
+
+  // aluminio: com o mapa de ambiente, rugosidade baixa e o que da o brilho
+  const aluminio = new THREE.MeshPhysicalMaterial({
+    color: 0x2a2f3d, roughness: 0.28, metalness: 0.86, clearcoat: 0.25
   });
 
-  // teclado e trackpad apenas sugeridos: a esta distancia, detalhe vira ruido
-  const tec = new THREE.Mesh(new THREE.PlaneGeometry(L - 0.05, P - 0.10),
-    new THREE.MeshStandardMaterial({ color: 0x11131c, roughness: 0.9 }));
-  tec.rotation.x = -Math.PI / 2;
-  tec.position.set(0, ALTURA_MESA + 0.0125, -0.03);
-  g.add(tec);
+  g.add(peca(caixa(L, ESP, P, 0.0035, 3), aluminio, 0, yBase, 0));
+  // aresta chanfrada da frente, onde se abre a tampa
+  g.add(peca(caixa(L * 0.30, 0.004, 0.012, 0.002), aluminio, 0, yBase - ESP / 2 + 0.001, P / 2 - 0.004));
 
+  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sz]) => {
+    g.add(peca(new THREE.CylinderGeometry(0.005, 0.005, 0.0022, 10), matPreto(),
+      sx * (L / 2 - 0.028), ALTURA_MESA + 0.0011, sz * (P / 2 - 0.028)));
+  });
+
+  // rebaixo do teclado
+  const topoBase = yBase + ESP / 2;
+  g.add(peca(caixa(L - 0.045, 0.002, P * 0.52, 0.001), matPreto(), 0, topoBase, -0.028));
+
+  // teclas: 6 fileiras instanciadas, senao o teclado vira um retangulo preto
+  const COLS = 13, LINHAS = 5, PX = 0.0205, PZ = 0.0128;
+  const tecla = new THREE.Mesh(
+    caixa(0.0175, 0.0016, 0.0102, 0.0006, 2),
+    new THREE.MeshStandardMaterial({ color: 0x14161d, roughness: 0.72 })
+  );
+  const teclas = new THREE.InstancedMesh(tecla.geometry, tecla.material, COLS * LINHAS);
+  const _m = new THREE.Matrix4();
+  let n = 0;
+  for (let l = 0; l < LINHAS; l++) {
+    for (let c = 0; c < COLS; c++) {
+      const barra = l === LINHAS - 1 && c > 3 && c < 9;
+      if (barra && c !== 4) continue;
+      _m.makeScale(barra ? 5.4 : 1, 1, 1);
+      _m.setPosition(
+        (c - (COLS - 1) / 2 + (barra ? 2.2 : 0)) * PX,
+        topoBase + 0.0016,
+        -0.062 + l * PZ
+      );
+      teclas.setMatrixAt(n++, _m);
+    }
+  }
+  teclas.count = n;
+  teclas.instanceMatrix.needsUpdate = true;
+  g.add(teclas);
+
+  // trackpad
+  const track = new THREE.Mesh(new THREE.PlaneGeometry(0.098, 0.062),
+    new THREE.MeshStandardMaterial({ color: 0x232735, roughness: 0.22, metalness: 0.5 }));
+  track.rotation.x = -Math.PI / 2;
+  track.position.set(0, topoBase + 0.0012, 0.052);
+  g.add(track);
+
+  /* ---- tampa ---- */
   const tampa = new THREE.Group();
-  tampa.position.set(0, ALTURA_MESA + 0.014, -P / 2);
-  /* +0,28 abre a tampa; o -1,83 anterior girava 105 graus para a FRENTE e
-     deitava a tela em cima da mesa — por isso lia como uma placa escura. */
-  tampa.rotation.x = 0.28;
-  tampa.add(peca(caixa(L, P, 0.008, 0.005), matMidnight(), 0, P / 2, 0));
+  tampa.position.set(0, topoBase, -P / 2);
+  tampa.rotation.x = 0.26;
+  g.add(tampa);
+
+  const ESPT = 0.0044;
+  tampa.add(peca(caixa(L, P, ESPT, 0.0028, 3), aluminio, 0, P / 2, -ESPT / 2));
+
   const telaMac = new THREE.Mesh(
-    new THREE.PlaneGeometry(L - 0.018, P - 0.016),
+    new THREE.PlaneGeometry(L - 0.013, P - 0.011),
     new THREE.MeshBasicMaterial({ map: texturaEditor(), toneMapped: false })
   );
-  telaMac.position.set(0, P / 2, 0.0055);
+  telaMac.position.set(0, P / 2, 0.0028);
   tampa.add(telaMac);
+
   // a tela acesa ilumina o tampo em volta
-  const luzMac = new THREE.PointLight(0x9fb6ff, 0.5, 0.55, 2);
-  luzMac.position.set(0, P / 2, 0.10);
+  const luzMac = new THREE.PointLight(0x9fb6ff, 0.45, 0.5, 2);
+  luzMac.position.set(0, P / 2, 0.09);
   tampa.add(luzMac);
-  g.add(tampa);
 
   return g;
 }
