@@ -423,7 +423,7 @@ export function criarMacbook() {
 
   // aluminio: com o mapa de ambiente, rugosidade baixa e o que da o brilho
   const aluminio = new THREE.MeshPhysicalMaterial({
-    color: 0x2a2f3d, roughness: 0.28, metalness: 0.86, clearcoat: 0.25
+    color: 0x2a2f3d, roughness: 0.46, metalness: 0.52, clearcoat: 0
   });
 
   g.add(peca(caixa(L, ESP, P, 0.0035, 3), aluminio, 0, yBase, 0));

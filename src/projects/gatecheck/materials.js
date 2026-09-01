@@ -28,8 +28,8 @@ function memo(chave, criar) {
 }
 
 export const matBranco = () => memo('branco', () => new THREE.MeshPhysicalMaterial({
-  color: PALETA.branco, roughness: 0.46, metalness: 0.02,
-  clearcoat: 0.3, clearcoatRoughness: 0.45,
+  color: PALETA.branco, roughness: 0.58, metalness: 0.02,
+  clearcoat: 0.08, clearcoatRoughness: 0.6,
   roughnessMap: texturaGrao()
 }));
 
@@ -38,7 +38,7 @@ export const matBrancoFosco = () => memo('brancoFosco', () => new THREE.MeshStan
 }));
 
 export const matRosa = () => memo('rosa', () => new THREE.MeshPhysicalMaterial({
-  color: PALETA.rosa, roughness: 0.48, metalness: 0.04, clearcoat: 0.5, clearcoatRoughness: 0.35
+  color: PALETA.rosa, roughness: 0.62, metalness: 0.03, clearcoat: 0.12, clearcoatRoughness: 0.55
 }));
 
 export const matRosaEscuro = () => memo('rosaEscuro', () => new THREE.MeshStandardMaterial({

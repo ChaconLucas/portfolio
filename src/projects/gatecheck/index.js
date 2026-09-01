@@ -76,7 +76,7 @@ export function montarCenaGatecheck(container) {
   scene.environment = ambiente.texture;
   /* 0,35 e nao 0,62: somado a hemisferica o ambiente levantava as superficies
      brancas e comia o contraste — a cena ficava clara e sem material. */
-  scene.environmentIntensity = 0.35;
+  scene.environmentIntensity = 0.26;
 
   const camera = new THREE.PerspectiveCamera(38, 1, 0.05, 60);
   const rig = criarRigCamera(camera);
