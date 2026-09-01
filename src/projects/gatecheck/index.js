@@ -71,10 +71,22 @@ export function montarCenaGatecheck(container) {
   pessoa.raiz.position.set(0.02, 0, 0.68);
   scene.add(pessoa.raiz);
 
+
   // As maos mandam nos perifericos, e nao o contrario: o solver poe as maos na
   // altura do tampo e o teclado e o mousepad vao para debaixo delas. Assim a
   // mao segura o mouse de verdade, e continua segurando se as proporcoes do
   // personagem mudarem depois.
+  // Materiais proprios do personagem: varios sao compartilhados com os moveis
+  // (grafite esta na base da cadeira e dentro do gabinete), e sem clonar, apagar
+  // o boneco apagaria pedaco da estacao junto.
+  const materiaisPessoa = [];
+  pessoa.raiz.traverse((m) => {
+    if (!m.isMesh || !m.material) return;
+    m.material = m.material.clone();
+    m.material.transparent = true;
+    materiaisPessoa.push(m.material);
+  });
+
   const maos = pousarMaos(pessoa, 0.795);
   estacao.grupoTeclado.position.set(maos.esquerda.x, 0, THREE.MathUtils.clamp(maos.esquerda.z, 0.02, 0.34));
   estacao.grupoPad.position.set(maos.direita.x, 0, THREE.MathUtils.clamp(maos.direita.z, 0.02, 0.34));
@@ -203,6 +215,13 @@ export function montarCenaGatecheck(container) {
     // monitor, qualquer movimento do corpo vira tremor no quadro
     const calma = 1 - rig.proximidade(progCamera);
     if (!reduzido) animarPersonagem(pessoa, t, calma);
+
+    // Chegando na tela, o personagem se dissolve: o ponto de vista passa a ser
+    // o dele. Ele nao pode ficar tapando a tela que a camera veio ver.
+    const s0 = Math.max(0, Math.min(1, (progCamera - 0.58) / 0.34));
+    const alfa = 1 - s0 * s0 * (3 - 2 * s0);
+    if (pessoa.raiz.visible !== alfa > 0.01) pessoa.raiz.visible = alfa > 0.01;
+    for (let i = 0; i < materiaisPessoa.length; i++) materiaisPessoa[i].opacity = alfa;
 
     if (estacao.gabinete.userData.fans && !reduzido) {
       estacao.gabinete.userData.fans.children.forEach((f, i) => {

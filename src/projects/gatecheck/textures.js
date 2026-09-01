@@ -64,37 +64,27 @@ export function texturaTatuagem() {
   ctx.fillStyle = '#d9a888';
   ctx.fillRect(0, 0, 256, 256);
 
-  ctx.strokeStyle = 'rgba(28,26,38,.82)';
+  ctx.strokeStyle = 'rgba(38,34,52,.55)';
   ctx.lineCap = 'round';
 
-  // faixas curvas contornando o braco
-  for (let i = 0; i < 7; i++) {
+  // tracos no SENTIDO do membro. Desenhados na horizontal eles davam a volta na
+  // capsula e o braco virava um poste de barbeiro.
+  for (let i = 0; i < 22; i++) {
     ctx.beginPath();
-    ctx.lineWidth = 3 + (i % 3);
-    const y = 18 + i * 34;
-    ctx.moveTo(-10, y);
-    ctx.bezierCurveTo(70, y - 22, 150, y + 26, 266, y - 6);
+    ctx.lineWidth = 1.2 + (i % 3) * 0.7;
+    const x = 6 + i * 11.4;
+    ctx.moveTo(x, -8);
+    ctx.bezierCurveTo(x + 14, 70, x - 12, 170, x + 6, 264);
     ctx.stroke();
   }
 
-  // preenchimentos: triangulos e arcos, densidade de manga fechada
-  ctx.fillStyle = 'rgba(24,22,34,.7)';
-  for (let i = 0; i < 14; i++) {
-    const x = (i * 71) % 240 + 8;
-    const y = (i * 113) % 226 + 12;
+  ctx.fillStyle = 'rgba(34,30,48,.42)';
+  for (let i = 0; i < 26; i++) {
+    const x = (i * 47) % 244 + 6;
+    const y = (i * 89) % 232 + 8;
     ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + 16, y + 26);
-    ctx.lineTo(x - 14, y + 22);
-    ctx.closePath();
+    ctx.ellipse(x, y, 4 + (i % 3) * 2, 10 + (i % 4) * 3, (i % 5) * 0.4, 0, 6.3);
     ctx.fill();
-  }
-  ctx.strokeStyle = 'rgba(28,26,38,.6)';
-  for (let i = 0; i < 9; i++) {
-    ctx.beginPath();
-    ctx.lineWidth = 2;
-    ctx.arc((i * 53) % 230 + 14, (i * 97) % 210 + 22, 12 + (i % 4) * 5, 0.4, 4.2);
-    ctx.stroke();
   }
 
   return finalizar(c, true);

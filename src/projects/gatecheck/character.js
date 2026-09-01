@@ -48,11 +48,11 @@ function criarBraco(lado) {
 
   // capsula no lugar de caixa: braco arredondado le como membro, caixa le como bloco
   // deltoide: a bola no ombro e o que da leitura de braco forte
-  const deltoide = malha(new THREE.SphereGeometry(0.078, 18, 14), pelo);
+  const deltoide = malha(new THREE.SphereGeometry(0.068, 18, 14), pelo);
   deltoide.scale.set(1, 0.92, 1);
   ombro.add(deltoide);
 
-  const superior = malha(new THREE.CapsuleGeometry(0.064, 0.185, 7, 16), pelo);
+  const superior = malha(new THREE.CapsuleGeometry(0.054, 0.195, 7, 16), pelo);
   superior.position.y = -0.135;
   ombro.add(superior);
 
@@ -60,7 +60,7 @@ function criarBraco(lado) {
   cotovelo.position.y = -0.26;
   ombro.add(cotovelo);
 
-  const antebraco = malha(new THREE.CapsuleGeometry(0.053, 0.175, 7, 16), pelo);
+  const antebraco = malha(new THREE.CapsuleGeometry(0.045, 0.185, 7, 16), pelo);
   antebraco.position.y = -0.125;
   cotovelo.add(antebraco);
 
