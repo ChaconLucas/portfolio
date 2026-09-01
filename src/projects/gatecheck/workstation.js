@@ -274,17 +274,17 @@ export function criarMousepadEMouse() {
   g.name = 'mousepad';
 
   // mousepad quadrado rosa
-  const pad = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.46),
+  const pad = new THREE.Mesh(new THREE.PlaneGeometry(0.60, 0.60),
     new THREE.MeshStandardMaterial({ color: PALETA.rosa, roughness: 0.95, metalness: 0 }));
   pad.rotation.x = -Math.PI / 2;
-  pad.position.set(0, ALTURA_MESA + 0.002, 0);
+  pad.position.set(0.09, ALTURA_MESA + 0.002, 0.05);
   pad.receiveShadow = true;
   g.add(pad);
   // costura da borda
-  const borda = new THREE.Mesh(new THREE.RingGeometry(0.316, 0.324, 4),
+  const borda = new THREE.Mesh(new THREE.RingGeometry(0.413, 0.423, 4),
     new THREE.MeshBasicMaterial({ color: PALETA.rosaEscuro }));
   borda.rotation.set(-Math.PI / 2, 0, Math.PI / 4);
-  borda.position.set(0, ALTURA_MESA + 0.003, 0);
+  borda.position.set(0.09, ALTURA_MESA + 0.003, 0.05);
   g.add(borda);
 
   // mouse sem fio: corpo baixo, sem cabo saindo
