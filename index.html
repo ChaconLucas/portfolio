@@ -4813,6 +4813,7 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
 </article>
 <article class="project-chapter project-chapter-wsl" data-project="wsl" id="project-wsl">
 <div class="project-chapter-sticky">
+<div class="wsl-scene" id="wslScene"></div>
 <div class="project-chapter-info">
 <div class="chapter-count">02 / 03</div>
 <div class="chapter-kicker">EXPERIÊNCIA INTERATIVA / EVENTO</div>
@@ -6671,6 +6672,21 @@ if(mount){
 /* CENA 3D DO GATECHECK — o palco deixa de ser uma moldura com print e vira a
    estacao de trabalho. As screenshots reais viram a textura do monitor, entao o
    zoom termina no produto de verdade em vez de numa interface inventada. */
+.wsl-scene{
+  position:absolute;inset:-2% 0 -6%;
+  z-index:1;overflow:visible;pointer-events:none;
+  -webkit-mask-image:radial-gradient(74% 108% at 66% 52%,#000 46%,rgba(0,0,0,.55) 74%,transparent 96%);
+  mask-image:radial-gradient(74% 108% at 66% 52%,#000 46%,rgba(0,0,0,.55) 74%,transparent 96%);
+}
+.wsl-scene canvas{display:block;width:100%;height:100%}
+.project-chapter-wsl .project-chapter-info,
+.project-chapter-wsl .chapter-progress{opacity:var(--wsl-texto,1)!important}
+.project-chapter-wsl .chapter-hint{display:none!important}
+.project-chapter-wsl .project-chapter-info{position:relative;z-index:3}
+.wsl-real-stage.tem-3d .wsl-totem,
+.wsl-real-stage.tem-3d .wsl-stage-glow{opacity:0;pointer-events:none}
+.wsl-real-stage.tem-3d{transform:none!important}
+
 .gate-scene{
   /* a cena e filha do sticky, nao do palco: ocupa a secao inteira em vez de
      ficar presa na coluna da direita, que era o que lia como quadrado */
@@ -8143,6 +8159,40 @@ window.__EN_DICT__ = {
    do proprio elemento e descobre a tela ativa pelo rotulo que o driver escreve.
    Se o WebGL nao subir, nada acontece e a pilha de screenshots continua no ar. */
 import { montarCenaGatecheck } from '/src/projects/gatecheck/index.js';
+
+/* WSL: TV de toque na parede. Mesma montagem do GateCheck — a API das duas
+   cenas e igual, entao o bloco muda so nos identificadores. */
+{
+  const alvoW = document.getElementById('wslScene');
+  const capW = document.getElementById('project-wsl');
+  const palcoW = document.querySelector('.wsl-real-stage');
+  if (alvoW && capW && palcoW) {
+    const { montarCenaWsl } = await import('/src/projects/wsl/index.js');
+    const cenaW = montarCenaWsl(alvoW);
+    if (cenaW) {
+      palcoW.classList.add('tem-3d');
+      const progW = () => {
+        const r = capW.getBoundingClientRect();
+        const util = Math.max(1, capW.offsetHeight - innerHeight);
+        return Math.max(0, Math.min(1, -r.top / util));
+      };
+      let agW = false;
+      const rolarW = () => {
+        if (agW) return;
+        agW = true;
+        requestAnimationFrame(() => {
+          agW = false;
+          const p = progW();
+          cenaW.definirProgresso(p);
+          capW.style.setProperty('--wsl-texto', (1 - Math.max(0, Math.min(1, (p - 0.03) / 0.13))).toFixed(3));
+        });
+      };
+      addEventListener('scroll', rolarW, { passive: true });
+      addEventListener('resize', rolarW, { passive: true });
+      rolarW();
+    }
+  }
+}
 
 const alvo = document.getElementById('gateScene');
 const capitulo = document.getElementById('project-gatecheck');
