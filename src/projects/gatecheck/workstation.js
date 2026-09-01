@@ -684,19 +684,17 @@ export function criarEstacao() {
   raiz.add(monitor);
 
   const gabinete = criarGabinete();
-  /* De volta a direita da mesa. A esquerda ele ficava atras do personagem e nao
-     aparecia; foi por isso que eu girei o interior e a placa-mae acabou de
-     frente, o que nao existe em PC nenhum.
-     O angulo poe a QUINA entre os dois vidros — frontal e lateral — de frente
-     para a camera. E assim que se olha um aquario: pela quina, vendo a placa de
-     lado e a GPU de frente, cada peca montada onde deveria estar. */
-  gabinete.position.set(0.94, 0, -0.10);
-  gabinete.rotation.y = 1.38;
+  /* Gabinete a esquerda. O angulo e calculado, nao escolhido: dessa posicao a
+     camera fica na direcao (0,84 / 0,54) em XZ, e 1,78 rad e o giro que poe a
+     QUINA entre os dois vidros apontada para la. Sem isso, a esquerda so se
+     veria a chapa fechada. */
+  gabinete.position.set(-0.88, 0, -0.10);
+  gabinete.rotation.y = 1.78;
   raiz.add(gabinete);
 
   const macbook = criarMacbook();
-  macbook.position.set(-0.78, 0, 0.06);
-  macbook.rotation.y = 0.66;
+  macbook.position.set(0.80, 0, 0.08);
+  macbook.rotation.y = -0.60;
   raiz.add(macbook);
 
   const teclado = criarTeclado();
