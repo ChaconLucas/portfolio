@@ -8315,7 +8315,46 @@ window.__EN_DICT__ = {
    Este bloco nao toca no driver de capitulos que ja existe: ele le o progresso
    do proprio elemento e descobre a tela ativa pelo rotulo que o driver escreve.
    Se o WebGL nao subir, nada acontece e a pilha de screenshots continua no ar. */
-import { montarCenaGatecheck } from '/src/projects/gatecheck/index.js';
+/* Monta a cena so quando o capitulo se aproxima, e descarta quando ele fica
+   longe.
+
+   Antes as quatro subiam junto com a pagina: quatro contextos WebGL e quatro
+   copias do personagem alocados de uma vez, mesmo com os lacos de render ja
+   pausados fora da tela. Pausar o laco poupa CPU, mas nao devolve memoria de
+   GPU — e em celular de entrada o excesso de contexto e perda de contexto: a
+   cena some e nao volta sozinha.
+
+   A margem e de uma tela e meia. Testei duas e meia, que da tempo de sobra
+   para os ~3s que o GateCheck leva entre o gatilho e o primeiro quadro — mas
+   com ela duas cenas ja sobem com a pagina no topo, devolvendo ao carregamento
+   inicial exatamente o peso que isto veio tirar. Com uma e meia o topo fica
+   limpo e quem chega antes da cena ve a pilha de prints, que e o fallback e
+   nao um erro: o 3D entra por cima quando fica pronto. A desmontagem espera um
+   pouco para quem rola para tras e volta nao pagar remontagem a cada passada. */
+const aoAproximar = (elemento, montar) => {
+  let desmontar = null, ocupado = false, adiado = 0, perto = false;
+  const soltar = () => { if (desmontar) { desmontar(); desmontar = null; } };
+  const io = new IntersectionObserver(async (entradas) => {
+    perto = entradas[0].isIntersecting;
+    if (perto) {
+      clearTimeout(adiado);
+      if (desmontar || ocupado) return;
+      ocupado = true;
+      try { desmontar = await montar(); }
+      catch (e) { console.warn('cena nao montou', e); }
+      finally { ocupado = false; }
+      /* Se a cena so ficou pronta DEPOIS de o capitulo sair de vista, ninguem
+         mais vai desmonta-la: o observer avisa em travessia, e a travessia de
+         saida aconteceu enquanto isto ainda carregava. Sem esta linha, uma
+         rolagem rapida pela pagina deixava cenas vivas para tras. */
+      if (!perto) soltar();
+    } else if (desmontar) {
+      clearTimeout(adiado);
+      adiado = setTimeout(soltar, 1200);
+    }
+  }, { rootMargin: '150% 0px' });
+  io.observe(elemento);
+};
 
 /* Fade do texto do capitulo, em funcao do progresso.
    No desktop o texto mora na coluna da esquerda e a cena ocupa a direita:
@@ -8337,7 +8376,7 @@ const fadeTexto = (prog) => {
 {
   const alvoF = document.getElementById('flashScene');
   const capF = document.getElementById('project-flash');
-  if (alvoF && capF) {
+  if (alvoF && capF) aoAproximar(capF, async () => {
     const { montarCenaFlash } = await import('/src/projects/flash/index.js');
     const cenaF = montarCenaFlash(alvoF, {
       /* So a quarta imagem, repetida quatro vezes: ela ocupa o capitulo
@@ -8370,8 +8409,13 @@ const fadeTexto = (prog) => {
       addEventListener('scroll', rolarF, { passive: true });
       addEventListener('resize', rolarF, { passive: true });
       rolarF();
+      return () => {
+        removeEventListener('scroll', rolarF);
+        removeEventListener('resize', rolarF);
+        cenaF.destruir();
+      };
     }
-  }
+  });
 }
 
 /* Rare7: a MESMA estacao do GateCheck, com as telas da loja. Nada de cena nova
@@ -8380,7 +8424,8 @@ const fadeTexto = (prog) => {
   const alvoR = document.getElementById('rareScene');
   const capR = document.getElementById('project-rare7');
   const palcoR = document.querySelector('.rare-real-stage');
-  if (alvoR && capR && palcoR) {
+  if (alvoR && capR && palcoR) aoAproximar(capR, async () => {
+    const { montarCenaGatecheck } = await import('/src/projects/gatecheck/index.js');
     const cenaR = montarCenaGatecheck(alvoR, {
       telas: [
         '/assets/projects/rare7-1.webp', '/assets/projects/rare7-2.webp',
@@ -8409,8 +8454,14 @@ const fadeTexto = (prog) => {
       addEventListener('scroll', rolarR, { passive: true });
       addEventListener('resize', rolarR, { passive: true });
       rolarR();
+      return () => {
+        removeEventListener('scroll', rolarR);
+        removeEventListener('resize', rolarR);
+        palcoR.classList.remove('tem-3d');
+        cenaR.destruir();
+      };
     }
-  }
+  });
 }
 
 /* WSL: TV de toque na parede. Mesma montagem do GateCheck — a API das duas
@@ -8419,7 +8470,7 @@ const fadeTexto = (prog) => {
   const alvoW = document.getElementById('wslScene');
   const capW = document.getElementById('project-wsl');
   const palcoW = document.querySelector('.wsl-real-stage');
-  if (alvoW && capW && palcoW) {
+  if (alvoW && capW && palcoW) aoAproximar(capW, async () => {
     const { montarCenaWsl } = await import('/src/projects/wsl/index.js');
     const cenaW = montarCenaWsl(alvoW);
     if (cenaW) {
@@ -8443,8 +8494,14 @@ const fadeTexto = (prog) => {
       addEventListener('scroll', rolarW, { passive: true });
       addEventListener('resize', rolarW, { passive: true });
       rolarW();
+      return () => {
+        removeEventListener('scroll', rolarW);
+        removeEventListener('resize', rolarW);
+        palcoW.classList.remove('tem-3d');
+        cenaW.destruir();
+      };
     }
-  }
+  });
 }
 
 const alvo = document.getElementById('gateScene');
@@ -8452,7 +8509,8 @@ const capitulo = document.getElementById('project-gatecheck');
 const palco = document.querySelector('.gate-real-stage');
 const rotulo = document.getElementById('gateShotIndex');
 
-if (alvo && capitulo && palco) {
+if (alvo && capitulo && palco) aoAproximar(capitulo, async () => {
+  const { montarCenaGatecheck } = await import('/src/projects/gatecheck/index.js');
   const cena = montarCenaGatecheck(alvo);
   if (cena) {
     palco.classList.add('tem-3d');
@@ -8488,8 +8546,14 @@ if (alvo && capitulo && palco) {
     addEventListener('resize', aoRolar, { passive: true });
     aoRolar();
 
+    return () => {
+      removeEventListener('scroll', aoRolar);
+      removeEventListener('resize', aoRolar);
+      palco.classList.remove('tem-3d');
+      cena.destruir();
+    };
   }
-}
+});
 </script>
 </body>
 </html>
