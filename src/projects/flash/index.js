@@ -320,7 +320,10 @@ export function montarCenaFlash(container, opcoes = {}) {
      Declarado ANTES do bloco de ajuste: estava depois, e como `const` fica na
      zona morta temporal, o painel lancava ao inicializar. O `catch` vazio
      engolia o erro e o ajuste inteiro sumia sem aviso. */
-  const PEGA = { fora: 0.026, cima: 0.022, lado: -0.044, tomba: -1.04, gira: -3.12, rola: 0 };
+  /* Valores encontrados na tela, com o ajuste ao vivo. Nenhum deles saiu de
+     calculo meu: `gira: -3.54` e mais de meia volta e `tomba: -1.10` sao 63
+     graus de inclinacao — combinacoes que so aparecem olhando. */
+  const PEGA = { fora: 0.006, cima: 0.022, lado: -0.048, tomba: -1.10, gira: -3.54, rola: 0 };
 
   try {
     const q = new URLSearchParams(location.search);
@@ -454,9 +457,14 @@ export function montarCenaFlash(container, opcoes = {}) {
     if (!celularSolto && celularNaMao && modelo) {
       const mao = modelo.ossos.RightHand;
       celular.getWorldPosition(_p);
-      (modelo.ossos.Hips || modelo.raiz).getWorldPosition(_pq);
-      _fora.copy(_p).sub(_pq); _fora.y = 0;
-      if (_fora.lengthSq() < 1e-6) _fora.set(0, 0, 1);
+      /* Direcao "para fora" tirada de para onde o CORPO aponta, nao da linha
+         quadril->celular. Aquela linha encurta quando a mao desce para perto do
+         eixo do corpo, e uma direcao curta tem angulo instavel: a base girava
+         sozinha e o aparelho dava piruetas. O corpo aponta sempre para o mesmo
+         lado, entao a pega fica estavel em qualquer altura de mao. */
+      _fora.set(0, 0, 1).applyQuaternion(modelo.raiz.getWorldQuaternion(_q));
+      _fora.y = 0;
+      if (_fora.lengthSq() < 1e-4) _fora.set(0, 0, 1);
       _fora.normalize();
       _lado.crossVectors(_cima, _fora).normalize();
       _base.makeBasis(_lado, _cima, _fora);
