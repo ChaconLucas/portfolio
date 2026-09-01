@@ -154,6 +154,7 @@ export function montarCenaFlash(container, opcoes = {}) {
   let modelo = null;
   let celularNaMao = false;
   let celularSolto = false;
+  const poseNaMao = { pos: new THREE.Vector3(), quat: new THREE.Quaternion(), osso: null };
   const materiaisPessoa = [];
 
   carregarPersonagem('/assets/models/bryce.glb').then((m) => {
@@ -194,17 +195,22 @@ export function montarCenaFlash(container, opcoes = {}) {
            O ponto e a media das duas maos, empurrada na direcao dos dedos. */
         const pPunho = new THREE.Vector3();
         const pDedo = new THREE.Vector3();
+        const pPonta = new THREE.Vector3();
         const pOutra = new THREE.Vector3();
         maoD.getWorldPosition(pPunho);
         if (dedoD) dedoD.getWorldPosition(pDedo); else pDedo.copy(pPunho);
+        const dedoPonta = m.ossos.RightHandMiddle3;
+        if (dedoPonta) dedoPonta.getWorldPosition(pPonta); else pPonta.copy(pDedo);
         /* NAO fica entre as duas maos: medindo o clipe, elas estao a 48 cm uma
            da outra — a esquerda pende ao lado do corpo e so a direita segura.
            Puxar o aparelho para o meio das duas o deixava boiando a 22 cm da
            mao que segura. Fica na palma da direita mesmo. */
-        /* O centro do aparelho fica um pouco ALEM da palma, na direcao dos
-           dedos: assim os dedos fecham sobre a metade de baixo dele, como quem
-           segura, em vez de o celular ficar centrado no punho. */
-        const alvoMundo = pPunho.clone().lerp(pDedo, 1.55);
+        /* DENTRO DA CURVA DOS DEDOS.
+           A mao do clipe fica fechada como quem segura, e o vao onde o aparelho
+           encaixa nao e a palma nem a ponta: e o meio entre a base e a ponta do
+           dedo medio. Punho e base davam o celular atras da mao; extrapolar
+           alem da base jogava para baixo do corpo. */
+        const alvoMundo = pDedo.clone().lerp(pPonta, 0.5);
 
         /* ORIENTACAO tirada da propria mao.
            Antes eu usava `lookAt` para um ponto fixo perto da camera. Isso
@@ -223,9 +229,6 @@ export function montarCenaFlash(container, opcoes = {}) {
         const iMinimo = m.ossos.RightHandPinky1;
 
         // eixo longo do aparelho: a direcao de pega, do punho para os dedos
-        const pPonta = new THREE.Vector3();
-        const dedoPonta = m.ossos.RightHandMiddle3;
-        if (dedoPonta) dedoPonta.getWorldPosition(pPonta); else pPonta.copy(pDedo);
         eixoDedos.copy(pPonta).sub(pPunho).normalize();
         if (iIndic && iMinimo) {
           iIndic.getWorldPosition(pIndic);
@@ -249,6 +252,10 @@ export function montarCenaFlash(container, opcoes = {}) {
         celular.position.copy(maoD.worldToLocal(alvoMundo));
 
         celularNaMao = true;
+        // guarda a pose na mao: e ela que volta quando o scroll sobe
+        poseNaMao.pos.copy(celular.position);
+        poseNaMao.quat.copy(celular.quaternion);
+        poseNaMao.osso = maoD;
       }
     }).catch(() => { /* sem o clipe, ele fica na pose de repouso */ });
   }).catch((e) => console.warn('modelo do FLASH nao carregou', e));
@@ -326,6 +333,15 @@ export function montarCenaFlash(container, opcoes = {}) {
       celular.position.copy(_p);
       celular.quaternion.copy(_q);
       celularSolto = true;
+    } else if (celularSolto && alfa > 0.72 && poseNaMao.osso) {
+      /* Volta para a mao ao subir o scroll.
+         Antes a soltura era definitiva: quem voltava encontrava o aparelho
+         parado no ar, longe do personagem. Restaurando a pose guardada, ele
+         reencaixa exatamente onde estava. */
+      poseNaMao.osso.add(celular);
+      celular.position.copy(poseNaMao.pos);
+      celular.quaternion.copy(poseNaMao.quat);
+      celularSolto = false;
     }
 
     if (celularSolto) {
