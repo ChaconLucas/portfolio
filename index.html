@@ -7362,11 +7362,12 @@ if(mount){
     calc(var(--sx,.32) * 50px) calc(var(--sy,.62) * 50px) 46px rgba(6,4,12,.62);
   transition:text-shadow .38s cubic-bezier(.16,1,.3,1);
 }
-/* O codigo fica ATRAS da superficie, nao na frente: ele mora no fundo do
-   rebaixo. Era translateZ positivo, o que punha o preenchimento a frente da
-   propria letra — o contrario de um corte. */
-.rname-glow{transform:translateZ(-16px)}
-.rname-parede{transform:translateZ(-6px)}
+/* SEM transform nestas duas camadas.
+   O translateZ era para afundar o codigo, mas transform num elemento com
+   `background-clip:text` quebra o recorte: o preenchimento parava de ser
+   cortado pelos glifos e vazava como um retangulo de codigo por cima do fundo,
+   fora das letras. Verificado na tela. A profundidade do rebaixo vem da parede
+   escura, que nao depende de Z nenhum. */
 
 @media(prefers-reduced-motion:reduce){
   .hero-name-block h1.rname{transform:none;transition:none}
@@ -7382,9 +7383,11 @@ if(mount){
    espaco entre elas. */
 .rname-l1{
   display:block;
-  font-size:1.16em;
-  line-height:.82;
-  letter-spacing:-.045em;
+  /* 1.16 deixava a primeira linha maior que o espaco que ela tem: com o titulo
+     ja ocupando meia tela, a diferenca virava exagero em vez de hierarquia. */
+  font-size:1.07em;
+  line-height:.84;
+  letter-spacing:-.04em;
 }
 /* Sem translateZ por linha, embora fosse tentador para separar os planos:
    transformar um filho de um elemento com `background-clip:text` tira o texto
@@ -8230,11 +8233,10 @@ html{
       const N=16, TRAIL=12, LIFE=0.55;
       const pts=[];
       let mx=-900,my=-900,hx=-900,hy=-900,open=0,raf=0,live=false,seeded=false;
-      /* Raio da revelacao. Era 46-78px num nome que passa de 500px: a janela
-         aberta nas letras mal cabia uma palavra do codigo, e o efeito lia como
-         um reflexo em vez de conteudo. Aqui ela fica grande o bastante para se
-         LER o que esta escrito por dentro, que e o ponto. */
-      const R=()=>Math.max(66,Math.min(124,h1.getBoundingClientRect().width*0.086));
+      /* Raio da revelacao. 66-124px abria um buraco do tamanho de uma letra
+         inteira e o corte sumia: era mancha, nao recorte. Aqui volta a ser
+         menor que um glifo, entao da para ver a letra sendo aberta. */
+      const R=()=>Math.max(40,Math.min(72,h1.getBoundingClientRect().width*0.052));
       const setL=(n,x,y,rr)=>{
         glow.style.setProperty('--x'+n,x.toFixed(1)+'px');
         glow.style.setProperty('--y'+n,y.toFixed(1)+'px');
@@ -8258,7 +8260,10 @@ html{
           const [rad,orb,ph,amp]=pool[n-1];
           const dx=Math.cos(now*(0.55+n*0.17)+ph)*R0*orb*0.30;
           const dy=Math.sin(now*(0.48+n*0.21)+ph*1.4)*R0*orb*0.26;
-          const puls=1+Math.sin(now*(0.9+n*0.25)+ph)*0.11;
+          /* A poca respira de verdade: 11% era imperceptivel, e o corte lia
+             como um furo de tamanho fixo arrastado pela tela. Com 34% ele abre
+             e fecha enquanto anda, que e o que da vida de liquido. */
+          const puls=1+Math.sin(now*(0.9+n*0.25)+ph)*0.34;
           setL(n,hx+dx,hy+dy,R0*open*rad*amp*puls);
         }
         // 5..N = rastro que abre no caminho e fecha atrás
@@ -8364,8 +8369,11 @@ html{
           if(!b.width) return;
           const nx=Math.max(-1,Math.min(1,((px+palco.getBoundingClientRect().left)-(b.left+b.width/2))/(b.width/2)));
           const ny=Math.max(-1,Math.min(1,((py+palco.getBoundingClientRect().top)-(b.top+b.height/2))/(b.height/2)));
-          bloco.style.setProperty('--incY',(nx*7).toFixed(2)+'deg');
-          bloco.style.setProperty('--incX',(-ny*5).toFixed(2)+'deg');
+          /* 7 e 5 graus faziam o titulo balancar atras do ponteiro e chamar
+             mais atencao que o corte. Com 2,6 e 1,8 a peca tem orientacao no
+             espaco sem parecer solta. */
+          bloco.style.setProperty('--incY',(nx*2.6).toFixed(2)+'deg');
+          bloco.style.setProperty('--incX',(-ny*1.8).toFixed(2)+'deg');
           /* A extrusao foge do ponteiro: a luz esta onde o cursor esta. */
           bloco.style.setProperty('--sx',(-nx*0.9).toFixed(3));
           bloco.style.setProperty('--sy',(-ny*0.5+0.55).toFixed(3));
