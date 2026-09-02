@@ -8003,7 +8003,11 @@ html{
       const N=16, TRAIL=12, LIFE=0.55;
       const pts=[];
       let mx=-900,my=-900,hx=-900,hy=-900,open=0,raf=0,live=false,seeded=false;
-      const R=()=>Math.max(46,Math.min(78,h1.getBoundingClientRect().width*0.055));
+      /* Raio da revelacao. Era 46-78px num nome que passa de 500px: a janela
+         aberta nas letras mal cabia uma palavra do codigo, e o efeito lia como
+         um reflexo em vez de conteudo. Aqui ela fica grande o bastante para se
+         LER o que esta escrito por dentro, que e o ponto. */
+      const R=()=>Math.max(66,Math.min(124,h1.getBoundingClientRect().width*0.086));
       const setL=(n,x,y,rr)=>{
         glow.style.setProperty('--x'+n,x.toFixed(1)+'px');
         glow.style.setProperty('--y'+n,y.toFixed(1)+'px');
@@ -8044,8 +8048,60 @@ html{
         else { raf=0; for(let n=1;n<=N;n++) setL(n,-900,-900,0); }
       }
       const kick=()=>{ if(!raf) raf=requestAnimationFrame(loop); };
+
+      /* Uma passada de luz sozinha, logo depois de o nome subir.
+         Sem ela, o codigo dentro das letras so existia para quem por acaso
+         arrastasse o mouse por cima do titulo — nao ha nada indicando que ele
+         e interativo. E no celular, onde nao existe ponteiro, o efeito nunca
+         acontecia: a tela inteira era so tipografia. A apresentacao move o
+         mesmo ponteiro virtual que o mouse moveria, entao nao ha caminho de
+         codigo novo para manter. */
+      let tocou=false;
+      const apresentar=()=>{
+        const b=h1.getBoundingClientRect();
+        if(!b.width||tocou) return;
+        const t0=performance.now(), dur=2500;
+        const ax=b.width*-0.06, ay=b.height*0.34;
+        const bx=b.width*1.06,  by=b.height*0.72;
+        mx=hx=ax; my=hy=ay; seeded=true; live=true; kick();
+        (function passo(){
+          if(tocou) return;                      // o ponteiro real tem prioridade
+          const t=Math.min(1,(performance.now()-t0)/dur);
+          const e=t<.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
+          mx=ax+(bx-ax)*e;
+          /* a curva no meio faz a luz cruzar as DUAS linhas do nome em vez de
+             correr reta por cima de uma so */
+          my=ay+(by-ay)*e-Math.sin(e*Math.PI)*b.height*0.20;
+          kick();
+          if(t<1) requestAnimationFrame(passo);
+          else { live=false; seeded=false; kick(); }
+        })();
+      };
+
+      /* Disparo amarrado ao FIM da subida do nome, e nao a um tempo fixo: o
+         atraso da entrada muda com a velocidade da intro e vai a zero quando
+         ela e pulada. */
+      const agendarApresentacao=()=>{
+        let presa=false;
+        try{
+          const anims=h1.getAnimations?h1.getAnimations({subtree:true}):[];
+          const sobe=anims.find(a=>a.animationName==='nameRise');
+          if(sobe&&sobe.finished){
+            presa=true;
+            sobe.finished.then(()=>setTimeout(apresentar,240)).catch(()=>{});
+          }
+        }catch(e){ console.warn('nome: sem WAAPI',e); }
+        if(!presa){
+          const v=parseFloat(getComputedStyle(document.documentElement)
+            .getPropertyValue('--nome-atraso'))||4.3;
+          setTimeout(apresentar,(v+1.2)*1000);
+        }
+      };
+      agendarApresentacao();
+
       host.addEventListener('pointermove',e=>{
         const b=h1.getBoundingClientRect();
+        tocou=true;
         mx=e.clientX-b.left; my=e.clientY-b.top;
         if(!seeded){ hx=mx; hy=my; seeded=true; }
         live=true; kick();
