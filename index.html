@@ -960,8 +960,7 @@ body.dark .theme-choice.active{
 .hero-signal-large strong{font-size:28px;letter-spacing:-.03em}
 .hero-signal-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .hero-project-ticker{display:flex;gap:18px;overflow:hidden;border-top:1px solid var(--line);padding-top:12px;white-space:nowrap}
-.hero-project-ticker span{font-size:9px;letter-spacing:.13em;color:var(--muted);animation:tickerShift 9s linear infinite}
-@keyframes tickerShift{to{transform:translateX(-42px)}}
+.hero-project-ticker span{font-size:9px;letter-spacing:.13em;color:var(--muted)}
 
 .hero-v6-bottom{display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:center;position:relative;z-index:5}
 .hero-v6-bottom span{font-size:8px;letter-spacing:.14em;color:var(--muted)}
@@ -2548,8 +2547,12 @@ nav{
 .hero-signal-large strong{
   color:#fbf9ff !important;
 }
+/* O ticker saiu desta lista de propósito.
+   O bloco de baixo anima a cor dos quatro itens (`tickerFocus`) para o
+   destaque circular entre eles — e este `!important`, escrito para acertar o
+   tema escuro das fichas, congelava a cor e fazia a animacao existir sem nunca
+   aparecer. O item ja tem cor propria la embaixo, entao nada fica sem estilo. */
 .hero-signal span,
-.hero-project-ticker span,
 .hero-signal small{
   color:var(--muted) !important;
 }
@@ -7252,6 +7255,33 @@ html{
 .hero-name-block .hero-name-meta{
   animation:nameRise .8s cubic-bezier(.16,1,.3,1) calc(var(--nome-atraso,4.3s) + .25s) both;
 }
+.hero-v6-top,
+.hero-name-meta,
+.hero-v6-lead,
+.actions,
+.hero-v6-right > *,
+.hero-v6-bottom{
+  animation:entrarHero .7s cubic-bezier(.16,1,.3,1) both;
+}
+.hero-v6-top       {animation-delay:calc(var(--nome-atraso,4.3s) - .18s)}
+.hero-name-meta    {animation-delay:calc(var(--nome-atraso,4.3s) + .40s)}
+.hero-v6-lead      {animation-delay:calc(var(--nome-atraso,4.3s) + .52s)}
+.actions           {animation-delay:calc(var(--nome-atraso,4.3s) + .64s)}
+.hero-v6-right > *:nth-child(1){animation-delay:calc(var(--nome-atraso,4.3s) + .58s)}
+.hero-v6-right > *:nth-child(2){animation-delay:calc(var(--nome-atraso,4.3s) + .70s)}
+.hero-v6-right > *:nth-child(3){animation-delay:calc(var(--nome-atraso,4.3s) + .82s)}
+.hero-v6-bottom    {animation-delay:calc(var(--nome-atraso,4.3s) + .90s)}
+@keyframes entrarHero{
+  from{opacity:0;transform:translateY(14px)}
+  to{opacity:1;transform:none}
+}
+/* Sem movimento, sem atraso: quem pediu para reduzir animacao nao pode ficar
+   olhando tela vazia por quatro segundos esperando um `both` liberar. */
+@media(prefers-reduced-motion:reduce){
+  .hero-v6-top,.hero-name-meta,.hero-v6-lead,.actions,
+  .hero-v6-right > *,.hero-v6-bottom{animation:none}
+}
+
 @keyframes nameRise{
   from{opacity:0;transform:translateY(26px);filter:blur(4px)}
   to{opacity:1;transform:none;filter:none}
