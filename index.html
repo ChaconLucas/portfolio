@@ -944,6 +944,83 @@ body.dark .theme-choice.active{
 @keyframes statusPulse{50%{transform:scale(1.45);opacity:.55}}
 
 .hero-v6-main{display:grid;grid-template-columns:1.05fr .95fr;gap:5vw;align-items:center;position:relative;z-index:5}
+/* A pilha do full stack.
+   Quatro placas em perspectiva, uma atras da outra. O empilhamento e a
+   mensagem: nao adianta listar tecnologia, o que diferencia e atravessar as
+   quatro camadas. Cada placa e um <button> de verdade — recebe foco, responde
+   a teclado, e a leitura por leitor de tela sai "INTERFACE, React, Next.js".
+   Tudo em transform CSS: nenhuma cena 3D nova nesta tela. */
+.pilha-stack{display:grid;gap:10px}
+.pilha-camadas{
+  display:grid;gap:7px;
+  perspective:760px;
+  perspective-origin:62% 44%;
+}
+.pilha-camada{
+  position:relative;
+  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+  width:100%;text-align:left;cursor:default;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:13px;
+  background:rgba(13,14,21,.72);
+  padding:12px 14px;
+  color:inherit;font:inherit;
+  /* A inclinacao e o que transforma quatro caixas numa PILHA. Cada uma recua
+     um pouco mais que a anterior, entao a coluna ganha fuga. */
+  transform:rotateX(11deg) translateZ(calc(var(--i,0) * -14px));
+  transition:transform .34s cubic-bezier(.16,1,.3,1),border-color .3s ease,background .3s ease;
+}
+.pilha-camada:nth-child(1){--i:0;--tom:#b18cff}
+.pilha-camada:nth-child(2){--i:1;--tom:#8fa6ff}
+.pilha-camada:nth-child(3){--i:2;--tom:#7fd7c4}
+.pilha-camada:nth-child(4){--i:3;--tom:#ff8fb8}
+.pilha-camada b{
+  font-size:9px;letter-spacing:.15em;font-weight:600;
+  color:var(--tom);flex:none;width:78px;
+}
+.pilha-camada i{font-style:normal;font-size:11px;color:#a79fbb}
+/* A borda da esquerda e a unica cor forte: identifica a camada sem transformar
+   a coluna num arco-iris. */
+.pilha-camada::before{
+  content:"";position:absolute;left:0;top:14%;bottom:14%;width:2px;
+  border-radius:2px;background:var(--tom);opacity:.55;
+  transition:opacity .3s ease;
+}
+.pilha-camada:hover,
+.pilha-camada:focus-visible{
+  transform:rotateX(0deg) translateZ(26px);
+  border-color:color-mix(in srgb,var(--tom) 55%,transparent);
+  background:rgba(24,20,40,.88);
+  outline:none;
+}
+.pilha-camada:hover::before,
+.pilha-camada:focus-visible::before{opacity:1}
+.pilha-camada:focus-visible{box-shadow:0 0 0 2px color-mix(in srgb,var(--tom) 60%,transparent)}
+.pilha-nota{font-size:9px;letter-spacing:.09em;color:#6f6885}
+@media(prefers-reduced-motion:reduce){
+  .pilha-camada{transform:none;transition:border-color .3s ease,background .3s ease}
+  .pilha-camada:hover,.pilha-camada:focus-visible{transform:none}
+}
+@media(max-width:900px){
+  /* No celular a pilha vira uma faixa de marcadores.
+     Medido: como coluna ela custava 273px numa tela onde sobravam ~35, e
+     empurrava a ultima camada, o ticker e o "role para explorar" para fora do
+     sticky — que tem 100vh, entao o que passa nao rola, some. Aqui ficam so os
+     nomes das quatro camadas; o que roda em cada uma continua no hover do
+     desktop e no Arquivo Tecnico logo abaixo.
+     Sem perspectiva tambem: a fuga em coluna estreita so encolhe o texto de
+     tras e nao le como profundidade. */
+  .pilha-camadas{perspective:none;display:flex;flex-wrap:wrap;gap:6px}
+  .pilha-camada{
+    transform:none;width:auto;flex:none;
+    padding:7px 10px 7px 12px;border-radius:999px;
+  }
+  .pilha-camada i{display:none}
+  .pilha-camada b{width:auto;font-size:8px}
+  .pilha-camada::before{top:26%;bottom:26%}
+  .pilha-nota{display:none}
+}
+
 /* Malha de blueprint no fundo da primeira tela.
    A tela era preta e chapada; o resto do site tem cena atras do texto. A malha
    da o plano tecnico sem competir com nada, porque so aparece de verdade onde
@@ -4777,9 +4854,29 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
      esta no Arquivo Tecnico, os projetos tem capitulo proprio cada um. A
      primeira tela gastava metade da largura resumindo o resto do site numa
      tabela, que e o unico ponto da pagina onde a informacao e dita em vez de
-     mostrada. Ficam as duas que nao existem em outro lugar: onde ele esta hoje
-     e como ele trabalha. -->
-<div class="hero-signal"><small>FLUXO DE TRABALHO</small><strong>Com apoio de IA</strong><span>Claude Code · Codex · Copilot</span></div>
+     mostrada. Fica a que nao existe em outro lugar: onde ele esta hoje. -->
+
+<!-- "Full stack" dito como objeto, e nao como palavra: as quatro camadas que
+     ele atravessa, empilhadas em profundidade. Passar o mouse levanta uma e
+     mostra o que roda nela. E o unico lugar do site onde a stack aparece como
+     ESTRUTURA; no Arquivo Tecnico ela e catalogo. -->
+<div class="pilha-stack" id="pilhaStack">
+  <div class="pilha-camadas">
+    <button class="pilha-camada" type="button" data-cor="1">
+      <b>INTERFACE</b><i>React · Next.js · TypeScript</i>
+    </button>
+    <button class="pilha-camada" type="button" data-cor="2">
+      <b>API</b><i>FastAPI · Express · PHP</i>
+    </button>
+    <button class="pilha-camada" type="button" data-cor="3">
+      <b>DADOS</b><i>PostgreSQL · MySQL · SQLAlchemy</i>
+    </button>
+    <button class="pilha-camada" type="button" data-cor="4">
+      <b>SEGURANÇA</b><i>JWT · bcrypt · auditoria</i>
+    </button>
+  </div>
+  <span class="pilha-nota">Construído com apoio de IA · Claude Code · Codex · Copilot</span>
+</div>
 <div class="hero-project-ticker">
 <div class="ticker-track"><div class="ticker-group"><span>01 GATECHECK</span><span>02 WSL GAMES</span><span>03 RARE7</span><span>04 MOBILE</span></div></div>
 </div>
@@ -8236,6 +8333,11 @@ window.__EN_DICT__ = {
   "Operação / check-in": "Operations / check-in",
   "ROLE / EXPLORE O PRODUTO": "SCROLL / EXPLORE PRODUCT",
   "ABRIR DEMO AO VIVO": "OPEN LIVE DEMO",
+  "INTERFACE": "INTERFACE",
+  "SEGURANÇA": "SECURITY",
+  "DADOS": "DATA",
+  "JWT · bcrypt · auditoria": "JWT · bcrypt · auditing",
+  "Construído com apoio de IA · Claude Code · Codex · Copilot": "Built with AI assistance · Claude Code · Codex · Copilot",
   "Pular para o conteúdo": "Skip to content",
   "CURRÍCULO": "RESUME",
   "Ver e baixar": "View and download",
