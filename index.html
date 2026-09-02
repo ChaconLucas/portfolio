@@ -944,6 +944,35 @@ body.dark .theme-choice.active{
 @keyframes statusPulse{50%{transform:scale(1.45);opacity:.55}}
 
 .hero-v6-main{display:grid;grid-template-columns:1.05fr .95fr;gap:5vw;align-items:center;position:relative;z-index:5}
+/* Malha de blueprint no fundo da primeira tela.
+   A tela era preta e chapada; o resto do site tem cena atras do texto. A malha
+   da o plano tecnico sem competir com nada, porque so aparece de verdade onde
+   o ponteiro esta: ha um brilho fraco constante, para quem nunca mexe o mouse
+   e para o celular, e um foco que acompanha o cursor. E gradiente repetido —
+   nao pinta pixel novo nem soma contexto WebGL. */
+.intro-hero{position:relative}
+.intro-hero::before{
+  content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+  background-image:
+    repeating-linear-gradient(0deg,rgba(190,163,255,.14) 0 1px,transparent 1px 68px),
+    repeating-linear-gradient(90deg,rgba(190,163,255,.14) 0 1px,transparent 1px 68px);
+  /* A mascara e a peca toda: sem ela a malha vira papel milimetrado por cima
+     do texto. O primeiro circulo segue o ponteiro; o segundo e a presenca
+     constante, ancorada no canto do nome. */
+  -webkit-mask-image:
+    radial-gradient(circle 300px at var(--px,-999px) var(--py,-999px),#000 0%,rgba(0,0,0,.45) 55%,transparent 100%),
+    radial-gradient(58% 46% at 26% 42%,rgba(0,0,0,.30) 0%,transparent 78%);
+  mask-image:
+    radial-gradient(circle 300px at var(--px,-999px) var(--py,-999px),#000 0%,rgba(0,0,0,.45) 55%,transparent 100%),
+    radial-gradient(58% 46% at 26% 42%,rgba(0,0,0,.30) 0%,transparent 78%);
+  -webkit-mask-composite:source-over;
+  mask-composite:add;
+  transition:opacity .4s ease;
+}
+/* Sem malha quando o texto ja esta saindo de cena: no meio da transicao para o
+   universo ela virava ruido sobre a camada que entra. */
+.intro-hero[data-saindo="1"]::before{opacity:0}
+
 /* Brilho atras do nome.
    O fundo desta tela era preto liso — o canvas de estrelas e a nebulosa do
    corpo mal aparecem aqui, e o resto do site vive de profundidade. Este halo
@@ -5179,6 +5208,7 @@ function handleScroll(){
    hero.style.transform=`translate3d(${heroExit*-5.5}vw,${heroExit*-2.0}vh,${heroExit*-260}px) scale(${1-heroExit*.105})`;
    hero.style.filter=`blur(${heroExit*5.5}px) brightness(${1-heroExit*.12})`;
    hero.style.pointerEvents=heroExit>.86?'none':'auto';
+   hero.dataset.saindo=heroExit>.12?'1':'0';
  }
  if(bigWord){
    bigWord.style.opacity=String(.72*(1-ease(ip,.15,.43)));
@@ -8107,6 +8137,31 @@ html{
         live=true; kick();
       });
       host.addEventListener('pointerleave',()=>{ live=false; seeded=false; kick(); });
+    }
+  }
+
+  /* Foco da malha: duas variaveis CSS, atualizadas no maximo uma vez por
+     quadro. Nao ha laco proprio — o rAF so e agendado quando o ponteiro se
+     mexe e morre logo depois, entao a tela parada nao custa nada. */
+  {
+    const palco=document.getElementById('introHero');
+    if(palco){
+      let px=0,py=0,pendente=false;
+      palco.addEventListener('pointermove',(e)=>{
+        const b=palco.getBoundingClientRect();
+        px=e.clientX-b.left; py=e.clientY-b.top;
+        if(pendente) return;
+        pendente=true;
+        requestAnimationFrame(()=>{
+          pendente=false;
+          palco.style.setProperty('--px',px.toFixed(0)+'px');
+          palco.style.setProperty('--py',py.toFixed(0)+'px');
+        });
+      },{passive:true});
+      palco.addEventListener('pointerleave',()=>{
+        palco.style.setProperty('--px','-999px');
+        palco.style.setProperty('--py','-999px');
+      });
     }
   }
 
