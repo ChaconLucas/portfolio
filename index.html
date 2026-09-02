@@ -944,6 +944,32 @@ body.dark .theme-choice.active{
 @keyframes statusPulse{50%{transform:scale(1.45);opacity:.55}}
 
 .hero-v6-main{display:grid;grid-template-columns:1.05fr .95fr;gap:5vw;align-items:center;position:relative;z-index:5}
+/* Brilho atras do nome.
+   O fundo desta tela era preto liso — o canvas de estrelas e a nebulosa do
+   corpo mal aparecem aqui, e o resto do site vive de profundidade. Este halo
+   nasce atras do bloco do nome, no mesmo roxo do tema, e da ao titulo um plano
+   de fundo em vez de um vazio. E so um gradiente: nao pinta pixel novo, nao
+   soma contexto WebGL e nao entra no custo do carregamento inicial, que e o que
+   acabamos de reduzir. */
+.hero-name-block{position:relative}
+.hero-name-block::before{
+  content:"";position:absolute;z-index:-1;
+  left:-14%;top:-30%;width:92%;height:170%;
+  background:radial-gradient(58% 52% at 42% 48%,
+    color-mix(in srgb,var(--accent) 20%,transparent),
+    transparent 72%);
+  filter:blur(34px);
+  opacity:.85;
+  pointer-events:none;
+  animation:respirarHalo 11s ease-in-out infinite;
+}
+/* A respiracao e minima de proposito: o suficiente para o fundo nao parecer
+   uma imagem congelada, longe de chamar atencao para si. */
+@keyframes respirarHalo{
+  0%,100%{opacity:.85;transform:scale(1)}
+  50%{opacity:.62;transform:scale(1.05)}
+}
+@media(prefers-reduced-motion:reduce){.hero-name-block::before{animation:none}}
 .hero-v6-left{min-width:0}
 .hero-name-block h1{font-size:clamp(92px,12vw,190px);line-height:.76;letter-spacing:-.085em;margin:0;font-weight:900}
 .hero-name-block h1 span{color:var(--accent)}
