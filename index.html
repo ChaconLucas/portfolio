@@ -4831,7 +4831,7 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
 <div class="hero-v6-main">
 <div class="hero-v6-left">
 <div class="hero-name-block">
-<h1 class="rname" id="titulo-inicio"><span class="rname-layer rname-base">LUCAS<br/><em>CHACON</em></span><span aria-hidden="true" class="rname-layer rname-glow">LUCAS<br/><em>CHACON</em></span></h1>
+<h1 class="rname" id="titulo-inicio"><span class="rname-layer rname-base"><span class="rname-l1">LUCAS</span><em>CHACON</em></span><span aria-hidden="true" class="rname-layer rname-parede"><span class="rname-l1">LUCAS</span><em>CHACON</em></span><span aria-hidden="true" class="rname-layer rname-glow"><span class="rname-l1">LUCAS</span><em>CHACON</em></span></h1>
 <div class="hero-name-meta">WEB · MOBILE · APIs · SEGURANÇA · IA</div>
 </div>
 <p class="hero-v6-lead">
@@ -7318,9 +7318,103 @@ if(mount){
 }
 #stack .stack-nav-btn{transition:background .3s ease,color .3s ease,border-color .3s ease}
 
-.hero-name-block h1.rname{position:relative;display:block}
+/* O nome em tres dimensoes, sem WebGL.
+   Sao tres coisas somadas, e nenhuma delas pinta pixel novo:
+
+   1. O bloco inclina em perspectiva conforme o ponteiro, entao o titulo tem
+      orientacao no espaco em vez de ser um adesivo na tela.
+   2. As letras ganham espessura por uma escada de sombras solidas na direcao
+      OPOSTA a do ponteiro — e o que da corpo: a luz vem de onde o cursor esta
+      e a extrusao foge dela, como um objeto de verdade.
+   3. A camada de codigo, que ja existia, sobe em Z. Ela deixa de ser um
+      preenchimento e passa a flutuar dentro da face frontal, o que separa os
+      dois planos quando o bloco gira.
+
+   A suavizacao e a propria transicao CSS: seguir a posicao crua trava, e um
+   lerp por quadro exigiria um laco rodando o tempo todo. */
+.hero-name-block{perspective:1000px;perspective-origin:38% 46%}
+.hero-name-block h1.rname{
+  position:relative;display:block;
+  transform-style:preserve-3d;
+  transform:rotateX(var(--incX,0deg)) rotateY(var(--incY,0deg));
+  transition:transform .38s cubic-bezier(.16,1,.3,1);
+  will-change:transform;
+}
+.rname-base{
+  position:relative;
+  /* A escada tem passo curto e muitos degraus: com poucos degraus longos a
+     lateral vira listra, e nao superficie. */
+  text-shadow:
+    /* Aresta clara do lado de onde vem a luz: sem ela a letra tem corpo mas
+       nao tem face, e o volume nao fecha. */
+    calc(var(--sx,.32) * -1px) calc(var(--sy,.62) * -1px) 0 rgba(214,196,255,.34),
+    calc(var(--sx,.32) * 1px)  calc(var(--sy,.62) * 1px)  0 rgba(86,62,146,.96),
+    calc(var(--sx,.32) * 2px)  calc(var(--sy,.62) * 2px)  0 rgba(80,57,136,.95),
+    calc(var(--sx,.32) * 3px)  calc(var(--sy,.62) * 3px)  0 rgba(74,53,126,.93),
+    calc(var(--sx,.32) * 5px)  calc(var(--sy,.62) * 5px)  0 rgba(66,47,114,.90),
+    calc(var(--sx,.32) * 7px)  calc(var(--sy,.62) * 7px)  0 rgba(58,41,101,.86),
+    calc(var(--sx,.32) * 10px) calc(var(--sy,.62) * 10px) 0 rgba(50,35,88,.82),
+    calc(var(--sx,.32) * 14px) calc(var(--sy,.62) * 14px) 0 rgba(42,30,75,.76),
+    calc(var(--sx,.32) * 19px) calc(var(--sy,.62) * 19px) 0 rgba(34,24,61,.68),
+    calc(var(--sx,.32) * 25px) calc(var(--sy,.62) * 25px) 0 rgba(27,19,49,.58),
+    calc(var(--sx,.32) * 32px) calc(var(--sy,.62) * 32px) 0 rgba(20,14,37,.46),
+    calc(var(--sx,.32) * 40px) calc(var(--sy,.62) * 40px) 0 rgba(14,10,26,.32),
+    calc(var(--sx,.32) * 50px) calc(var(--sy,.62) * 50px) 46px rgba(6,4,12,.62);
+  transition:text-shadow .38s cubic-bezier(.16,1,.3,1);
+}
+/* O codigo fica ATRAS da superficie, nao na frente: ele mora no fundo do
+   rebaixo. Era translateZ positivo, o que punha o preenchimento a frente da
+   propria letra — o contrario de um corte. */
+.rname-glow{transform:translateZ(-16px)}
+.rname-parede{transform:translateZ(-6px)}
+
+@media(prefers-reduced-motion:reduce){
+  .hero-name-block h1.rname{transform:none;transition:none}
+  .rname-base{text-shadow:none}
+}
 .rname-layer{display:block}
+/* LUCAS maior que CHACON, e mais a frente.
+   As duas linhas tinham o mesmo corpo, entao o titulo lia como um bloco unico
+   e chapado. Aqui a primeira linha cresce e sobe em Z: com a perspectiva do
+   bloco, ela gira um pouco mais que a segunda quando o ponteiro se move, e sao
+   dois planos em vez de um adesivo.
+   O <br/> saiu: com a linha virando bloco proprio o quebra-linha duplicava o
+   espaco entre elas. */
+.rname-l1{
+  display:block;
+  font-size:1.16em;
+  line-height:.82;
+  letter-spacing:-.045em;
+}
+/* Sem translateZ por linha, embora fosse tentador para separar os planos:
+   transformar um filho de um elemento com `background-clip:text` tira o texto
+   dele do recorte do pai — o preenchimento de codigo some e sobra letra
+   transparente. Verificado. A profundidade vem da inclinacao do bloco e da
+   extrusao, que valem para o titulo inteiro. */
 .rname-layer em{font-style:normal;display:block;color:var(--accent)}
+/* Parede do corte.
+   Sem ela o codigo era um decalque colado na letra: aparecia no mesmo plano da
+   superficie, entao nao havia corte nenhum, so troca de preenchimento. Esta
+   camada e a mesma letra pintada de escuro, revelada por um buraco UM POUCO
+   MAIOR que o do codigo — o que sobra na diferenca dos dois raios e um aro
+   escuro em volta da abertura, que e a lateral do rebaixo.
+
+   Ela reusa as MESMAS variaveis que o script ja anima: a parede acompanha o
+   corte quadro a quadro sem nenhuma conta a mais em JS. */
+.rname-parede{
+  position:absolute;left:0;right:0;
+  top:-.20em;padding-top:.20em;
+  bottom:-.24em;padding-bottom:.24em;
+  pointer-events:none;
+  background:linear-gradient(180deg,#0b0814 0%,#161027 55%,#0a0712 100%);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
+  -webkit-mask-image:radial-gradient(circle calc(var(--r1,0px) + 9px) at var(--x1,-900px) var(--y1,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r2,0px) + 9px) at var(--x2,-900px) var(--y2,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r3,0px) + 9px) at var(--x3,-900px) var(--y3,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r4,0px) + 9px) at var(--x4,-900px) var(--y4,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r5,0px) + 9px) at var(--x5,-900px) var(--y5,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r6,0px) + 9px) at var(--x6,-900px) var(--y6,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r7,0px) + 9px) at var(--x7,-900px) var(--y7,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r8,0px) + 9px) at var(--x8,-900px) var(--y8,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r9,0px) + 9px) at var(--x9,-900px) var(--y9,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r10,0px) + 9px) at var(--x10,-900px) var(--y10,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r11,0px) + 9px) at var(--x11,-900px) var(--y11,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r12,0px) + 9px) at var(--x12,-900px) var(--y12,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r13,0px) + 9px) at var(--x13,-900px) var(--y13,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r14,0px) + 9px) at var(--x14,-900px) var(--y14,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r15,0px) + 9px) at var(--x15,-900px) var(--y15,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r16,0px) + 9px) at var(--x16,-900px) var(--y16,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%);
+  mask-image:radial-gradient(circle calc(var(--r1,0px) + 9px) at var(--x1,-900px) var(--y1,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r2,0px) + 9px) at var(--x2,-900px) var(--y2,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r3,0px) + 9px) at var(--x3,-900px) var(--y3,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r4,0px) + 9px) at var(--x4,-900px) var(--y4,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r5,0px) + 9px) at var(--x5,-900px) var(--y5,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r6,0px) + 9px) at var(--x6,-900px) var(--y6,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r7,0px) + 9px) at var(--x7,-900px) var(--y7,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r8,0px) + 9px) at var(--x8,-900px) var(--y8,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r9,0px) + 9px) at var(--x9,-900px) var(--y9,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r10,0px) + 9px) at var(--x10,-900px) var(--y10,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r11,0px) + 9px) at var(--x11,-900px) var(--y11,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r12,0px) + 9px) at var(--x12,-900px) var(--y12,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r13,0px) + 9px) at var(--x13,-900px) var(--y13,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r14,0px) + 9px) at var(--x14,-900px) var(--y14,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r15,0px) + 9px) at var(--x15,-900px) var(--y15,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%),radial-gradient(circle calc(var(--r16,0px) + 9px) at var(--x16,-900px) var(--y16,-900px),#000 0%,#000 84%,rgba(0,0,0,.70) 93%,rgba(0,0,0,.16) 99%,transparent 100%);
+  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+  -webkit-mask-composite:source-over;mask-composite:add;
+}
+
 /* Camada revelada pelo cursor: mesmo texto, pintado com gradiente e brilho,
    recortado por uma máscara radial que persegue o ponteiro com atraso. */
 .rname-glow{
@@ -7435,9 +7529,15 @@ html{
   .hero-v6-right > *,.hero-v6-bottom{animation:none}
 }
 
+/* Usa `translate`, e nao `transform`.
+   Com `transform:none` no quadro final e fill `both`, a animacao continuava
+   aplicando esse valor para sempre depois de terminar — e animacao vence
+   declaracao normal, entao a inclinacao 3D do nome era zerada por ela e nao
+   acontecia. Nas propriedades separadas (`translate`) as duas convivem: o
+   deslocamento e da entrada, o `transform` fica livre para o ponteiro. */
 @keyframes nameRise{
-  from{opacity:0;transform:translateY(26px);filter:blur(4px)}
-  to{opacity:1;transform:none;filter:none}
+  from{opacity:0;translate:0 26px;filter:blur(4px)}
+  to{opacity:1;translate:0 0;filter:none}
 }
 @media(prefers-reduced-motion:reduce){
   .hero-project-ticker span{animation:none;color:color-mix(in srgb,var(--ink) 46%,transparent)}
@@ -8253,11 +8353,36 @@ html{
           pendente=false;
           palco.style.setProperty('--px',px.toFixed(0)+'px');
           palco.style.setProperty('--py',py.toFixed(0)+'px');
+
+          /* Inclinacao e direcao da luz para o nome.
+             Sao medidas a partir do CENTRO DO TITULO, e nao do hero: o nome
+             ocupa so a metade esquerda, e usar o centro da secao faria o bloco
+             nascer torto com o ponteiro parado no meio da tela. */
+          const bloco=palco.querySelector('.hero-name-block');
+          if(!bloco) return;
+          const b=bloco.getBoundingClientRect();
+          if(!b.width) return;
+          const nx=Math.max(-1,Math.min(1,((px+palco.getBoundingClientRect().left)-(b.left+b.width/2))/(b.width/2)));
+          const ny=Math.max(-1,Math.min(1,((py+palco.getBoundingClientRect().top)-(b.top+b.height/2))/(b.height/2)));
+          bloco.style.setProperty('--incY',(nx*7).toFixed(2)+'deg');
+          bloco.style.setProperty('--incX',(-ny*5).toFixed(2)+'deg');
+          /* A extrusao foge do ponteiro: a luz esta onde o cursor esta. */
+          bloco.style.setProperty('--sx',(-nx*0.9).toFixed(3));
+          bloco.style.setProperty('--sy',(-ny*0.5+0.55).toFixed(3));
         });
       },{passive:true});
       palco.addEventListener('pointerleave',()=>{
         palco.style.setProperty('--px','-999px');
         palco.style.setProperty('--py','-999px');
+        /* Volta ao repouso: sem isto o nome fica congelado na ultima
+           inclinacao, o que parece defeito e nao pose. */
+        const bloco=palco.querySelector('.hero-name-block');
+        if(bloco){
+          bloco.style.setProperty('--incX','0deg');
+          bloco.style.setProperty('--incY','0deg');
+          bloco.style.setProperty('--sx','.32');
+          bloco.style.setProperty('--sy','.62');
+        }
       });
     }
   }
