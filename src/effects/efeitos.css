@@ -451,3 +451,48 @@
   .g-selo{font-size:2.4vw}.g-evento{font-size:15vw}.g-info{flex-wrap:wrap;gap:2vw}.g-info b{font-size:2.6vw}
   .g-carimbo{font-size:6vw;right:4vw;bottom:22vh}.g-qr{width:24vw;height:24vw}.g-cod{font-size:2.4vw}
 }
+
+/* ---- avatar em ASCII na marca do header (ver avatar-ascii.js) ---- */
+#brandHome .brand-ascii{position:relative;width:36px;height:36px;flex:0 0 auto;border-radius:50%;overflow:hidden;cursor:pointer;
+  background:radial-gradient(circle at 50% 40%,#1b1236,#07060c 72%);
+  box-shadow:0 0 0 1px rgba(169,139,255,.45),0 0 18px rgba(124,77,255,.35);transition:box-shadow .3s ease,transform .4s cubic-bezier(.2,.8,.2,1)}
+#brandHome .brand-ascii canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#brandHome .brand-ascii::after{content:"";position:absolute;inset:0;border-radius:50%;pointer-events:none;
+  background:repeating-linear-gradient(0deg,rgba(255,255,255,.05) 0 1px,transparent 1px 3px)}
+#brandHome:hover .brand-ascii,#brandHome:focus-visible .brand-ascii{box-shadow:0 0 0 1px rgba(200,180,255,.8),0 0 26px rgba(169,139,255,.7);transform:scale(1.06)}
+@media(max-width:900px){#brandHome .brand-ascii{width:30px;height:30px}}
+
+/* terminal do avatar (clique no avatar ou ~). z-index acima do nav (100):
+   o cartao antigo ficava atras do header e cortava o topo */
+.ascii-term{position:fixed;z-index:130;width:min(400px,calc(100vw - 24px));height:min(520px,calc(100vh - 90px));
+  display:flex;flex-direction:column;border-radius:14px;overflow:hidden;
+  background:linear-gradient(180deg,rgba(16,12,28,.97),rgba(7,6,12,.98));
+  border:1px solid rgba(169,139,255,.3);
+  box-shadow:0 30px 70px rgba(0,0,0,.65),0 0 50px rgba(109,59,255,.22);
+  backdrop-filter:blur(14px);
+  font:500 11.5px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#e4dcff;
+  opacity:0;visibility:hidden;transform:translateY(-10px) scale(.97);transform-origin:20px 0;
+  transition:opacity .22s ease,transform .32s cubic-bezier(.2,.8,.2,1),visibility 0s .32s}
+.ascii-term.aberto{opacity:1;visibility:visible;transform:none;transition:opacity .22s ease,transform .32s cubic-bezier(.2,.8,.2,1)}
+.at-barra{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02)}
+.at-barra i,.at-fechar{width:10px;height:10px;border-radius:50%;background:#febc2e;border:0;padding:0}
+.at-fechar{background:#ff5f57;cursor:pointer}.at-barra i:last-of-type{background:#28c840}
+.at-barra span{margin:0 auto;padding-right:40px;font-size:10.5px;color:rgba(255,255,255,.45)}
+.at-saida{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;padding:12px 14px 4px;scrollbar-width:thin;scrollbar-color:rgba(169,139,255,.35) transparent}
+.at-l{white-space:pre-wrap;word-break:break-word;min-height:1.55em}
+.at-eco{margin-top:6px;color:#fff}
+.at-prompt{color:#2bff8f;font-weight:700}
+.at-dim{color:rgba(228,220,255,.48)}
+.at-dica{color:rgba(228,220,255,.48);margin-top:4px}
+.at-erro{color:#ff7a8a}
+.at-forte{color:#fff;font-weight:800}
+.at-tec{display:inline-block;margin:1px 0;padding:0 5px;border-radius:4px;background:rgba(124,77,255,.16);color:#d7c8ff}
+.at-cmd,.at-area{font:inherit;color:#c7b4ff;background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;text-decoration-color:rgba(199,180,255,.35);text-underline-offset:3px}
+.at-area{color:#ffb86b;text-decoration:none;white-space:pre}
+.at-cmd:hover,.at-area:hover{color:#fff}
+.at-link{color:#7fd8ff;text-decoration:none;border-bottom:1px dashed rgba(127,216,255,.5)}
+.at-link:hover{color:#fff}
+.at-rosto{display:block;width:100%;aspect-ratio:160/192;max-height:300px;margin:8px 0 6px;cursor:crosshair}
+.at-linha{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:9px 14px 12px;border-top:1px solid rgba(255,255,255,.06);cursor:text}
+.at-input{flex:1;min-width:0;font:inherit;color:#fff;background:none;border:0;outline:0;caret-color:#2bff8f}
+@media(max-width:560px){.ascii-term{font-size:10.5px}.at-rosto{max-height:240px}}

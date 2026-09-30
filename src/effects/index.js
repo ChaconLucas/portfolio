@@ -85,3 +85,6 @@ if (sticky) import('./campo-estrelas.js').then(({ montarCampoEstrelas }) => mont
 
 // Portal entre os capitulos de projeto
 import('./transicao-capitulos.js').then(({ montarTransicaoCapitulos }) => montarTransicaoCapitulos());
+
+// Avatar em ASCII na marca do header (no lugar do planeta)
+import('./avatar-ascii.js').then(({ montarAvatarAscii }) => montarAvatarAscii());
