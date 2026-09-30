@@ -5236,6 +5236,16 @@ themeToggle.addEventListener('click',()=>{
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 function sectionProgress(el){const r=el.getBoundingClientRect();const total=el.offsetHeight-innerHeight;return clamp(-r.top/Math.max(1,total),0,1)}
+// Progresso de um capitulo de projeto, 0..1. `__portalAtraso` (px) e o trecho
+// do comeco do capitulo em que ele ainda esta se abrindo por cima do anterior
+// (src/effects/transicao-capitulos.js): ali o progresso fica em 0, para a
+// demonstracao so comecar depois de aberta. O capitulo e mais alto na mesma
+// medida, entao o ritmo da demonstracao nao muda. Todos os drivers usam esta.
+window.progressoCapitulo=function(ch){
+ const r=ch.getBoundingClientRect(), atraso=ch.__portalAtraso||0;
+ const util=Math.max(1,ch.offsetHeight-innerHeight-atraso);
+ return Math.max(0,Math.min(1,(-r.top-atraso)/util));
+};
 
 let introTargetP=0;
 let introSmoothP=0;
@@ -5273,6 +5283,68 @@ const projectLabels={
  rare7:['STORE','PRODUCT','CHECKOUT','ADMIN']
 };
 
+// Portal pelo "O" de CHACON.
+// O FORMATO do miolo (onde fica dentro da letra, e os raios) e medido uma vez:
+// a letra e desenhada num canvas com a fonte computada e o buraco e achado
+// varrendo a partir do centro da tinta — nao depende de ser Arial nem do
+// tamanho do titulo. A POSICAO da letra e lida a cada quadro: o nome tem
+// entrada animada (nameRise) e inclina com o ponteiro, e uma posicao guardada
+// no load ficava ~26px errada, o que o zoom de ~30x transformava num recorte
+// fora do buraco.
+let portalMedida=null, portalGlifo=null;
+let portalAplicado={ox:0,oy:0,tx:0,ty:0,s:1};   // o transform que o hero tem agora
+const portalReduz=matchMedia('(prefers-reduced-motion: reduce)');
+addEventListener('resize',()=>{portalMedida=null},{passive:true});
+if(document.fonts) document.fonts.ready.then(()=>{portalMedida=null;handleScroll()});
+function medirPortal(){
+ const em=document.querySelector('.rname-base em');
+ const tn=em&&[...em.childNodes].find(n=>n.nodeType===3&&n.textContent.includes('O'));
+ if(!tn) return null;
+ const i=tn.textContent.lastIndexOf('O');
+ const r=document.createRange(); r.setStart(tn,i); r.setEnd(tn,i+1);
+ const b=r.getBoundingClientRect();
+ if(!b.width) return null;
+ const cs=getComputedStyle(em);
+ const cv=document.createElement('canvas'), ctx=cv.getContext('2d',{willReadFrequently:true});
+ const font=`${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+ ctx.font=font;
+ const m=ctx.measureText('O'), asc=m.fontBoundingBoxAscent, desc=m.fontBoundingBoxDescent;
+ const W=Math.ceil(b.width/portalAplicado.s)+8, H=Math.ceil(asc+desc)+8;
+ cv.width=W; cv.height=H; ctx.font=font; ctx.fillStyle='#000'; ctx.fillText('O',4,4+asc);
+ const px=ctx.getImageData(0,0,W,H).data, ink=(x,y)=>px[(y*W+x)*4+3]>110;
+ let x0=W,x1=0,y0=H,y1=0;
+ for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(ink(x,y)){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}
+ const icx=Math.round((x0+x1)/2), icy=Math.round((y0+y1)/2);
+ if(ink(icx,icy)) return null;                 // letra sem miolo: sem portal
+ let rx=0,ry=0;
+ while(icx+rx<W&&!ink(icx+rx,icy)) rx++;
+ while(icy-ry>0&&!ink(icx,icy-ry)) ry++;
+ // px do canvas -> px do DOM sem zoom. A altura da caixa da letra, tirado o
+ // zoom atual, e a area de conteudo da fonte (asc+desc).
+ const k=(b.height/portalAplicado.s)/(asc+desc);
+ portalGlifo=r;
+ return {offX:(icx-4)*k, offY:(icy-4)*k, rx:rx*k*.97, ry:ry*k*.97};
+}
+function portalState(ip,hero){
+ if(!hero||innerWidth<=900||portalReduz.matches){portalAplicado={ox:0,oy:0,tx:0,ty:0,s:1};return null}
+ if(!portalMedida) portalMedida=medirPortal();
+ const M=portalMedida; if(!M||!portalGlifo) return null;
+ // Onde a letra esta AGORA, desfeito o zoom que o proprio portal aplicou:
+ // tela = base + t + o + s*(plano - o)  =>  plano = o + (tela - base - t - o)/s
+ const A=portalAplicado, b=portalGlifo.getBoundingClientRect(), base=hero.parentElement.getBoundingClientRect();
+ const cx=A.ox+(b.left-base.left-A.tx-A.ox)/A.s+M.offX;
+ const cy=A.oy+(b.top-base.top-A.ty-A.oy)/A.s+M.offY;
+ const t=Math.max(0,Math.min(1,(ip-.12)/.30));
+ const e=t*t*(3-2*t);
+ const W=hero.clientWidth, H=hero.clientHeight;
+ // Escala em que o miolo, ja no centro, cobre ate os cantos da tela
+ const sFim=1.08*Math.hypot(W/2/M.rx,H/2/M.ry);
+ const s=Math.exp(e*Math.log(sFim));
+ const x=cx+(W/2-cx)*e, y=cy+(H/2-cy)*e;
+ portalAplicado={ox:cx,oy:cy,tx:x-cx,ty:y-cy,s};
+ return {t,s,rx:M.rx,ry:M.ry,cx,cy,x,y};
+}
+
 function handleScroll(){
  updateIntroTarget();
 
@@ -5298,16 +5370,40 @@ function handleScroll(){
    return t<.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
  };
 
+ // PORTAL: no desktop o hero nao some borrado — a camera entra pelo "O" de
+ // CHACON e o universo aparece recortado no miolo da letra, crescendo junto.
+ // Mobile e reduced-motion ficam no caminho antigo (as layers sao estaticas la).
+ const portal=portalState(ip,hero);
+ // lido por src/effects/vapor.js: o PRODUCTS vira particulas sugadas pelo portal
+ window.__portal=portal;
+ if(portal){
+   const {t,s,x,y,rx,ry,cx,cy}=portal;
+   hero.style.transformOrigin=`${cx}px ${cy}px`;
+   hero.style.transform=`translate3d(${x-cx}px,${y-cy}px,0) scale(${s})`;
+   hero.style.opacity=String(1-ease(t,.78,1));
+   hero.style.filter='none';
+   hero.style.pointerEvents=t>.18?'none':'auto';
+   hero.dataset.saindo=t>.04?'1':'0';
+   hero.classList.toggle('portal-ativo',t>.001&&t<1);
+   if(bigWord){
+     // com o vapor montado a palavra some rapido: quem continua sao as particulas
+     bigWord.style.opacity=String(.72*(1-ease(t,0,window.__vaporAtivo?.05:.45)));
+     bigWord.style.transform=`translate3d(${ip*-8}vw,0,0) scale(${1+t*.6})`;
+   }
+   if(bridge) bridge.style.opacity='0';
+ }
  // HERO: long readable hold. It is still present when the universe starts appearing.
  const heroExit=ease(ip,.16,.47);
- if(hero){
+ if(hero&&!portal){
+   hero.style.transformOrigin='';
+   hero.classList.remove('portal-ativo');
    hero.style.opacity=String(1-heroExit*.985);
    hero.style.transform=`translate3d(${heroExit*-5.5}vw,${heroExit*-2.0}vh,${heroExit*-260}px) scale(${1-heroExit*.105})`;
    hero.style.filter=`blur(${heroExit*5.5}px) brightness(${1-heroExit*.12})`;
    hero.style.pointerEvents=heroExit>.86?'none':'auto';
    hero.dataset.saindo=heroExit>.12?'1':'0';
  }
- if(bigWord){
+ if(bigWord&&!portal){
    bigWord.style.opacity=String(.72*(1-ease(ip,.15,.43)));
    bigWord.style.transform=`translate3d(${ip*-8}vw,${heroExit*3}vh,0) scale(${1+heroExit*.11})`;
  }
@@ -5316,7 +5412,7 @@ function handleScroll(){
  const bridgeIn=ease(ip,.12,.26);
  const bridgeOut=ease(ip,.40,.57);
  const bridgeOpacity=bridgeIn*(1-bridgeOut);
- if(bridge){
+ if(bridge&&!portal){
    bridge.style.opacity=String(bridgeOpacity);
    bridge.style.transform=`scale(${.78+bridgeIn*.28-bridgeOut*.08}) translate3d(${(1-bridgeIn)*-5}vw,${Math.sin(ip*Math.PI)*1.1}vh,0)`;
    bridge.style.filter=`blur(${(1-bridgeIn)*5+bridgeOut*2}px)`;
@@ -5368,7 +5464,23 @@ function handleScroll(){
    orbitLayer.style.filter=`brightness(${1.08-e*.28})`;
    orbitLayer.classList.remove('is-interactive');
    orbitLayer.style.pointerEvents='none';
+ }else if(orbitLayer&&portal){
+   // Visto pelo buraco da letra: o recorte faz a revelacao, entao a camada ja
+   // entra inteira. O leve recuo de escala da a sensacao de atravessar.
+   const {t,s,x,y,rx,ry}=portal;
+   const e=t*t*(3-2*t);
+   orbitLayer.style.opacity=t>0?String(1-orbitExit*.94):'0';
+   orbitLayer.style.transformOrigin=`${x}px ${y}px`;
+   const us=1.28-e*.28-orbitExit*.06;
+   orbitLayer.style.transform=`translate3d(0,${-orbitExit*2.6}vh,${-orbitExit*300}px) scale(${us})`;
+   orbitLayer.style.filter=`brightness(${(.62+e*.38)*(1-orbitExit*.35)})${orbitExit?` blur(${orbitExit*3.2}px)`:''}`;
+   // clip-path vale no espaco local, antes do scale: divide para casar com o miolo na tela
+   orbitLayer.style.clipPath=t<1?`ellipse(${rx*s/us}px ${ry*s/us}px at ${x}px ${y}px)`:'none';
+   const interactive=t>=1&&orbitIn>.74;
+   orbitLayer.classList.toggle('is-interactive',interactive);
+   orbitLayer.style.pointerEvents=interactive?'auto':'none';
  }else if(orbitLayer){
+   orbitLayer.style.clipPath='';
    orbitLayer.style.opacity=String(orbitIn*(1-orbitExit*.94));
    orbitLayer.style.transform=`translate3d(${(1-orbitIn)*7.0}vw,${(1-orbitIn)*1.2-orbitExit*2.6}vh,${(1-orbitIn)*120-orbitExit*300}px) scale(${1.12-orbitIn*.12-orbitExit*.06})`;
    orbitLayer.style.filter=`blur(${(1-orbitIn)*5.5+orbitExit*3.2}px) brightness(${(.75+orbitIn*.25)*(1-orbitExit*.35)})`;
@@ -5792,9 +5904,17 @@ function introSmoothLoop(){
   }
 
   // Render from the interpolated progress.
-  handleScroll();
+  // Parado (progresso ja assentado, mesmo scroll, mesma janela) o handleScroll
+  // escreveria exatamente os mesmos valores — pula. Antes rodava todo quadro
+  // na pagina inteira, ate no Contato (~0,4ms).
+  // (a janela entra por um contador de resize: ler innerWidth/innerHeight todo
+  // quadro podia forcar layout pendente no Chrome)
+  const k=introSmoothP+'|'+scrollY+'|'+introJanela;
+  if(k!==introUltimoRender){introUltimoRender=k;handleScroll();}
   requestAnimationFrame(introSmoothLoop);
 }
+let introUltimoRender='', introJanela=0;
+addEventListener('resize',()=>{introJanela++},{passive:true});
 updateIntroTarget();
 introSmoothP=introTargetP;
 requestAnimationFrame(introSmoothLoop);
@@ -6473,8 +6593,16 @@ if(mount){
  // Don't spend GPU on the universe while it is scrolled far off-screen.
  // rootMargin resumes it before it enters the viewport, so there is no pop-in.
  let universeVisible=true;
- new IntersectionObserver(es=>{universeVisible=es[0].isIntersecting},{rootMargin:'240px'}).observe(mount);
- function animate(){requestAnimationFrame(animate);if(!universeVisible)return;const t=clock.getElapsedTime();
+ new IntersectionObserver(es=>{universeVisible=es[es.length-1].isIntersecting},{rootMargin:'240px'}).observe(mount);
+ // A camada do universo fica no mesmo sticky do hero, entao o observer acima a
+ // da como visivel durante todo o hero — com opacidade 0, renderizando WebGL
+ // para ninguem (medido: ~1,7ms de CPU por quadro, mais a GPU). No desktop a
+ // opacidade inline e a verdade; no celular o CSS forca opacity:1, entao la
+ // nao se usa isto.
+ const orbitaCamada=document.getElementById('introOrbit');
+ function animate(){requestAnimationFrame(animate);if(!universeVisible)return;
+  if(orbitaCamada&&innerWidth>900&&orbitaCamada.style.opacity!==''&&+orbitaCamada.style.opacity<.004)return;
+  const t=clock.getElapsedTime();
   universeScroll=window.__portfolioUniverseScroll||0;
   universeScrollSmooth+=(universeScroll-universeScrollSmooth)*.07;
 
@@ -6560,7 +6688,16 @@ if(mount){
       links.push(pts);
     }
   }
+  // O fundo do intro (.intro-sticky) e opaco: enquanto ele cobre a tela
+  // inteira, nenhuma destas estrelas aparece e redesenhar a tela toda era
+  // gasto puro (~0,5ms por quadro no hero).
+  // O Contato tambem pinta fundo opaco (#04050a !important).
+  const coberturas=[document.querySelector('.intro-sticky'),document.getElementById('contact')].filter(Boolean);
   function draw(t){
+    for(const el of coberturas){
+      const c=el.getBoundingClientRect();
+      if(c.top<=0&&c.bottom>=innerHeight){requestAnimationFrame(draw);return;}
+    }
     t*=0.001;
     ctx.clearRect(0,0,w,h);
     const scroll=window.scrollY||0;
@@ -7769,9 +7906,7 @@ html{
   };
 
   function chapterProgress(ch){
-    const r=ch.getBoundingClientRect();
-    const available=Math.max(1,ch.offsetHeight-innerHeight);
-    return clamp(-r.top/available);
+    return window.progressoCapitulo(ch);
   }
 
   function renderChapter(ch){
@@ -7881,29 +8016,46 @@ html{
     const navIndex=Math.min(n-1,step+(cross>.5?1:0));
     const indexEl=ch.querySelector('.chapter-screen-label b');
     const labelEl=ch.querySelector('.chapter-screen-label span');
-    if(indexEl) indexEl.textContent=String(navIndex+1).padStart(2,'0');
-    if(labelEl) labelEl.textContent=labelMap[key]?.[navIndex]||'';
+    if(indexEl) escreverTexto(indexEl,String(navIndex+1).padStart(2,'0'));
+    if(labelEl) escreverTexto(labelEl,labelMap[key]?.[navIndex]||'');
 
     if(key==='gatecheck'){
       const route=ch.querySelector('#gateRoute');
-      if(route) route.textContent=routeMap[key][navIndex];
+      if(route) escreverTexto(route,routeMap[key][navIndex]);
       const scan=ch.querySelector('.real-scan-line');
       if(scan) scan.style.transform=`translateY(${p*(stage?.clientHeight||600)*.82}px)`;
     }else if(key==='rare7'){
       const route=ch.querySelector('#rareRoute');
-      if(route) route.textContent=routeMap[key]?.[navIndex]||'';
+      if(route) escreverTexto(route,routeMap[key]?.[navIndex]||'');
       const scan=ch.querySelector('.rare-scan-line');
       if(scan) scan.style.transform=`translateY(${p*(stage?.clientHeight||600)*.82}px)`;
     }else{
       const route=ch.querySelector('.browser .route');
-      if(route) route.textContent=routeMap[key]?.[navIndex]||'';
+      if(route) escreverTexto(route,routeMap[key]?.[navIndex]||'');
       const bottom=ch.querySelector('.demo-bottom b');
-      if(bottom) bottom.textContent=(labelMap[key]?.[navIndex]||'').toUpperCase();
+      if(bottom) escreverTexto(bottom,(labelMap[key]?.[navIndex]||'').toUpperCase());
     }
   }
 
+  // Texto so e escrito quando o VALOR muda. Antes ia todo quadro, e cada
+  // escrita acordava o MutationObserver do PT/EN, que varria a pagina inteira
+  // (~a cada 2 quadros, o tempo todo). Compara com o ultimo valor escrito, e
+  // nao com o textContent: em EN o texto na tela e a traducao, e comparar com
+  // ele reescreveria o PT todo quadro de novo.
+  function escreverTexto(el,v){
+    if(el.__ultimoTexto===v) return;
+    el.__ultimoTexto=v; el.textContent=v;
+  }
+
   function tick(){
-    chapters.forEach(renderChapter);
+    // capitulo a mais de uma tela de distancia nao aparece: nao recalcula.
+    // Ao voltar para perto, o primeiro quadro ja refaz tudo a partir do scroll.
+    const vh=innerHeight;
+    chapters.forEach(ch=>{
+      const r=ch.getBoundingClientRect();
+      if(r.bottom<-vh||r.top>vh*2) return;
+      renderChapter(ch);
+    });
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
@@ -7934,6 +8086,10 @@ html{
   }
 
   function frame(){
+    // secao longe da tela: nada disto aparece. Antes rodava todo quadro na
+    // pagina inteira (~1ms). Meia tela de folga para ja chegar desenhada.
+    const rs=section.getBoundingClientRect();
+    if(rs.bottom<-innerHeight*.5||rs.top>innerHeight*1.5){requestAnimationFrame(frame);return;}
     const p=getP();
 
     const handIn=ease(0,.07,p);
@@ -8001,6 +8157,9 @@ html{
       stop.style.opacity=String(.32+q*.68);
       stop.style.transform=`translate(-50%,0) translate3d(0,${(1-q)*16-after*2}px,${q*13}px) scale(${.97+q*.03})`;
       stop.style.filter=`brightness(${.80+q*.20})`;
+      // lido pelo CSS em src/effects/efeitos.css: cada linha do cargo sobe de
+      // tras de uma mascara, em cascata, no ritmo deste mesmo scroll
+      stop.style.setProperty('--revela',q.toFixed(3));
       const dot=stop.querySelector('.experience-stop-dot');
       if(dot){
         dot.style.background=q>.65?'#c9adff':'#080912';
@@ -8798,7 +8957,9 @@ const aoAproximar = (elemento, montar) => {
   let desmontar = null, ocupado = false, adiado = 0, perto = false;
   const soltar = () => { if (desmontar) { desmontar(); desmontar = null; } };
   const io = new IntersectionObserver(async (entradas) => {
-    perto = entradas[0].isIntersecting;
+    // a ULTIMA entrada: com rolagem rapida chegam varias no mesmo aviso, e a
+    // primeira e o estado antigo
+    perto = entradas[entradas.length - 1].isIntersecting;
     if (perto) {
       clearTimeout(adiado);
       if (desmontar || ocupado) return;
@@ -8854,9 +9015,7 @@ const fadeTexto = (prog) => {
     });
     if (cenaF) {
       const progF = () => {
-        const r = capF.getBoundingClientRect();
-        const util = Math.max(1, capF.offsetHeight - innerHeight);
-        return Math.max(0, Math.min(1, -r.top / util));
+        return window.progressoCapitulo(capF);
       };
       let agF = false;
       const rolarF = () => {
@@ -8890,6 +9049,7 @@ const fadeTexto = (prog) => {
   if (alvoR && capR && palcoR) aoAproximar(capR, async () => {
     const { montarCenaGatecheck } = await import('/src/projects/gatecheck/index.js');
     const cenaR = montarCenaGatecheck(alvoR, {
+      ambiente: 'estadio',   // loja de camisa de futebol: estadio a noite, mesa atras do gol
       telas: [
         '/assets/projects/rare7-1.webp', '/assets/projects/rare7-2.webp',
         '/assets/projects/rare7-3.webp', '/assets/projects/rare7-4.webp',
@@ -8899,9 +9059,7 @@ const fadeTexto = (prog) => {
     if (cenaR) {
       palcoR.classList.add('tem-3d');
       const progR = () => {
-        const r = capR.getBoundingClientRect();
-        const util = Math.max(1, capR.offsetHeight - innerHeight);
-        return Math.max(0, Math.min(1, -r.top / util));
+        return window.progressoCapitulo(capR);
       };
       let agR = false;
       const rolarR = () => {
@@ -8939,9 +9097,7 @@ const fadeTexto = (prog) => {
     if (cenaW) {
       palcoW.classList.add('tem-3d');
       const progW = () => {
-        const r = capW.getBoundingClientRect();
-        const util = Math.max(1, capW.offsetHeight - innerHeight);
-        return Math.max(0, Math.min(1, -r.top / util));
+        return window.progressoCapitulo(capW);
       };
       let agW = false;
       const rolarW = () => {
@@ -8980,9 +9136,7 @@ if (alvo && capitulo && palco) aoAproximar(capitulo, async () => {
 
     // mesma conta de progresso do driver de capitulos, para os dois andarem juntos
     const progresso = () => {
-      const r = capitulo.getBoundingClientRect();
-      const util = Math.max(1, capitulo.offsetHeight - innerHeight);
-      return Math.max(0, Math.min(1, -r.top / util));
+      return window.progressoCapitulo(capitulo);
     };
 
     // O texto sai de cena assim que o zoom comeca: no fim so fica a modelagem.
@@ -9018,5 +9172,6 @@ if (alvo && capitulo && palco) aoAproximar(capitulo, async () => {
   }
 });
 </script>
+<script type="module" src="/src/effects/index.js"></script>
 </body>
 </html>
