@@ -459,3 +459,12 @@ Antes só mudava o painel da parede; o feedback foi que o AMBIENTE tem que ser d
 - A fila anda a cada saída e repõe na hora pelo fim, usando um pool de bonecos (quem sai de cena fica invisível e volta com outra cara).
 - A corda começou a partir de x 0,98 pra cabeça da fila ficar livre na frente do segurança. O contador aleatório antigo saiu; agora só conta check-in válido.
 - **Um entrando no outro (30/09/2026):** a fila recebia o destino novo no instante do resultado, e o de trás andava por cima de quem ainda estava saindo. Agora cada pessoa da fila só dá o passo se não tem ninguém a menos de 0,46 m à frente, na direção em que vai (`livre()` em fila.js). O de trás espera o espaço abrir.
+
+## GateCheck: personagens prontos na fila (30/09/2026)
+- A figura feita no código foi trocada por personagens da Quaternius (Ultimate Modular Men/Women, CC0, poly.pizza): homem casual, mulher casual e homem de terno (o segurança), em `public/assets/projects/gatecheck-gente` (1,3 MB, ~400 KB com gzip).
+- **Enxugados** (script no scratchpad, `enxuga.py`): sem UV, sem COLOR_0 e sem textura (o material é só cor); normal em int8, peso e osso em uint8 (KHR_mesh_quantization). Só 3 clips (Idle_Neutral, Walk, Interact), e só no homem-casual e na mulher-casual.
+- **Não quantizar posição:** em int16, com a escala embutida na inverseBindMatrix, a roupa fica com um xadrez. Ficou em float.
+- **Nome do osso:** o GLTFLoader tira o ponto dos nomes (`Wrist.R` vira `WristR`).
+- **Visual:** a roupa é sorteada por material (cada peça com uma cor só). Os personagens não recebem sombra, porque dava acne. O celular segue a mão a cada quadro, sem herdar a escala 100 do esqueleto. O "não" do segurança é a cabeça balançando por código (o pack não tem esse gesto).
+- Descartados: Kenney Mini Characters (cabeçudos quadrados, o Lucas não gostou).
+- **Celular na mão (30/09/2026):** antes o celular só seguia a posição do pulso e flutuava acima da mão. Agora segue a orientação do osso `WristR`: o Y aponta pros dedos e o Z sai do dorso, então o aparelho vai ao longo dos dedos, encostado na palma. O clip Interact do pack sobe o braço até o rosto (o segurança parecia pôr a mão na cabeça da pessoa), então ele entra com peso 0,5 misturado ao Idle, o que deixa o braço na altura do peito. O segurança foi pra x -0,02 pra não encostar em quem está na frente.

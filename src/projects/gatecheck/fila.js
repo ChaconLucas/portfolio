@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 /**
  * A fila da balada do GateCheck, viva: o seguranca le o ingresso no celular
@@ -24,19 +26,12 @@ function tex(w, h, desenhar) {
   desenhar(cv.getContext('2d'), w, h);
   return t;
 }
-const lathe = (pts) => new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), 22);
 const sorteio = (a) => a[Math.floor(Math.random() * a.length)];
 const suaviza = (k, dt) => 1 - Math.exp(-k * dt);
 function giraPara(atual, alvo, f) {
   let d = alvo - atual; d = Math.atan2(Math.sin(d), Math.cos(d));
   return atual + d * f;
 }
-
-const PELES = [0x8d5a3b, 0xe0b08a, 0x5b3a26, 0xc98f6a, 0xf0c7a3, 0xb07a52, 0x3f2a1e];
-const CABELOS = [0x120c0a, 0x5a2a16, 0x0a0808, 0x1d120c, 0xc9a25a, 0x7a3b1c, 0xd94f8a, 0x3a5bff];
-const CAMISAS = [0xe8e2ff, 0xff3d8b, 0x2de0c4, 0xffb02e, 0x7c4dff, 0x3dd6ff, 0xff5a3d, 0xb6ff3d, 0xf5f5f5, 0x26263a];
-const CALCAS = [0x23233a, 0x14141c, 0x2b3f6b, 0x2a2a2a, 0x3a4a5a, 0x4a3b2a, 0x5b1d2e];
-const ESTILOS = ['curto', 'longo', 'coque', 'raspado'];
 
 let _qr = null;
 function texQR() {
@@ -76,107 +71,145 @@ function texSinal(ok) {
   });
 }
 
-/* Figura estilizada: tronco e quadril torneados (a camisa cobre a cintura da
-   calca, sem a emenda serrilhada das capsulas), ombro redondo ligando o braco,
-   pernas com pivo no quadril para andar, cabelo como calota inclinada para
-   tras (deixa a testa e os olhos livres). Frente = +z local. */
-export function criarPessoa(visual = {}) {
+/* Personagens da Quaternius (Ultimate Modular Men/Women, CC0), em
+   public/assets/projects/gatecheck-gente. Enxutos: sem UV (o material e so
+   cor), normais/pesos/ossos em 8 bits (posicao em 16 bits dava xadrez na
+   roupa, entao fica em float), e so 3 animacoes (Idle_Neutral, Walk, Interact) no
+   homem-casual e na mulher-casual — os outros usam os clips do mesmo esqueleto.
+   Cada um que entra na fila sorteia a cor da roupa. Frente = +z local. */
+const BASE = '/assets/projects/gatecheck-gente/';
+const FILA_MODELOS = ['homem-casual', 'mulher-casual'];
+const SEG_MODELO = 'seguranca-terno';
+const ROUPAS = [0xe8e2ff, 0xff3d8b, 0x2de0c4, 0xffb02e, 0x7c4dff, 0x3dd6ff, 0xff5a3d, 0xb6ff3d, 0xf5f5f5, 0x26263a, 0x1c3a6b, 0x6b1d2e];
+let _carga = null;
+function carregarGente() {
+  if (_carga) return _carga;
+  const loader = new GLTFLoader();
+  const nomes = [...FILA_MODELOS, SEG_MODELO];
+  _carga = Promise.all(nomes.map((n) => loader.loadAsync(BASE + n + '.glb'))).then((gs) => {
+    const modelos = {};
+    nomes.forEach((n, i) => {
+      const cena = gs[i].scene;
+      cena.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false; } });   // receber sombra dava acne (xadrez) na roupa
+      const caixa3 = new THREE.Box3().setFromObject(cena);
+      modelos[n] = { cena, altura: caixa3.max.y - caixa3.min.y };
+    });
+    const clips = (i) => Object.fromEntries(gs[i].animations.map((c) => [c.name.split('|').pop(), c]));
+    return { modelos, homem: clips(nomes.indexOf('homem-casual')), mulher: clips(nomes.indexOf('mulher-casual')) };
+  });
+  return _carga;
+}
+
+const _v = new THREE.Vector3(), _x = new THREE.Vector3(), _y = new THREE.Vector3(), _z = new THREE.Vector3();
+const _m = new THREE.Matrix4(), _qg = new THREE.Quaternion();
+export function criarPessoa(gente, modelo) {
   const g = new THREE.Group();
   const corpo = new THREE.Group(); g.add(corpo);
-  const std = (r) => new THREE.MeshStandardMaterial({ roughness: r });
-  const m = { pele: std(.6), cabelo: std(.75), camisa: std(.72), calca: std(.85), tenis: std(.45) };
-  const add = (pai, geo, mat, x, y, z) => { const me = peca(geo, mat, x, y, z); pai.add(me); return me; };
-
-  const pernas = [-1, 1].map((l) => {
-    const piv = new THREE.Group(); piv.position.set(l * .085, .8, 0); corpo.add(piv);
-    add(piv, new THREE.CapsuleGeometry(.068, .6, 4, 10), m.calca, 0, -.37, 0);
-    add(piv, caixa(.105, .075, .25, .03), m.tenis, 0, -.762, .035);
-    return piv;
-  });
-  const quadril = add(corpo, lathe([[0, .72], [.15, .72], [.165, .8], [.155, .9], [0, .9]]), m.calca, 0, 0, 0); quadril.scale.z = .7;
-  const tronco = add(corpo, lathe([[0, .8], [.172, .8], [.176, .88], [.168, 1.0], [.19, 1.18], [.2, 1.28], [.17, 1.36], [.08, 1.405], [0, 1.41]]), m.camisa, 0, 0, 0);
-  tronco.scale.z = .64;
-  add(corpo, new THREE.CylinderGeometry(.044, .05, .1, 12), m.pele, 0, 1.44, 0);
-
-  const cabeca = new THREE.Group(); cabeca.position.set(0, 1.575, 0); corpo.add(cabeca);
-  add(cabeca, new THREE.SphereGeometry(.1, 22, 16), m.pele, 0, 0, 0).scale.set(.9, 1.08, .96);
-  const mOlho = new THREE.MeshBasicMaterial({ color: 0x141217 });
-  [-1, 1].forEach((l) => {
-    add(cabeca, new THREE.SphereGeometry(.0105, 8, 6), mOlho, l * .033, .004, .091);
-    add(cabeca, new THREE.SphereGeometry(.018, 8, 6), m.pele, l * .092, -.005, 0).scale.set(.5, 1, .8);   // orelhas
-    const sob = add(cabeca, new THREE.BoxGeometry(.03, .007, .008), m.cabelo, l * .034, .03, .094); sob.rotation.z = -l * .1;
-  });
-  add(cabeca, new THREE.SphereGeometry(.013, 8, 6), m.pele, 0, -.018, .098);
-  const calota = add(cabeca, new THREE.SphereGeometry(.107, 22, 12, 0, Math.PI * 2, 0, Math.PI * .47), m.cabelo, 0, .006, -.006);
-  calota.rotation.x = -.5; calota.scale.set(.95, 1.04, 1);
-  const longo = add(cabeca, new THREE.CapsuleGeometry(.088, .17, 4, 12), m.cabelo, 0, -.075, -.05); longo.scale.set(1.08, 1, .62);
-  const coque = add(cabeca, new THREE.SphereGeometry(.05, 12, 10), m.cabelo, 0, .1, -.075);
-
-  const bracos = [-1, 1].map((l) => {
-    const ombro = new THREE.Group(); ombro.position.set(l * .205, 1.31, 0); corpo.add(ombro);
-    add(ombro, new THREE.SphereGeometry(.062, 14, 10), m.camisa, 0, 0, 0);
-    add(ombro, new THREE.CapsuleGeometry(.056, .12, 4, 10), m.camisa, 0, -.1, 0);
-    add(ombro, new THREE.CapsuleGeometry(.045, .1, 4, 10), m.pele, 0, -.2, 0);
-    const cot = new THREE.Group(); cot.position.y = -.26; ombro.add(cot);
-    add(cot, new THREE.CapsuleGeometry(.042, .17, 4, 10), m.pele, 0, -.11, 0);
-    add(cot, new THREE.SphereGeometry(.046, 10, 8), m.pele, 0, -.24, 0);
-    return { ombro, cot, l };
-  });
-  // celular na mao direita: o grupo gira +90 graus em x para a tela ficar em pe
-  // olhando para a frente quando o antebraco esta na horizontal
-  const cel = new THREE.Group(); cel.position.set(0, -.31, 0); cel.rotation.x = Math.PI / 2; bracos[1].cot.add(cel);
-  add(cel, caixa(.075, .145, .014, .01), new THREE.MeshStandardMaterial({ color: 0x0c0c10, roughness: .3, metalness: .6 }), 0, 0, 0);
+  let boneco, mixer, acoes, cabeca, mao;
+  // celular: fica no grupo da pessoa e segue a mao a cada quadro (assim nao
+  // herda a escala 100 do esqueleto)
+  const cel = new THREE.Group(); g.add(cel);
+  cel.add(peca(caixa(.075, .145, .014, .01), new THREE.MeshStandardMaterial({ color: 0x0c0c10, roughness: .3, metalness: .6 })));
   const tela = new THREE.Mesh(new THREE.PlaneGeometry(.066, .134), new THREE.MeshBasicMaterial({ map: texQR(), toneMapped: false }));
   tela.position.z = .0085; cel.add(tela);
 
-  let fase = 0, segura = 0, alvoSegura = 0, olhaBaixo = 0;
+  let segura = 0, alvoSegura = 0, anda = 0, olhaBaixo = 0, somaX = 0, somaY = 0, balanca = 0;
   const api = {
-    g, corpo, cabeca, cel, tela,
-    vestir(v = {}) {
-      m.pele.color.setHex(v.pele ?? sorteio(PELES));
-      m.cabelo.color.setHex(v.cabelo ?? sorteio(CABELOS));
-      m.camisa.color.setHex(v.camisa ?? sorteio(CAMISAS));
-      m.calca.color.setHex(v.calca ?? sorteio(CALCAS));
-      m.tenis.color.setHex(v.tenis ?? (Math.random() > .6 ? 0xf2f2f2 : 0x1b1b22));
-      const e = v.estilo ?? sorteio(ESTILOS);
-      calota.visible = e !== 'raspado' || Math.random() > .5; calota.scale.y = e === 'raspado' ? .9 : 1.04;
-      longo.visible = e === 'longo'; coque.visible = e === 'coque';
-      corpo.scale.setScalar((v.altura ?? (1.6 + Math.random() * .26)) / 1.72);
-      corpo.scale.x *= v.largura ?? (.95 + Math.random() * .12);
+    g, corpo, cel, tela, olharY: 0, altura: 1.72,
+    vestir(nome = sorteio(FILA_MODELOS), alt = 1.62 + Math.random() * .22) {
+      if (boneco) { corpo.remove(boneco); mixer.stopAllAction(); }
+      somaX = somaY = 0;
+      const m = gente.modelos[nome];
+      boneco = SkeletonUtils.clone(m.cena);
+      // roupa sorteada: cada peca que nao e pele, olho, cabelo ou sobrancelha
+      if (nome !== SEG_MODELO) {
+        // cada material de roupa ganha uma cor so (a mesma em todas as pecas)
+        const cores = {}, sorteadas = [sorteio(ROUPAS), sorteio(ROUPAS), sorteio(ROUPAS)];
+        let k = 0;
+        boneco.traverse((o) => {
+          if (!o.isMesh) return;
+          const ms = Array.isArray(o.material) ? o.material : [o.material];
+          const novos = ms.map((mt) => {
+            if (/skin|eye|hair|brow/i.test(mt.name)) return mt;
+            if (!(mt.name in cores)) cores[mt.name] = new THREE.Color(sorteadas[k++ % 3]).multiplyScalar(.55);
+            const c = mt.clone(); c.color.copy(cores[mt.name]); return c;
+          });
+          o.material = Array.isArray(o.material) ? novos : novos[0];
+        });
+      }
+      corpo.add(boneco);
+      api.altura = alt;
+      corpo.scale.setScalar(alt / m.altura);
+      cabeca = boneco.getObjectByName('Head');
+      // o GLTFLoader tira o ponto dos nomes (Wrist.R vira WristR)
+      mao = boneco.getObjectByName('WristR') || boneco.getObjectByName('Wrist.R') || cabeca;
+      mixer = new THREE.AnimationMixer(boneco);
+      const clips = nome.startsWith('mulher') ? gente.mulher : gente.homem;
+      acoes = {};
+      ['Idle_Neutral', 'Walk', 'Interact'].forEach((n) => { const a = mixer.clipAction(clips[n]); a.play(); a.setEffectiveWeight(0); acoes[n] = a; });
+      mixer.update(Math.random() * 3);
     },
-    // 0 = braco solto, 1 = celular levantado mostrando o QR
     segurar(v) { alvoSegura = v; },
     olharCelular(v) { olhaBaixo = v; },
+    // "nao" com a cabeca (o pack nao tem esse gesto)
+    negar() { balanca = 1.1; },
     // distancia andada neste quadro (0 = parado)
-    atualizar(dt, andou, t) {
-      segura += (alvoSegura - segura) * suaviza(8, dt);
-      cel.visible = segura > .05;
-      if (andou > 0) fase += andou * 9;
-      else fase += (Math.round(fase / Math.PI) * Math.PI - fase) * suaviza(10, dt);   // volta a ficar em pe
-      const passo = Math.sin(fase), amp = Math.min(1, andou / Math.max(dt, 1e-4) / .8);
-      pernas[0].rotation.x = passo * .55 * amp; pernas[1].rotation.x = -passo * .55 * amp;
-      corpo.position.y = Math.abs(Math.cos(fase)) * .022 * amp;
-      bracos.forEach(({ ombro, cot, l }) => {
-        const balanco = (l < 0 ? passo : -passo) * .4 * amp;
-        if (l > 0) {
-          ombro.rotation.x = balanco * (1 - segura) - .3 * segura;
-          ombro.rotation.z = .07 * (1 - segura) + .06 * segura;
-          cot.rotation.x = -.15 * (1 - segura) - 1.45 * segura;
-        } else {
-          ombro.rotation.x = balanco; ombro.rotation.z = -.07; cot.rotation.x = -.15;
-        }
-      });
-      // parado: o peso muda de perna devagar
-      corpo.rotation.z = (1 - amp) * Math.sin(t * .9 + g.id) * .02;
-      cabeca.rotation.x += ((olhaBaixo ? .38 : 0) + segura * .12 - cabeca.rotation.x) * suaviza(6, dt);
+    atualizar(dt, andou) {
+      if (!mixer || dt <= 0) return;
+      const vel = andou / dt;
+      anda += (Math.min(1, vel / .6) - anda) * suaviza(10, dt);
+      segura += (alvoSegura - segura) * suaviza(6, dt);
+      // o Interact do pack estica o braco ate a altura do rosto; pela metade,
+      // misturado com o parado, ele fica na altura do peito, como quem mostra o celular
+      const hold = segura * (1 - anda) * .5;
+      acoes.Walk.setEffectiveWeight(anda);
+      acoes.Walk.timeScale = Math.max(.6, vel / 1.1);
+      acoes.Interact.setEffectiveWeight(hold);
+      acoes.Idle_Neutral.setEffectiveWeight(Math.max(0, 1 - anda - hold));
+      // por cima da animacao: para onde a cabeca olha. Desfaz o do quadro
+      // anterior antes, para nao acumular se o clip nao mexe na cabeca.
+      cabeca.rotation.y -= somaY; cabeca.rotation.x -= somaX;
+      mixer.update(dt);
+      balanca = Math.max(0, balanca - dt);
+      const nao = balanca > 0 ? Math.sin(balanca * 18) * .4 * Math.min(1, balanca * 3) : 0;
+      somaX += ((olhaBaixo ? .35 : 0) - somaX) * suaviza(6, dt);
+      somaY += (api.olharY + nao - somaY) * suaviza(balanca > 0 ? 30 : 6, dt);
+      cabeca.rotation.y += somaY; cabeca.rotation.x += somaX;
+      // celular apoiado na palma da mao direita. No osso do pulso o Y aponta
+      // para os dedos e o Z sai do dorso da mao: o aparelho vai ao longo dos
+      // dedos, encostado na palma (-Z), com a tela virada para fora dela.
+      cel.visible = segura > .5;
+      if (cel.visible) {
+        mao.updateWorldMatrix(true, false);
+        const e = mao.matrixWorld.elements;
+        _y.set(e[4], e[5], e[6]).normalize();
+        _z.set(e[8], e[9], e[10]).normalize().negate();
+        _x.crossVectors(_y, _z).normalize(); _z.crossVectors(_x, _y);
+        _m.makeBasis(_x, _y, _z);
+        _v.setFromMatrixPosition(mao.matrixWorld).addScaledVector(_y, .075).addScaledVector(_z, .016);
+        g.updateWorldMatrix(true, false);
+        cel.position.copy(g.worldToLocal(_v));
+        cel.quaternion.setFromRotationMatrix(_m).premultiply(_qg.copy(g.getWorldQuaternion(_qg)).invert());
+      }
     }
   };
-  api.vestir(visual);
+  api.vestir(modelo, modelo === SEG_MODELO ? 1.9 : undefined);
   return api;
 }
 
 /* ----------------------------------------------------------------- fila -- */
-export function criarFila(raiz, { X, Z, catracas, aoValidar }) {
+export function criarFila(raiz, opcoes) {
+  // os personagens carregam em segundo plano; ate la a fila fica vazia
+  let fila = null, morto = false;
+  carregarGente().then((gente) => { if (!morto) fila = montarFila(raiz, gente, opcoes); })
+    .catch((e) => console.warn('[gatecheck] personagens da fila nao carregaram', e));
+  return {
+    atualizar(dt, t) { fila?.atualizar(dt, t); },
+    destruir() { morto = true; }
+  };
+}
+
+function montarFila(raiz, gente, { X, Z, catracas, aoValidar }) {
   const V = (x, z) => new THREE.Vector3(x, 0, z);
   const SLOTS = Array.from({ length: 6 }, (_, i) => V(.72 + i * .52, -2.3 + (i % 2) * .04));
   // entra: sai da frente do seguranca, vai ate o vao entre as catracas e
@@ -187,13 +220,8 @@ export function criarFila(raiz, { X, Z, catracas, aoValidar }) {
   const CHEGA = V(4.8, -2.3);
 
   // seguranca encostado na parede, entre a porta e a fila, virado para quem chega
-  const seg = criarPessoa({ pele: 0x6b4430, cabelo: 0x0a0808, camisa: 0x0f0f14, calca: 0x0c0c10, tenis: 0x0c0c10, altura: 1.9, largura: 1.12, estilo: 'raspado' });
-  seg.g.position.set(.14, 0, -2.32); seg.g.rotation.y = 1.25; raiz.add(seg.g);
-  const staff = tex(128, 48, (c, w, h) => { c.fillStyle = '#fff'; c.font = '900 34px Arial'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('STAFF', w / 2, h / 2); });
-  const txt = new THREE.Mesh(new THREE.PlaneGeometry(.2, .075), new THREE.MeshBasicMaterial({ map: staff, transparent: true }));
-  txt.position.set(0, 1.24, .125); seg.corpo.add(txt);
-  const txtCostas = txt.clone(); txtCostas.position.z = -.125; txtCostas.rotation.y = Math.PI; seg.corpo.add(txtCostas);
-  seg.cabeca.add(peca(new THREE.SphereGeometry(.016, 8, 6), new THREE.MeshStandardMaterial({ color: 0x222222 }), .1, -.01, 0));
+  const seg = criarPessoa(gente, SEG_MODELO);
+  seg.g.position.set(-.02, 0, -2.34); seg.g.rotation.y = 1.25; raiz.add(seg.g);
   // o celular dele e o leitor: a tela e o halo piscam verde ou vermelho
   const telaSeg = new THREE.MeshBasicMaterial({ color: 0x223044, toneMapped: false });
   seg.tela.material = telaSeg;
@@ -208,11 +236,11 @@ export function criarFila(raiz, { X, Z, catracas, aoValidar }) {
 
   const fila = [], andando = [];
   const novo = (slot) => {
-    const p = criarPessoa();
+    const p = criarPessoa(gente);
     const s = { p, caminho: [], vel: (slot ? 1.0 : .75) + Math.random() * .2, espera: 0, olhaCel: Math.random() > .6 };
     p.g.position.copy(slot ? CHEGA : SLOTS[fila.length]);
     if (slot) s.caminho.push(slot.clone());
-    p.olharCelular(s.olhaCel); p.segurar(s.olhaCel ? .7 : 0);
+    p.olharCelular(s.olhaCel);
     raiz.add(p.g);
     return s;
   };
@@ -222,9 +250,9 @@ export function criarFila(raiz, { X, Z, catracas, aoValidar }) {
     // assim que alguem sai da fila, ja chega outro pelo fim (sem esperar o outro sumir)
     const s = reserva.pop();
     if (!s) { fila.push(novo(SLOTS[fila.length])); return; }
-    s.p.vestir(); s.p.g.visible = true; s.p.g.position.copy(CHEGA); s.p.g.rotation.y = -Math.PI / 2;
+    s.p.vestir(); s.p.g.visible = true; s.p.olharY = 0; s.p.g.position.copy(CHEGA); s.p.g.rotation.y = -Math.PI / 2;
     s.caminho = [SLOTS[fila.length].clone()]; s.vel = 1.0 + Math.random() * .2; s.saida = null;
-    s.olhaCel = Math.random() > .6; s.p.olharCelular(s.olhaCel); s.p.segurar(s.olhaCel ? .7 : 0); s.p.cabeca.rotation.y = 0;
+    s.olhaCel = Math.random() > .6; s.p.olharCelular(s.olhaCel); s.p.segurar(0); s.p.olharY = 0;
     fila.push(s);
   };
 
@@ -272,7 +300,7 @@ export function criarFila(raiz, { X, Z, catracas, aoValidar }) {
         lido.saida = ok ? 'entra' : 'sai';
         andando.push(lido);
         sinal.material.map = ok ? sinais.ok : sinais.nao;
-        if (ok) { catracas.abrir(); aoValidar?.(); }
+        if (ok) { catracas.abrir(); aoValidar?.(); } else seg.negar();
         // a fila anda
         // a fila anda (cada um espera o da frente liberar o espaco, ver livre())
         fila.forEach((s, i) => { s.caminho = [SLOTS[i].clone()]; });
@@ -292,14 +320,13 @@ export function criarFila(raiz, { X, Z, catracas, aoValidar }) {
       luz.color.copy(flash); luz.intensity = brilho * 2.2;
       // o seguranca vira para quem esta na frente; no vermelho balanca a cabeca
       seg.g.rotation.y = giraPara(seg.g.rotation.y, frente || fase === 'resultado' ? 1.2 : 1.0, suaviza(4, dt));
-      seg.cabeca.rotation.y = (fase === 'resultado' && !ok && tf < .9) ? Math.sin(tf * 16) * .35 : seg.cabeca.rotation.y * (1 - suaviza(8, dt));
-      seg.atualizar(dt, 0, t);
+      seg.atualizar(dt, 0);
 
       // sinal na cabeca de quem foi lido: sobe e some
       if (fase === 'resultado' && lido) {
         const a = Math.min(1, tf * 6) * (1 - Math.max(0, (tf - .8) / .3));
         sinal.material.opacity = a;
-        sinal.position.set(lido.p.g.position.x, 2.02 * lido.p.corpo.scale.y + tf * .12, lido.p.g.position.z);
+        sinal.position.set(lido.p.g.position.x, lido.p.altura + .25 + tf * .12, lido.p.g.position.z);
       } else sinal.material.opacity = 0;
 
       fila.forEach((s, i) => {
@@ -309,17 +336,18 @@ export function criarFila(raiz, { X, Z, catracas, aoValidar }) {
           const alvo = i === 0 ? Math.atan2(seg.g.position.x - s.p.g.position.x, seg.g.position.z - s.p.g.position.z) : -1.25 + Math.sin(t * .3 + i) * .25;
           s.p.g.rotation.y = giraPara(s.p.g.rotation.y, alvo, suaviza(4, dt));
           if (i === 0 && fase === 'espera') s.p.segurar(1);
-          if (i > 0 && Math.random() < dt * .08) { s.olhaCel = !s.olhaCel; s.p.olharCelular(s.olhaCel); s.p.segurar(s.olhaCel ? .7 : 0); }
-          s.p.cabeca.rotation.y = s.olhaCel ? 0 : Math.sin(t * .5 + i * 1.7) * .4;
+          if (i > 0 && Math.random() < dt * .08) { s.olhaCel = !s.olhaCel; s.p.olharCelular(s.olhaCel); }
+          s.p.olharY = s.olhaCel ? 0 : Math.sin(t * .5 + i * 1.7) * .4;
         }
-        s.p.atualizar(dt, andou, t);
+        s.p.atualizar(dt, andou);
       });
       for (let k = andando.length - 1; k >= 0; k--) {
         const s = andando[k];
-        if (s.espera > 0) { s.espera -= dt; s.p.atualizar(dt, 0, t); continue; }
+        if (s.espera > 0) { s.espera -= dt; s.p.atualizar(dt, 0); continue; }
         if (s.saida === 'sai') { s.p.olharCelular(true); s.p.segurar(0); }
+        if (s.saida === 'entra') s.p.segurar(0);
         const andou = mover(s, dt);
-        s.p.atualizar(dt, andou, t);
+        s.p.atualizar(dt, andou);
         if (!s.caminho.length) {
           // saiu de cena: fica guardado para voltar com outra cara
           andando.splice(k, 1);
