@@ -5,7 +5,7 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width,initial-scale=1" name="viewport"/>
 <title>Lucas Chacon — Full Stack Developer</title>
-<meta content="Portfolio de Lucas Chacon — desenvolvedor full stack. Web, APIs, mobile, seguranca e produtos em producao." name="description"/>
+<meta content="Portfólio de Lucas Chacon — desenvolvedor full stack. Web, APIs, mobile, segurança e produtos em produção." name="description"/>
 <link href="/favicon.svg" rel="icon" type="image/svg+xml"/>
 <link href="/favicon-32.png" rel="icon" sizes="32x32" type="image/png"/>
 <link href="/apple-touch-icon.png" rel="apple-touch-icon" sizes="180x180"/>
@@ -13,16 +13,18 @@
 <meta content="website" property="og:type"/>
 <meta content="https://portfolio-delta-five-78.vercel.app/" property="og:url"/>
 <meta content="Lucas Chacon — Full Stack Developer" property="og:title"/>
-<meta content="Desenvolvedor full stack. Web, APIs, mobile, seguranca e produtos em producao — GateCheck, WSL Games e Rare7." property="og:description"/>
-<meta content="https://portfolio-delta-five-78.vercel.app/og.png" property="og:image"/>
+<meta content="Desenvolvedor full stack. Web, APIs, mobile, segurança e produtos em produção — GateCheck, WSL Games, Rare7 e FLASH." property="og:description"/>
+<meta content="https://portfolio-delta-five-78.vercel.app/og.jpg" property="og:image"/>
 <meta content="1200" property="og:image:width"/>
 <meta content="630" property="og:image:height"/>
+<meta content="image/jpeg" property="og:image:type"/>
+<meta content="Lucas Chacon, Full Stack Developer, com os projetos GateCheck, WSL Games, Rare7 e FLASH" property="og:image:alt"/>
 <meta content="pt_BR" property="og:locale"/>
 <meta content="Lucas Chacon" property="og:site_name"/>
 <meta content="summary_large_image" name="twitter:card"/>
 <meta content="Lucas Chacon — Full Stack Developer" name="twitter:title"/>
-<meta content="Desenvolvedor full stack. Web, APIs, mobile, seguranca e produtos em producao — GateCheck, WSL Games e Rare7." name="twitter:description"/>
-<meta content="https://portfolio-delta-five-78.vercel.app/og.png" name="twitter:image"/>
+<meta content="Desenvolvedor full stack. Web, APIs, mobile, segurança e produtos em produção — GateCheck, WSL Games, Rare7 e FLASH." name="twitter:description"/>
+<meta content="https://portfolio-delta-five-78.vercel.app/og.jpg" name="twitter:image"/>
 <style>
 
 :root{
@@ -4808,7 +4810,7 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
 <canvas aria-hidden="true" class="universe-stars" id="universeStars"></canvas>
 <a class="pular-para-conteudo" href="#conteudo">Pular para o conteúdo</a>
 <nav>
-<button aria-label="Voltar ao topo" class="brand brand-full" id="brandHome" onclick="window.scrollTo({top:0,behavior:'smooth'})" type="button"><span>LUCAS</span><span>CHACON</span></button>
+<button aria-label="Voltar ao topo" class="brand brand-full" id="brandHome" onclick="window.scrollTo({top:0,behavior:'smooth'})" type="button"><svg class="brand-ico" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><defs><radialGradient id="bi-p" cx="36%" cy="30%" r="75%"><stop offset="0" stop-color="#f4ecff"/><stop offset=".3" stop-color="#c3a2ff"/><stop offset=".68" stop-color="#7a45ee"/><stop offset="1" stop-color="#2c1668"/></radialGradient><linearGradient id="bi-a" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7c4dff"/><stop offset=".5" stop-color="#e6d9ff"/><stop offset="1" stop-color="#ff6fb5"/></linearGradient><clipPath id="bi-c"><circle cx="32" cy="31" r="14"/></clipPath><clipPath id="bi-f"><rect x="0" y="33" width="64" height="31"/></clipPath><path id="bi-o" d="M7 33a25 8.6 0 1 0 50 0a25 8.6 0 1 0 -50 0"/></defs><g class="bi-anel" transform="rotate(-20 32 33)"><ellipse cx="32" cy="33" rx="25" ry="8.6" fill="none" stroke="url(#bi-a)" stroke-width="3" opacity=".38"/></g><circle cx="32" cy="31" r="14" fill="url(#bi-p)"/><circle cx="38.5" cy="36.5" r="13.5" fill="#1a0b40" opacity=".34" clip-path="url(#bi-c)"/><ellipse cx="27" cy="25" rx="4.2" ry="2.6" fill="#fff" opacity=".55" transform="rotate(-30 27 25)"/><g class="bi-anel" transform="rotate(-20 32 33)" clip-path="url(#bi-f)"><ellipse cx="32" cy="33" rx="25" ry="8.6" fill="none" stroke="url(#bi-a)" stroke-width="3.2"/></g><g transform="rotate(-20 32 33)"><circle class="bi-lua" r="2.6" fill="#fff"><animateMotion dur="9s" repeatCount="indefinite" rotate="0"><mpath href="#bi-o"/></animateMotion></circle></g></svg><span>LUCAS</span><span>CHACON</span></button>
 <div class="nav-actions">
 <div class="theme-switcher">
 <button class="theme-choice active" data-theme="editorial">Editorial</button>
@@ -7243,21 +7245,17 @@ if(mount){
 .stack-proof-card small{display:block;margin-bottom:6px}
 .stack-proof-card strong{display:block;font-weight:600}
 
-/* Marca do header passa a usar o mesmo icone do favicon, em vez do monograma:
-   um simbolo so nos dois lugares. */
-#brandHome::before{
-  content:"";
-  width:32px;height:32px;
-  background:url("/favicon.svg") center/contain no-repeat;
-  border:0!important;
-  box-shadow:none!important;
-  border-radius:0;
-}
-#brandHome:hover::before,#brandHome:focus-visible::before{
-  border:0!important;
-  box-shadow:none!important;
-  filter:brightness(1.18);
-}
+/* Marca do header: o planeta do favicon desenhado em SVG no proprio botao
+   (antes era o favicon inteiro de fundo, com o quadrado escuro, e ficava
+   borrado em 32px). Anel em degrade atras e na frente, sombra no lado
+   escuro, e uma lua orbitando. No hover o anel acende. */
+#brandHome::before{content:none!important;display:none!important}
+#brandHome .brand-ico{width:34px;height:34px;flex:0 0 auto;overflow:visible;
+  filter:drop-shadow(0 0 10px rgba(143,92,255,.45));transition:filter .3s ease,transform .5s cubic-bezier(.2,.8,.2,1)}
+#brandHome .bi-lua{filter:drop-shadow(0 0 3px #d9c6ff)}
+#brandHome:hover .brand-ico,#brandHome:focus-visible .brand-ico{filter:drop-shadow(0 0 16px rgba(169,139,255,.8));transform:rotate(-8deg) scale(1.06)}
+@media(max-width:900px){#brandHome .brand-ico{width:28px;height:28px}}
+@media(prefers-reduced-motion:reduce){#brandHome .bi-lua{display:none}}
 
 /* Sem moldura. O site trabalha com objetos iluminados no espaço (os planetas,
    o glow, a profundidade) e a seção de projetos estava usando hardware
