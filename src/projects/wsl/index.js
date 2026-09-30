@@ -4,6 +4,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { criarAmbiente, PAINEL } from './room.js';
 import { carregarPersonagem } from '../gatecheck/character-glb.js';
 import { criarRigCamera } from '../gatecheck/camera-rig.js';
+import { criarPraia } from './praia.js';
 
 /**
  * Cena do capitulo WSL: TV de toque na parede, pessoa em pe mexendo nela.
@@ -241,7 +242,8 @@ export function montarCenaWsl(container) {
   RectAreaLightUniformsLib.init();
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x05060d, 8, 16);
+  // praia de fim de tarde: a nevoa e a cor do horizonte, e comeca longe
+  scene.fog = new THREE.Fog(0xe9895c, 18, 58);
 
   const pmrem = new THREE.PMREMGenerator(renderer);
   const ambiente = pmrem.fromScene(new RoomEnvironment(), 0.035);
@@ -251,10 +253,20 @@ export function montarCenaWsl(container) {
   const camera = new THREE.PerspectiveCamera(38, 1, 0.05, 60);
   const rig = criarRigCamera(camera, { chaves: CHAVES, tela: PAINEL, folga: 1.32 });   // 14% cortava a moldura; 32% deixa a TV inteira no quadro
 
-  const { raiz: sala, tela } = criarAmbiente();
+  const { raiz: sala, tela } = criarAmbiente('praia');
   scene.add(sala);
+  // O ambiente todo e uma praia de campeonato no fim de tarde: mar ate o
+  // horizonte, areia, pranchas, bandeiras do WSL, palanque dos juizes, e o
+  // totem que segura a TV (src/projects/wsl/praia.js).
+  const praia = criarPraia(PAINEL);
+  scene.add(praia.raiz);
 
-  scene.add(new THREE.HemisphereLight(0xbcc6ff, 0x14121c, 0.26));
+  // ceu violeta por cima, areia quente por baixo
+  scene.add(new THREE.HemisphereLight(0xb89cff, 0xd9a070, 0.75));
+  // sol baixo atras e a esquerda: contraluz laranja no totem e nas pranchas
+  const sol = new THREE.DirectionalLight(0xffa15e, 1.1);
+  sol.position.set(-7, 4, -12);
+  scene.add(sol);
   const chave = new THREE.DirectionalLight(0xfff2e6, 0.85);
   chave.position.set(2.4, 3.6, 3.0);
   if (renderer.shadowMap.enabled) {
@@ -359,7 +371,7 @@ export function montarCenaWsl(container) {
 
   /* ------------------------------------------------------------ loop -- */
   let visivel = false;
-  const io = new IntersectionObserver((es) => { visivel = es[0].isIntersecting; }, { rootMargin: '260px' });
+  const io = new IntersectionObserver((es) => { visivel = es[es.length - 1].isIntersecting; }, { rootMargin: '260px' });
   io.observe(container);
 
   const FIM_APROXIMACAO = 0.55;
@@ -385,6 +397,7 @@ export function montarCenaWsl(container) {
     if (!visivel) return;
 
     const t = relogio.getElapsedTime();
+    praia.atualizar(reduzido ? 0 : t, camera);
 
     /* Vida do personagem: sem clipe, o movimento vem de dois senos lentos no
        braco que toca e um balanco minimo no tronco. Amplitude pequena de
@@ -423,6 +436,7 @@ export function montarCenaWsl(container) {
     ro.disconnect();
     container.removeEventListener('pointermove', aoMover);
     scene.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+    praia.destruir();
     texturas.forEach((t) => t && t.dispose());
     ambiente.texture.dispose();
     pmrem.dispose();

@@ -4,6 +4,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { criarIphone, TELA as TELA_IPHONE } from './iphone.js';
 import { carregarPersonagem } from '../gatecheck/character-glb.js';
 import { criarRigCamera } from '../gatecheck/camera-rig.js';
+import { criarLoja } from './loja.js';
 
 /**
  * Cena do capitulo FLASH: pessoa em pe usando o celular, e a camera termina
@@ -69,7 +70,8 @@ export function montarCenaFlash(container, opcoes = {}) {
   RectAreaLightUniformsLib.init();
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x05060d, 6, 13);
+  // a loja tem fundo a ~6 m da camera: a nevoa comeca depois dele
+  scene.fog = new THREE.Fog(0x0b0608, 9, 22);
 
   const pmrem = new THREE.PMREMGenerator(renderer);
   const ambiente = pmrem.fromScene(new RoomEnvironment(), 0.035);
@@ -99,6 +101,11 @@ export function montarCenaFlash(container, opcoes = {}) {
   poca.rotation.x = -Math.PI / 2;
   poca.position.y = 0.004;
   scene.add(poca);
+  // O ambiente todo e a loja de material de tatuagem com entrega por
+  // motoboy: parede de tijolo com neon FLASH, estante de tintas, balcao com a
+  // maquina e a moto com o bau vermelho (src/projects/flash/loja.js).
+  const loja = criarLoja();
+  scene.add(loja.raiz);
 
   scene.add(new THREE.HemisphereLight(0xbcc6ff, 0x14121c, 0.30));
   const chave = new THREE.DirectionalLight(0xfff2e6, 0.9);
@@ -317,7 +324,7 @@ export function montarCenaFlash(container, opcoes = {}) {
 
   /* ------------------------------------------------------------ loop -- */
   let visivel = false;
-  const io = new IntersectionObserver((es) => { visivel = es[0].isIntersecting; }, { rootMargin: '260px' });
+  const io = new IntersectionObserver((es) => { visivel = es[es.length - 1].isIntersecting; }, { rootMargin: '260px' });
   io.observe(container);
 
   const FIM_APROXIMACAO = 0.55;
@@ -425,6 +432,7 @@ export function montarCenaFlash(container, opcoes = {}) {
 
     const calma = 1 - rig.proximidade(progCamera);
     if (modelo && modelo.mixer && !reduzido) modelo.mixer.update(dt * calma);
+    loja.atualizar(reduzido ? 0 : agora / 1000);
 
     /* O alvo da camera segue o aparelho, porque ele esta preso a mao e se move
        com a animacao. Sem isso a camera miraria um ponto fixo e o celular
@@ -562,6 +570,7 @@ export function montarCenaFlash(container, opcoes = {}) {
     ro.disconnect();
     container.removeEventListener('pointermove', aoMover);
     scene.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+    loja.destruir();
     texturas.forEach((t) => t && t.dispose());
     ambiente.texture.dispose();
     pmrem.dispose();

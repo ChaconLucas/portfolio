@@ -205,20 +205,26 @@ function criarCoroa() {
   return g;
 }
 
-/** Monta o ambiente e devolve o que a cena precisa. */
-export function criarAmbiente() {
+/**
+ * Monta o ambiente e devolve o que a cena precisa.
+ * modo 'praia': so a TV e a coroa — parede, sala escura, trelica e caixas de
+ * som ficam de fora; quem monta a praia (praia.js) poe o totem que segura a TV.
+ */
+export function criarAmbiente(modo = 'sala') {
   const raiz = new THREE.Group();
   raiz.name = 'ambienteWsl';
 
-  raiz.add(criarFundo());
-  raiz.add(criarFocos());
-  raiz.add(criarParede());
+  if (modo !== 'praia') {
+    raiz.add(criarFundo());
+    raiz.add(criarFocos());
+    raiz.add(criarParede());
+  }
   const { grupo: tv, tela } = criarTV();
   raiz.add(tv);
   raiz.add(criarCoroa());
 
   // caixa de som de cada lado: preenche a parede sem competir com a TV
-  [-1, 1].forEach((lado) => {
+  if (modo !== 'praia') [-1, 1].forEach((lado) => {
     raiz.add(peca(caixa(0.16, 0.62, 0.14, 0.014), matBrancoFosco(), lado * 1.02, 1.30, 0.075));
   });
 

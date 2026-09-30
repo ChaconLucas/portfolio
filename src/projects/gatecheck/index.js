@@ -6,6 +6,7 @@ import { criarPersonagem, animarPersonagem, pousarMaos } from './character.js';
 import { carregarPersonagem } from './character-glb.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { criarRigCamera } from './camera-rig.js';
+import { criarBalada, criarEstadioRare } from './ambientes.js';
 import { descartarMateriais } from './materials.js';
 
 /**
@@ -43,6 +44,7 @@ function suportaWebGL() {
  * @param {HTMLElement} container
  * @param {object} [opcoes]
  * @param {string[]} [opcoes.telas]  screenshots para o monitor
+ * @param {string}   [opcoes.ambiente]  'balada' (GateCheck, padrao) ou 'estadio' (Rare7) — src/projects/gatecheck/ambientes.js
  *
  * A cena e a MESMA para o GateCheck e para o Rare7 — mesma estacao, mesma
  * camera, mesmo personagem. O que muda e o que roda no monitor, entao a unica
@@ -74,7 +76,8 @@ export function montarCenaGatecheck(container, opcoes = {}) {
   RectAreaLightUniformsLib.init();
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x05060d, 6.5, 13);
+  // a parede do ambiente fica a ~6 m: a nevoa comeca depois dela
+  scene.fog = opcoes.ambiente === 'estadio' ? new THREE.Fog(0x0b0f1c, 45, 110) : new THREE.Fog(0x0b0714, 12, 26);
 
   /* MAPA DE AMBIENTE — a peca que faltava.
      Materiais fisicos (verniz, metal, vidro) so tem volume porque refletem
@@ -91,10 +94,42 @@ export function montarCenaGatecheck(container, opcoes = {}) {
   scene.environmentIntensity = 0.26;
 
   const camera = new THREE.PerspectiveCamera(38, 1, 0.05, 60);
-  const rig = criarRigCamera(camera);
+  /* No estadio (Rare7) o percurso comeca mais alto e mais atras, olhando o
+     gol e as arquibancadas por cima da mesa — do ponto padrao so sobrava uma
+     faixa estreita acima do monitor, e o estadio nao aparecia. Do meio em
+     diante e o mesmo trilho do GateCheck (os dois ultimos pontos o rig
+     recalcula para enquadrar o monitor). */
+  const CHAVES_ESTADIO = [
+    { p: 0.00, pos: [3.40, 3.00, 3.60], alvo: [-8.0, 2.6, -8.5] },
+    { p: 0.22, pos: [2.40, 2.10, 2.40], alvo: [-1.5, 1.4, -3.0] },
+    { p: 0.40, pos: [1.32, 1.56, 1.48], alvo: [0.05, 1.12, -0.02] },
+    { p: 0.62, pos: [0.62, 1.44, 1.24], alvo: [0.00, 1.19, -0.08] },
+    { p: 0.84, pos: [0.14, 1.26, 0.62], alvo: [0.00, 1.21, -0.11] },
+    { p: 1.00, pos: [0.00, 1.213, 0.14], alvo: [0.00, 1.213, -0.11] }
+  ];
+  // Balada (GateCheck): mesma ideia — comeca alto e atras, olhando a porta da
+  // balada e a fila, e desce para o trilho de sempre.
+  const CHAVES_BALADA = [
+    { p: 0.00, pos: [3.30, 2.50, 3.60], alvo: [-0.9, 1.85, -2.7] },
+    { p: 0.22, pos: [2.40, 2.00, 2.50], alvo: [-0.5, 1.25, -1.4] },
+    ...CHAVES_ESTADIO.slice(2)
+  ];
+  const rig = criarRigCamera(camera, { chaves: opcoes.ambiente === 'estadio' ? CHAVES_ESTADIO : CHAVES_BALADA });
 
   const estacao = criarEstacao();
   scene.add(estacao.raiz);
+  // O ambiente todo e do projeto: a entrada da balada com o check-in (GateCheck)
+  // ou o estadio atras do gol (o Rare7 reusa esta cena e pede 'estadio').
+  const estadio = opcoes.ambiente === 'estadio';
+  const ambienteCena = (estadio ? criarEstadioRare : criarBalada)();
+  // o estadio vai a ~130 m: a camera padrao so enxerga 60
+  /* O estadio vai a ~70 m e a camera padrao so enxerga 60. near sobe junto: o
+     monitor tem pecas a milimetros (tela, moldura, vidro) e com far 260 e
+     near 0,05 elas cintilavam por falta de precisao de profundidade. Com
+     0,1/120 a razao fica a mesma do padrao (0,05/60). A camera nunca chega a
+     menos de ~1,8 m do monitor. */
+  if (estadio) { camera.near = 0.1; camera.far = 120; camera.updateProjectionMatrix(); }
+  scene.add(ambienteCena.raiz);
   let modelo = null;
   let cadeiraPronta = null;
 
@@ -420,7 +455,9 @@ export function montarCenaGatecheck(container, opcoes = {}) {
   /* --------------------------------------------------------------- loop -- */
   let visivel = false;
   const io = new IntersectionObserver(
-    (es) => { visivel = es[0].isIntersecting; },
+    // a ULTIMA entrada: com rolagem rapida vem mais de uma no mesmo aviso, e a
+    // primeira e a antiga (fora da tela) — lendo ela a cena ficava parada
+    (es) => { visivel = es[es.length - 1].isIntersecting; },
     { rootMargin: '260px' }
   );
   io.observe(container);
@@ -451,6 +488,7 @@ export function montarCenaGatecheck(container, opcoes = {}) {
     if (!visivel) return;
 
     const t = relogio.getElapsedTime();
+    ambienteCena.atualizar(reduzido ? 0 : t, camera);
 
     // a vida do personagem some conforme a camera entra na tela: perto do
     // monitor, qualquer movimento do corpo vira tremor no quadro
@@ -570,6 +608,7 @@ export function montarCenaGatecheck(container, opcoes = {}) {
         o.material.dispose();
       }
     });
+    ambienteCena.destruir();
     texturas.forEach((t) => t && t.dispose());
     descartarMateriais();
     ambiente.texture.dispose();
