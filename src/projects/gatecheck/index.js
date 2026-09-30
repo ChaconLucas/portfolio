@@ -29,11 +29,18 @@ const TELAS_PADRAO = [
 const ehMobile = () => window.matchMedia('(max-width:900px)').matches;
 const menosMovimento = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+// O teste cria um contexto WebGL de verdade. Sem soltar, cada montagem da
+// cena deixava mais um vivo na placa de video (e a resposta nunca muda: guarda).
+let _suporta = null;
 function suportaWebGL() {
+  if (_suporta !== null) return _suporta;
   try {
     const c = document.createElement('canvas');
-    return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl')));
-  } catch (e) { return false; }
+    const gl = window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl'));
+    _suporta = !!gl;
+    gl?.getExtension('WEBGL_lose_context')?.loseContext();
+  } catch (e) { _suporta = false; }
+  return _suporta;
 }
 
 /**
@@ -614,6 +621,10 @@ export function montarCenaGatecheck(container, opcoes = {}) {
     ambiente.texture.dispose();
     pmrem.dispose();
     renderer.dispose();
+    // dispose() sozinho nao solta o contexto WebGL: cada volta ao capitulo
+    // deixava um contexto vivo na placa de video e, depois de algumas idas e
+    // vindas, o site inteiro caia para 1-10 fps.
+    renderer.forceContextLoss();
     if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
   }
 

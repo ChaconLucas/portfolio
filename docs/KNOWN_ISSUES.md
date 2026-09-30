@@ -468,3 +468,11 @@ Antes só mudava o painel da parede; o feedback foi que o AMBIENTE tem que ser d
 - **Visual:** a roupa é sorteada por material (cada peça com uma cor só). Os personagens não recebem sombra, porque dava acne. O celular segue a mão a cada quadro, sem herdar a escala 100 do esqueleto. O "não" do segurança é a cabeça balançando por código (o pack não tem esse gesto).
 - Descartados: Kenney Mini Characters (cabeçudos quadrados, o Lucas não gostou).
 - **Celular na mão (30/09/2026):** antes o celular só seguia a posição do pulso e flutuava acima da mão. Agora segue a orientação do osso `WristR`: o Y aponta pros dedos e o Z sai do dorso, então o aparelho vai ao longo dos dedos, encostado na palma. O clip Interact do pack sobe o braço até o rosto (o segurança parecia pôr a mão na cabeça da pessoa), então ele entra com peso 0,5 misturado ao Idle, o que deixa o braço na altura do peito. O segurança foi pra x -0,02 pra não encostar em quem está na frente.
+
+## Site caindo pra 1-10 fps depois de rolar um tempo (30/09/2026)
+- **Sintoma:** página recém-carregada a 60 fps, mas depois de algumas idas e vindas pelos capítulos tudo travava, até o rodapé (sem nenhuma cena de projeto montada). Não havia quadro longo de JS: o gargalo era a placa de vídeo.
+- **Causa, contextos WebGL vazados:**
+  1. `renderer.dispose()` não solta o contexto; cada desmontagem da cena (GateCheck, WSL, Rare7, FLASH) deixava um vivo;
+  2. `suportaWebGL()` criava um contexto novo a cada montagem só pra testar e nunca soltava.
+- **Correção:** `renderer.forceContextLoss()` no `destruir` das três cenas; o teste de suporte guarda a resposta e solta o contexto na hora (`WEBGL_lose_context`).
+- **Verificação:** contando contextos com `isContextLost()` após 4 voltas pelo site, eram 12 vivos e crescendo; agora ficam só os 3 em tela.
