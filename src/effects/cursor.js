@@ -13,7 +13,7 @@
  * hover que os botoes ja tem.
  */
 
-const ALVOS = 'a[href], button, [role="button"], .three-planet-label, .pilha-camada, label[for]';
+const ALVOS = 'a[href], button, [role="button"], .three-planet-label, label[for]';
 const TITULOS = 'h1, h2, .intro-big-word';
 const ARRASTO = '#threeCanvas';
 const IMA = .22;          // quanto o elemento segue o ponteiro
@@ -112,11 +112,28 @@ export function montarCursor() {
       // botao ou link grande demais (um card inteiro) nao vira abraco: so o ponto some
       const b = clicavel.getBoundingClientRect();
       if (b.width < 520 && b.height < 220) return ['alvo', clicavel];
-      return ['titulo', null];
+      // card grande: cursor normal (antes virava a lente branca e aparecia
+      // uma bola clara solta no meio do card)
+      return ['livre', null];
     }
     if (el && el.closest(ARRASTO)) return ['arrasto', null];
-    if (el && el.closest(TITULOS)) return ['titulo', null];
+    // a lente so em cima das letras: a caixa do h1 vai bem alem do texto e a
+    // lente em diferenca sobre o fundo escuro virava uma bola branca no vazio
+    if (el && el.closest(TITULOS) && sobreLetra(mx, my)) return ['titulo', null];
     return ['livre', null];
+  }
+  function sobreLetra(x, y) {
+    const r = document.caretRangeFromPoint ? document.caretRangeFromPoint(x, y)
+      : document.caretPositionFromPoint ? (() => { const p = document.caretPositionFromPoint(x, y); if (!p) return null; const q = document.createRange(); q.setStart(p.offsetNode, p.offset); return q; })() : null;
+    if (!r || r.startContainer.nodeType !== 3) return false;
+    const n = r.startContainer, i = r.startOffset;
+    for (const k of [i - 1, i]) {
+      if (k < 0 || k >= n.length) continue;
+      const q = document.createRange(); q.setStart(n, k); q.setEnd(n, k + 1);
+      const b = q.getBoundingClientRect();
+      if (x >= b.left - 6 && x <= b.right + 6 && y >= b.top && y <= b.bottom) return true;
+    }
+    return false;
   }
 
   function aoMover(e) {

@@ -80,7 +80,7 @@ export function montarVapor(palavra, sticky) {
 
   function medir() {
     const r = sticky.getBoundingClientRect();
-    dpr = Math.min(devicePixelRatio || 1, 1.5);
+    dpr = Math.min(devicePixelRatio || 1, 1.25);
     W = r.width; H = r.height;
     canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);

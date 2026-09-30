@@ -978,7 +978,8 @@ body.dark .theme-choice.active{
 .pilha-camada:nth-child(4){--i:3;--tom:#ff8fb8}
 .pilha-camada b{
   font-size:9px;letter-spacing:.15em;font-weight:600;
-  color:var(--tom);flex:none;width:78px;
+  /* 96px: com 78 "SEGURANCA" (a mais longa) passava da coluna e colava no JWT */
+  color:var(--tom);flex:none;width:96px;
 }
 .pilha-camada i{font-style:normal;font-size:11px;color:#a79fbb}
 /* A borda da esquerda e a unica cor forte: identifica a camada sem transformar
@@ -1038,16 +1039,27 @@ body.dark .theme-choice.active{
   /* A mascara e a peca toda: sem ela a malha vira papel milimetrado por cima
      do texto. O primeiro circulo segue o ponteiro; o segundo e a presenca
      constante, ancorada no canto do nome. */
-  -webkit-mask-image:
-    radial-gradient(circle 300px at var(--px,-999px) var(--py,-999px),#000 0%,rgba(0,0,0,.45) 55%,transparent 100%),
-    radial-gradient(58% 46% at 26% 42%,rgba(0,0,0,.30) 0%,transparent 78%);
-  mask-image:
-    radial-gradient(circle 300px at var(--px,-999px) var(--py,-999px),#000 0%,rgba(0,0,0,.45) 55%,transparent 100%),
-    radial-gradient(58% 46% at 26% 42%,rgba(0,0,0,.30) 0%,transparent 78%);
-  -webkit-mask-composite:source-over;
-  mask-composite:add;
+  /* so a presenca constante: o foco do ponteiro saiu daqui (mover a mascara
+     por variavel repintava a tela inteira a cada movimento) e virou o
+     .malha-foco, que anda por transform */
+  -webkit-mask-image:radial-gradient(58% 46% at 26% 42%,rgba(0,0,0,.30) 0%,transparent 78%);
+  mask-image:radial-gradient(58% 46% at 26% 42%,rgba(0,0,0,.30) 0%,transparent 78%);
   transition:opacity .4s ease;
 }
+/* Foco da malha: uma janela de 600px com a mascara redonda FIXA, que anda por
+   transform; dentro dela a malha anda ao contrario na mesma medida, entao as
+   linhas ficam paradas no lugar e so a janela passa por cima. Tudo transform:
+   nenhum pixel e repintado quando o mouse mexe. */
+.malha-foco{position:absolute;left:0;top:0;width:600px;height:600px;z-index:0;pointer-events:none;overflow:hidden;
+  opacity:0;transition:opacity .35s ease;will-change:transform;
+  -webkit-mask-image:radial-gradient(circle 300px at 50% 50%,#000 0%,rgba(0,0,0,.45) 55%,transparent 100%);
+  mask-image:radial-gradient(circle 300px at 50% 50%,#000 0%,rgba(0,0,0,.45) 55%,transparent 100%)}
+.malha-foco.ativo{opacity:1}
+.intro-hero[data-saindo="1"] .malha-foco{opacity:0}
+.malha-foco i{position:absolute;left:0;top:0;will-change:transform;
+  background-image:
+    repeating-linear-gradient(0deg,rgba(190,163,255,.14) 0 1px,transparent 1px 68px),
+    repeating-linear-gradient(90deg,rgba(190,163,255,.14) 0 1px,transparent 1px 68px)}
 /* Sem malha quando o texto ja esta saindo de cena: no meio da transicao para o
    universo ela virava ruido sobre a camada que entra. */
 .intro-hero[data-saindo="1"]::before{opacity:0}
@@ -4795,6 +4807,76 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
   .rare-real-browser{inset:0!important}
 }
 
+
+
+/* ARQUITETURA AO VIVO (no lugar da pilha de barras inclinadas).
+   Uma requisicao de check-in atravessa as quatro camadas na ordem real
+   (interface -> seguranca -> api -> dados) e volta como resposta: o pacote
+   desce pelo trilho, cada camada acende e mostra o proprio log quando ele
+   passa. So transform e opacity em keyframes: roda no compositor, sem
+   repintar nada e sem JS. */
+.arq{--dur:5.6s;position:relative;border:1px solid rgba(255,255,255,.09);border-radius:16px;
+  background:linear-gradient(180deg,rgba(18,15,30,.9),rgba(10,9,17,.9));overflow:hidden}
+.arq::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(120% 70% at 0% 0%,rgba(124,77,255,.12),transparent 60%)}
+.arq-topo{display:flex;justify-content:space-between;align-items:center;padding:11px 16px;border-bottom:1px solid rgba(255,255,255,.06);
+  font:700 9px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.16em;color:rgba(228,220,255,.5)}
+.arq-vivo{display:flex;align-items:center;gap:7px;color:#2bff8f}
+.arq-vivo i{width:6px;height:6px;border-radius:50%;background:#2bff8f;box-shadow:0 0 10px #2bff8f;animation:arqPisca 1.6s ease-in-out infinite}
+@keyframes arqPisca{50%{opacity:.3}}
+.arq-corpo{position:relative;padding:8px 16px 8px 52px}
+.arq-trilho{position:absolute;left:22px;top:31px;height:138px;width:1px;background:linear-gradient(180deg,#b18cff,#ff8fb8,#8fa6ff,#7fd7c4);opacity:.35}
+/* pacote: desce parando em cada no e volta verde (resposta) */
+.arq-pacote{position:absolute;left:-4px;top:-4px;width:9px;height:9px;border-radius:50%;background:#fff;
+  box-shadow:0 0 12px 3px rgba(199,180,255,.9);will-change:transform;animation:arqDesce var(--dur) cubic-bezier(.6,0,.3,1) infinite}
+.arq-camada{position:relative;display:grid;grid-template-columns:96px 1fr auto;align-items:center;gap:10px;height:46px;
+  border-radius:10px;padding:0 12px;margin:0 -12px;outline:none;cursor:default}
+.arq-camada::after{content:"";position:absolute;inset:3px 0;border-radius:10px;pointer-events:none;opacity:0;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--tom) 16%,transparent),transparent 75%);
+  border:1px solid color-mix(in srgb,var(--tom) 30%,transparent);
+  animation:arqAcende var(--dur) linear infinite;animation-delay:calc(var(--k) * var(--dur) * .15)}
+.arq-camada:hover::after,.arq-camada:focus-visible::after{animation:none;opacity:1}
+.arq-no{position:absolute;left:-18px;top:50%;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;
+  background:#0b0914;border:1.5px solid var(--tom)}
+.arq-camada b{font:800 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.14em;color:var(--tom)}
+.arq-tec{font-size:12px;color:#b3aac8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.arq-log{font:600 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--tom);white-space:nowrap;
+  padding:5px 8px;border-radius:6px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);
+  opacity:.28;animation:arqLog var(--dur) linear infinite;animation-delay:calc(var(--k) * var(--dur) * .15)}
+.arq-camada:hover .arq-log,.arq-camada:focus-visible .arq-log{animation:none;opacity:1}
+.arq-pe{padding:10px 16px 12px;border-top:1px solid rgba(255,255,255,.06);font-size:10px;letter-spacing:.06em;color:rgba(228,220,255,.42)}
+/* 46px por camada: o trilho comeca no centro do primeiro no (8 + 23 = 31px)
+   e os nos seguintes estao a 46, 92 e 138px dele */
+@keyframes arqDesce{
+  0%,6%{transform:translateY(0);background:#fff}
+  15%,21%{transform:translateY(46px)}
+  30%,36%{transform:translateY(92px)}
+  45%,56%{transform:translateY(138px);background:#fff}
+  57%{background:#2bff8f;box-shadow:0 0 12px 3px rgba(43,255,143,.8)}
+  84%{transform:translateY(0);background:#2bff8f;box-shadow:0 0 12px 3px rgba(43,255,143,.8)}
+  92%,100%{transform:translateY(0);background:#fff}
+}
+/* cada camada acende quando o pacote chega (o atraso desloca pela ordem) */
+@keyframes arqAcende{0%,2%{opacity:0}6%,20%{opacity:1}30%,100%{opacity:0}}
+@keyframes arqLog{0%,2%{opacity:.28}6%,24%{opacity:1}34%,100%{opacity:.28}}
+@media(prefers-reduced-motion:reduce){.arq-pacote,.arq-camada::after,.arq-log,.arq-vivo i{animation:none}.arq-log{opacity:1}}
+@media(max-width:900px){
+  /* celular: pouco espaco vertical no sticky — so os nomes das camadas, em linha */
+  .arq{border-radius:12px}
+  .arq-topo,.arq-pe,.arq-trilho,.arq-tec,.arq-log,.arq-no{display:none}
+  .arq-corpo{display:flex;flex-wrap:wrap;gap:6px;padding:8px}
+  .arq-camada{display:block;height:auto;margin:0;padding:7px 10px;border:1px solid color-mix(in srgb,var(--tom) 35%,transparent);border-radius:999px}
+  .arq-camada::after{display:none}
+  .arq-camada b{font-size:8px}
+}
+/* DESEMPENHO — blur de fundo por cima de canvas animado e refeito a cada
+   quadro (o navegador borra de novo tudo o que mudou atras). No nav e nos
+   cards do hero o fundo ja e quase opaco: trocar por cor solida nao muda a
+   leitura e tira esse custo do topo da pagina. */
+nav{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+.hero-signal,.hero-signal-large,.pill{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+.hero-signal,.hero-signal-large{background:rgba(14,12,24,.86)!important}
+.universe-nebula{filter:none!important}
 </style>
 </head>
 <body class="theme-editorial dark universe-theme">
@@ -4862,25 +4944,35 @@ html,body{margin:0;min-height:100%;background:#05060b!important}
      ele atravessa, empilhadas em profundidade. Passar o mouse levanta uma e
      mostra o que roda nela. E o unico lugar do site onde a stack aparece como
      ESTRUTURA; no Arquivo Tecnico ela e catalogo. -->
-<div class="pilha-stack" id="pilhaStack">
-  <div class="pilha-camadas">
-    <button class="pilha-camada" type="button" data-cor="1">
-      <b>INTERFACE</b><i>React · Next.js · TypeScript</i>
-    </button>
-    <button class="pilha-camada" type="button" data-cor="2">
-      <b>API</b><i>FastAPI · Express · PHP</i>
-    </button>
-    <button class="pilha-camada" type="button" data-cor="3">
-      <b>DADOS</b><i>PostgreSQL · MySQL · SQLAlchemy</i>
-    </button>
-    <button class="pilha-camada" type="button" data-cor="4">
-      <b>SEGURANÇA</b><i>JWT · bcrypt · auditoria</i>
-    </button>
+<div class="arq" id="pilhaStack" aria-label="Arquitetura: uma requisição atravessando as quatro camadas">
+  <div class="arq-topo"><span class="arq-vivo"><i></i>AO VIVO</span><span class="arq-rota">check-in · GateCheck</span></div>
+  <div class="arq-corpo">
+    <span class="arq-trilho" aria-hidden="true"><i class="arq-pacote"></i></span>
+    <div class="arq-camada" style="--k:0;--tom:#b18cff" tabindex="0">
+      <span class="arq-no" aria-hidden="true"></span>
+      <b>INTERFACE</b><span class="arq-tec">React · Next.js · TypeScript</span>
+      <code class="arq-log">POST /checkin</code>
+    </div>
+    <div class="arq-camada" style="--k:1;--tom:#ff8fb8" tabindex="0">
+      <span class="arq-no" aria-hidden="true"></span>
+      <b>SEGURANÇA</b><span class="arq-tec">JWT · bcrypt · RBAC</span>
+      <code class="arq-log">jwt ✓ · staff</code>
+    </div>
+    <div class="arq-camada" style="--k:2;--tom:#8fa6ff" tabindex="0">
+      <span class="arq-no" aria-hidden="true"></span>
+      <b>API</b><span class="arq-tec">FastAPI · Express · PHP</span>
+      <code class="arq-log">201 · 38ms</code>
+    </div>
+    <div class="arq-camada" style="--k:3;--tom:#7fd7c4" tabindex="0">
+      <span class="arq-no" aria-hidden="true"></span>
+      <b>DADOS</b><span class="arq-tec">PostgreSQL · MySQL · SQLAlchemy</span>
+      <code class="arq-log">UPDATE tickets · 1</code>
+    </div>
   </div>
-  <span class="pilha-nota">Construído com apoio de IA · Claude Code · Codex · Copilot</span>
+  <div class="arq-pe">Construído com apoio de IA · Claude Code · Codex · Copilot</div>
 </div>
 <div class="hero-project-ticker">
-<div class="ticker-track"><div class="ticker-group"><span>01 GATECHECK</span><span>02 WSL GAMES</span><span>03 RARE7</span><span>04 MOBILE</span></div></div>
+<div class="ticker-track"><div class="ticker-group"><span>01 GATECHECK</span><span>02 WSL GAMES</span><span>03 RARE7</span><span>04 FLASH</span></div></div>
 </div>
 </div>
 </div>
@@ -6343,7 +6435,7 @@ if(mount){
  camera.position.set(-8.8*CAM_FIT,13.6*CAM_FIT,15.2*CAM_FIT);
  camera.lookAt(0,0,0);
  const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true,powerPreference:'high-performance'});
- renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.75));
+ renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.5));
  renderer.outputColorSpace=THREE.SRGBColorSpace;
  renderer.toneMapping=THREE.ACESFilmicToneMapping;
  renderer.toneMappingExposure=1.24;
@@ -6665,10 +6757,10 @@ if(mount){
   const canvas=document.getElementById('universeStars');
   if(!canvas) return;
   const ctx=canvas.getContext('2d');
-  let w=0,h=0,dpr=Math.min(window.devicePixelRatio||1,2);
+  let w=0,h=0,dpr=Math.min(window.devicePixelRatio||1,1.25);   // estrelas: pontos, nao precisam de retina cheia
   let stars=[], links=[];
   function resize(){
-    dpr=Math.min(window.devicePixelRatio||1,2);
+    dpr=Math.min(window.devicePixelRatio||1,1.25);
     w=window.innerWidth; h=window.innerHeight;
     canvas.width=Math.floor(w*dpr); canvas.height=Math.floor(h*dpr);
     canvas.style.width=w+'px'; canvas.style.height=h+'px';
@@ -7495,7 +7587,10 @@ if(mount){
     calc(var(--sx,.32) * 32px) calc(var(--sy,.62) * 32px) 0 rgba(20,14,37,.46),
     calc(var(--sx,.32) * 40px) calc(var(--sy,.62) * 40px) 0 rgba(14,10,26,.32),
     calc(var(--sx,.32) * 50px) calc(var(--sy,.62) * 50px) 46px rgba(6,4,12,.62);
-  transition:text-shadow .38s cubic-bezier(.16,1,.3,1);
+  /* DESEMPENHO: a luz do relevo nao segue mais o ponteiro. Eram 13 sombras
+     (uma com 46px de desfoque) em letras gigantes, em transicao a cada
+     movimento do mouse: o nome inteiro era repintado todo quadro (~10 fps).
+     A inclinacao continua (transform, sai de graca na GPU). */
 }
 /* SEM transform nestas duas camadas.
    O translateZ era para afundar o codigo, mas transform num elemento com
@@ -7574,6 +7669,9 @@ if(mount){
   background-size:1600px 260px,cover;
   background-position:0 0,0 0;
   animation:codeFlow 26s linear infinite;
+  /* a camada fica 100% mascarada sem o ponteiro; animar o fundo mesmo assim
+     repintava ~750 mil px por quadro para nada. So roda com a luz aberta. */
+  animation-play-state:paused;
   -webkit-background-clip:text;
   background-clip:text;
   -webkit-text-fill-color:transparent;
@@ -7585,6 +7683,7 @@ if(mount){
   mask-composite:add;
 }
 @keyframes codeFlow{to{background-position:0 -260px,0 0}}
+.rname-glow.vivo{animation-play-state:running}
 @media(prefers-reduced-motion:reduce){.rname-glow{display:none}}
 
 /* Scrollbar: a padrão do Windows entrava clara e cinza no meio de um site
@@ -7627,9 +7726,10 @@ html{
 .hero-project-ticker span:nth-child(2){animation-delay:2.2s}
 .hero-project-ticker span:nth-child(3){animation-delay:4.4s}
 .hero-project-ticker span:nth-child(4){animation-delay:6.6s}
+/* so a cor: animar letter-spacing refazia o layout da linha a cada quadro */
 @keyframes tickerFocus{
-  0%,20%{color:color-mix(in srgb,var(--accent) 92%,#ffffff);letter-spacing:.16em}
-  25%,100%{color:color-mix(in srgb,var(--ink) 34%,transparent);letter-spacing:.13em}
+  0%,20%{color:color-mix(in srgb,var(--accent) 92%,#ffffff)}
+  25%,100%{color:color-mix(in srgb,var(--ink) 34%,transparent)}
 }
 
 /* NOME: entrada por linha e um brilho que atravessa as letras de tempos em tempos */
@@ -8434,9 +8534,9 @@ html{
           setL(n,q.x,q.y,R0*open*e*taper*w);
         }
         if(live||pts.length||open>0.01) raf=requestAnimationFrame(loop);
-        else { raf=0; for(let n=1;n<=N;n++) setL(n,-900,-900,0); }
+        else { raf=0; glow.classList.remove('vivo'); for(let n=1;n<=N;n++) setL(n,-900,-900,0); }
       }
-      const kick=()=>{ if(!raf) raf=requestAnimationFrame(loop); };
+      const kick=()=>{ glow.classList.add('vivo'); if(!raf) raf=requestAnimationFrame(loop); };
 
       /* Uma passada de luz sozinha, logo depois de o nome subir.
          Sem ela, o codigo dentro das letras so existia para quem por acaso
@@ -8506,6 +8606,10 @@ html{
     const palco=document.getElementById('introHero');
     if(palco){
       let px=0,py=0,pendente=false;
+      const foco=document.createElement('div'); foco.className='malha-foco'; foco.setAttribute('aria-hidden','true');
+      const fundo=document.createElement('i'); foco.appendChild(fundo); palco.prepend(foco);
+      const medirFundo=()=>{ fundo.style.width=palco.offsetWidth+'px'; fundo.style.height=palco.offsetHeight+'px'; };
+      medirFundo(); addEventListener('resize',medirFundo,{passive:true});
       palco.addEventListener('pointermove',(e)=>{
         const b=palco.getBoundingClientRect();
         px=e.clientX-b.left; py=e.clientY-b.top;
@@ -8513,8 +8617,10 @@ html{
         pendente=true;
         requestAnimationFrame(()=>{
           pendente=false;
-          palco.style.setProperty('--px',px.toFixed(0)+'px');
-          palco.style.setProperty('--py',py.toFixed(0)+'px');
+          // foco da malha por transform (ver .malha-foco)
+          foco.classList.add('ativo');
+          foco.style.transform=`translate3d(${(px-300).toFixed(0)}px,${(py-300).toFixed(0)}px,0)`;
+          fundo.style.transform=`translate3d(${(300-px).toFixed(0)}px,${(300-py).toFixed(0)}px,0)`;
 
           /* Inclinacao e direcao da luz para o nome.
              Sao medidas a partir do CENTRO DO TITULO, e nao do hero: o nome
@@ -8532,13 +8638,11 @@ html{
           bloco.style.setProperty('--incY',(nx*2.6).toFixed(2)+'deg');
           bloco.style.setProperty('--incX',(-ny*1.8).toFixed(2)+'deg');
           /* A extrusao foge do ponteiro: a luz esta onde o cursor esta. */
-          bloco.style.setProperty('--sx',(-nx*0.9).toFixed(3));
-          bloco.style.setProperty('--sy',(-ny*0.5+0.55).toFixed(3));
+          /* --sx/--sy (direcao da extrusao) ficam fixos: mudar repintava o nome inteiro */
         });
       },{passive:true});
       palco.addEventListener('pointerleave',()=>{
-        palco.style.setProperty('--px','-999px');
-        palco.style.setProperty('--py','-999px');
+        foco.classList.remove('ativo');
         /* Volta ao repouso: sem isto o nome fica congelado na ultima
            inclinacao, o que parece defeito e nao pose. */
         const bloco=palco.querySelector('.hero-name-block');

@@ -476,3 +476,27 @@ Antes só mudava o painel da parede; o feedback foi que o AMBIENTE tem que ser d
   2. `suportaWebGL()` criava um contexto novo a cada montagem só pra testar e nunca soltava.
 - **Correção:** `renderer.forceContextLoss()` no `destruir` das três cenas; o teste de suporte guarda a resposta e solta o contexto na hora (`WEBGL_lose_context`).
 - **Verificação:** contando contextos com `isContextLost()` após 4 voltas pelo site, eram 12 vivos e crescendo; agora ficam só os 3 em tela.
+
+## Marca do header: avatar em ASCII (30/09/2026)
+- `src/effects/avatar-ascii.js` troca o planeta (que continua no favicon) por um avatar redondo com o rosto do Lucas em ASCII, redesenhado a ~12 fps e com alguns caracteres trocando.
+- **Terminal interativo:** abre passando o mouse na marca (avatar ou nome), mas só com a página no topo (scrollY < 120). Com a página rolada o hover não faz nada, o clique na marca só volta ao topo, e rolar com o terminal aberto fecha ele. No toque, tocar na marca no topo abre. A tecla `~` abre em qualquer lugar. Fecha quando o mouse sai da marca e do terminal (450 ms de folga, ou 2,5 s se digitou há pouco). Ele digita `whoami` sozinho e o retrato decodifica de cima pra baixo, com scanner e o mouse acendendo os caracteres; clicar no rosto decodifica de novo.
+- **Comandos:** `help`, `whoami`, `stack [área]` (as 9 áreas do `stackData` do site), `projetos` (clicar rola até o capítulo), `contato`, `sobre`, `cv`, `clear`/Ctrl+L e `exit`/Esc. Tem histórico nas setas e Tab completando.
+- **Detalhes:** o `z-index` é 130, acima do nav (100); com 60 o topo ficava atrás do header. O retrato só anima com o terminal aberto, e só o mais recente.
+- **Fonte:** `public/assets/lucas-ascii.png`, 160x192 em cinza (15 KB). A foto foi recortada, o celular apagado e o fundo tirado com vinheta; o rosto teve equalização e nitidez.
+- **Rampa curta** (` .:-=+*#%@`): com a de 70 caracteres o rosto virava sopa de letras.
+- Com menos movimento, o retrato é desenhado uma vez só.
+
+## Primeira tela pesada (30/09/2026)
+Medido: o JS da primeira tela gasta ~5 ms por quadro. O peso era de pintura e composição (monitor com densidade 2x):
+- **`codeFlow`**, o código dentro do nome: animava o `background-position` de uma camada com `background-clip:text`, fundo SVG com centenas de linhas de texto e 16 máscaras radiais (~750 mil px repintados por quadro), e continuava rodando com a camada 100% mascarada, sem o ponteiro. Agora fica pausado e a classe `.vivo` liga só enquanto a luz do mouse está aberta.
+- **`tickerFocus`**: animava `letter-spacing`, o que refazia o layout a cada quadro. Agora anima só a cor.
+- **Blur de fundo** no nav, nas pills e nos cards do hero, refeito a cada quadro por cima dos canvases animados. Trocado por fundo quase opaco. A nebulosa perdeu o `filter:blur(34px)` (os gradientes já são suaves).
+- **Canvases de tela cheia** limitados a 1,25x de densidade (estrelas, campo-estrelas, vapor) e o universo 3D a 1,5x. Caiu de ~11 para ~6,7 milhões de px por quadro.
+- **Cursor:** a lente branca em diferença acendia na caixa inteira do h1 e em qualquer card clicável grande, e virava uma "bola clara" no vazio. Agora só acende em cima das letras (`caretRangeFromPoint` + retângulo do glifo), e card grande fica com cursor normal.
+- **Stack do hero:** o rótulo passou de 78 pra 96 px porque "SEGURANÇA" colava no "JWT". O ticker passou de "04 MOBILE" pra "04 FLASH".
+
+## Primeira tela ainda travando com o mouse / stack redesenhada (30/09/2026)
+- **Travamento ao mexer o mouse**, dois repintadores de tela cheia:
+  - **Relevo do nome:** 13 `text-shadow` (um com 46 px de desfoque) em letras gigantes, com a direção (`--sx/--sy`) seguindo o ponteiro e transição de 0,38 s. O nome inteiro era repintado a cada quadro enquanto o mouse se mexia. Agora a luz do relevo é fixa e a inclinação 3D (transform) continua seguindo o mouse.
+  - **Foco da malha de blueprint:** a máscara radial da camada de tela cheia andava por variável de CSS. Virou `.malha-foco`, uma janela de 600 px com máscara fixa que anda por `transform`, com a malha dentro andando ao contrário (as linhas ficam paradas). Nenhum repaint.
+- **Pilha de barras inclinadas → "arquitetura ao vivo" (`.arq`):** uma requisição de check-in atravessa Interface → Segurança → API → Dados e volta verde como resposta. Cada camada acende e mostra o próprio log. É só keyframes de transform/opacity, sem JS. No celular vira só as 4 pílulas com os nomes.
