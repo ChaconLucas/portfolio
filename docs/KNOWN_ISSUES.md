@@ -273,3 +273,189 @@ fim real da abertura, senão qualquer mudança de ritmo abre a brecha de novo.
 ### Lição
 Os três são a mesma falha: um tempo escrito em dois lugares que precisam concordar.
 Uma fonte só (variável CSS ou constante JS), e os outros derivam dela.
+
+## Motion novo: portal, buraco negro e cursor (30/09/2026)
+Inspirados em componentes do 21st.dev (Glyph Portal, Black Hole, Morphing Cursor), reescritos em JS puro —
+o site não usa React. Código novo fica em `src/effects/`, fora do `index.html`.
+
+Portal (hero → universo), em `index.html` dentro do driver `handleScroll`:
+- A câmera entra pelo "O" de CHACON. O hero escala com origem no miolo da letra (escala exponencial, até
+  o miolo cobrir os cantos) e o universo aparece recortado por `clip-path: ellipse` do mesmo tamanho.
+- O miolo é MEDIDO: `medirPortal()` desenha a letra num canvas com a fonte computada e varre a partir do
+  centro da tinta. Não depende de Arial nem do tamanho do título. Remede em `resize` e `fonts.ready`.
+- O universo fica em camada ACIMA do hero (z 5 x 3), por isso é recortado nele e não furado no hero.
+- `clip-path` vale antes do `transform`: o raio é dividido pela escala da própria camada.
+- Desktop (>900px) e sem reduced-motion. Fora disso `portalState()` devolve null e roda o caminho antigo.
+- CORRIGIDO: o recorte saia abaixo do miolo. O "O" era medido no load, com o nome ainda na animacao de
+  entrada (`nameRise`, ~26px abaixo) e com a inclinacao do ponteiro. Agora so o FORMATO do miolo e
+  guardado (`portalMedida`: offset dentro da letra + raios); a POSICAO da letra e lida todo quadro pelo
+  Range e desfeita do zoom (`portalAplicado`). Erro medido: 0px de 1x a 18x. Durante o portal o nome
+  fica reto (`.portal-ativo`).
+- CUIDADO: `handleScroll` chama `portalState`. Se a função sumir, o script inteiro para ali e `stackData`
+  fica em TDZ ("Cannot access 'stackData' before initialization") — o erro aparece longe da causa.
+
+Buraco negro (`src/effects/buraco-negro.js`), no Contato:
+- WebGL2 puro, quad em tela cheia, analítico (lente fina + disco inclinado + imagem dobrada + Doppler).
+  ~0,7 ms de GPU por quadro em 2160x1733. Paleta do site (violeta → lavanda → branco), não laranja.
+- Carregado por `import()` só quando o Contato está a 600px; RAF só com a seção na tela.
+- Canvas com alfa: só sombra e luz são opacos. z-index 1 (acima das estrelas, abaixo do texto).
+- Celular: resolução ×.85 (abaixo disso a borda da sombra serrilha).
+
+Cursor (`src/effects/cursor.js`):
+- Ponto + anel com mola. Sobre clicável o anel abraça o elemento e o elemento é puxado (propriedade
+  `translate`, para não brigar com o `transform` do hover). Sobre h1/h2 vira lente com `mix-blend-mode:
+  difference`. Sobre o universo, anel tracejado de arrasto.
+- Só com `(hover:hover) and (pointer:fine)` e sem reduced-motion. O laço dorme quando assenta.
+- Molas são por TEMPO (`1-(1-k)^(dt/16.7)`), não por quadro: iguais em 30, 60 ou 120 Hz.
+
+## Motion, segunda leva (30/09/2026)
+- **Fluxos + onda de choque** (Gateway Flow) dentro do shader do buraco negro: filamentos em espiral
+  logaritmica caindo no disco; clique em area vazia do Contato solta uma onda que entorta lente e disco.
+- **Persiana** (Shutter Text) nos 4 titulos de secao, SEM split em letras — o motor PT/EN troca nos de
+  texto. Mascara `linear-gradient` animada por `@property --persiana`, removida ao fim (`.assentada`).
+  O `- 1%` na parada existe porque com as duas paradas em 0% o Chrome pintava um fio por lamina.
+- **Vapor** (`src/effects/vapor.js`): o PRODUCTS vira particulas que espiralam para o portal. Funcao pura
+  de `window.__portal.t` (escrito pelo driver): rolar para cima remonta a palavra.
+- **Roda de projetos** (`src/effects/roda-projetos.js`, Works Wheel): 8 capas (2 telas reais por projeto,
+  lidas dos capitulos) num anel sob o titulo de Projetos. Scroll + deslize + arrasto com inercia; clique
+  leva ao capitulo. Projecao feita no JS em 2D de proposito: com preserve-3d o anel vira um contexto de
+  empilhamento so e a capa nao alterna entre tras/frente do titulo. O cabecalho passa a 100vh.
+- **Trajetoria**: cada linha do cargo sobe de tras de uma mascara em cascata, lendo `--revela` que o
+  driver da Experience escreve por cargo.
+
+## Observado, nao corrigido
+- Mobile 375px: o grid de `.projects-v11-header` sai com 386px e o paragrafo corta na direita (termina em
+  405px). Existia antes da roda (medido com e sem ela).
+
+## Motion, terceira leva (30/09/2026)
+- **Borda que acende** (`src/effects/brilho.js`, Glowing Effect) nos cards do Arquivo Técnico e do Contato.
+  O `<span class="brilho">` é injetado na primeira aproximação do ponteiro, porque `renderStack` recria os
+  cards a cada troca de domínio. Anel de 1px por máscara (content-box em exclude). Só com mouse.
+- **Texto em órbita** (`src/effects/orbita.js`, Marquee along SVG path) em volta do buraco negro, com o
+  texto de `.contact-meta`. A metade de trás é mascarada pela sombra; acelera com o scroll e cai para 1/4
+  com o ponteiro sobre o anel. O buraco negro expõe `centro()` (px CSS) para isso.
+- **Nome no rodapé** (`src/effects/rodape.js`, Hover Footer): contorno + gradiente revelado no ponteiro.
+  Tamanho medido para caber em 94% da largura. CUIDADO: uma regra antiga do Contato força `color` em todo
+  span da seção — por isso o texto usa `-webkit-text-fill-color`, não `color`.
+- O buraco negro agora remede o canvas com `ResizeObserver` na seção: o rodapé muda a altura dela depois.
+- **Pilha de cargos no celular** (`src/effects/pilha.js`, Stacking Cards). Precisou de `overflow:clip` no
+  `.experience-v14-sticky` (com `hidden` o sticky nunca ativa) e de um espaçador `::after` no mapa
+  (`padding-bottom` não conta: sticky respeita a caixa de conteúdo do pai). Usa `scale`, não `transform`.
+
+## Motion, ultimos componentes (30/09/2026)
+- **Globo** (`src/effects/globo.js`, cobe 2.0.1 — dependência nova no package.json) no card "CARGO ATUAL",
+  com o Rio pulsando. O globo tem tamanho fixo no CSS e o canvas fica preso a 100% dele: sem isso o canvas
+  ditava o tamanho da caixa, o ResizeObserver recriava o globo maior e o card crescia sem parar (visto:
+  566 mil px). No celular fica menor, no canto de baixo (o "Full Stack Developer" vai quase até a borda).
+- **Numeros que rolam** (`src/effects/numeros.js`, Number Flow): índice "01 / 09" e número grande do
+  Arquivo Técnico ao trocar de domínio; "01 / 04" dos capítulos rolam de zero ao aparecer. Só números que
+  já existiam. "3 CARGOS"/"2 EMPRESAS" ficaram de fora: são chaves inteiras do dicionário PT/EN.
+  `#gateShotIndex` também ficou de fora (CORREÇÃO: ele É atualizado, pelo `renderChapter`, via o seletor
+  `.chapter-screen-label b` — não pelo id). O `rotulo` que o lê pelo id no bloco do GateCheck é código morto.
+- **Embaralho** (`src/effects/embaralhar.js`, Text Scramble) nos micro-rótulos, ao aparecer e no hover.
+  NÃO escreve no nó de texto: o tradutor observa mutação de texto em #projects e reescreveria o nó a cada
+  quadro. O texto real fica transparente e o embaralhado é pintado num ::after via data-embaralho.
+- **Titulo em particulas** (`src/effects/particulas-titulo.js`) nos 4 h2 de seção, só desktop com mouse:
+  o ponteiro empurra, a mola traz de volta, e o texto real volta quando tudo assenta. Espera a persiana
+  terminar antes de amostrar. Física por tempo com subpassos (igual em 60/120 Hz e em máquina lenta).
+
+## Espaço no fundo do hero (30/09/2026)
+- O hero parecia outra página: `.intro-sticky` pinta `#06070c !important` por cima do campo de estrelas
+  global (`#universeStars`, fixo, z -4), então a primeira tela era chapada.
+- `src/effects/campo-estrelas.js`: estrelas em 3D dentro do próprio sticky (canvas, z 1, abaixo do hero),
+  paralaxe no ponteiro e cintilar. O ponto de fuga é o miolo do "O" (`window.__portal`) e a velocidade
+  cresce com `t²`: no portal as estrelas viram riscos de dobra entrando no nome.
+- Nébula: `::after` do `.intro-sticky` (z 0) com três radiais violeta respirando em 26s.
+
+## Desempenho (30/09/2026)
+Medido por quadro de rAF (CPU, 1440x900, 240 quadros). Nada de comportamento mudou: portal com 0px de erro,
+rótulos dos capítulos trocando 01→04, PT/EN nos capítulos, Trajetória revelando — tudo reconferido.
+- Universo 3D renderizava com opacidade 0 durante todo o hero (o IntersectionObserver o via "visível" por
+  estar no mesmo sticky). Agora pula o quadro quando `#introOrbit` tem opacidade inline < .004 (só >900px).
+- Capítulos: `renderChapter` reescrevia `textContent` todo quadro → o MutationObserver do PT/EN varria a
+  página inteira a cada 2 quadros. Agora `escreverTexto` só escreve quando o VALOR muda (compara com o
+  último valor escrito, não com o texto na tela — em EN a tela tem a tradução). Capítulo a mais de uma tela
+  de distância não é recalculado.
+- Trajetória (`frame`) não roda com a seção a mais de meia tela de distância.
+- Estrelas globais (`draw`) não redesenham enquanto `.intro-sticky` ou `#contact` (fundos opacos) cobrem a tela.
+- Driver do intro só chama `handleScroll` quando progresso, scroll ou janela mudam.
+Resultado: hero ~4,7 → 0,86 ms/quadro; Contato ~2,9 → 0,55; Universo ~4,9 → 3,05 (o 3D visível é o custo real).
+
+## Capítulos 3D: vinhetas e fundos com a marca de cada projeto (30/09/2026)
+Tempo (`src/effects/transicao-capitulos.js` + `window.progressoCapitulo` no index.html):
+- A vinheta só começa quando o capítulo anterior chega na ÚLTIMA tela (p=1). Ela cobre a tela inteira na
+  metade; o novo já está por baixo, na 1ª tela, e a vinheta sai revelando. O anterior fica parado na última
+  tela (translate segura o sticky que já soltou). Novo capítulo: +--revelacao de altura, progresso descontado
+  via `__portalAtraso` (5 drivers usam `progressoCapitulo`).
+- Vinhetas: WSL = transmissão SporTV (faixas diagonais verde-água/branca/verde-escura + "WSL GAMES" em
+  Barlow Condensed itálico); Rare7 = portas pretas com filete dourado + "RARE7" em Cinzel dourado; FLASH =
+  véu vermelho queimando em ruído (WebGL, criado na 1ª vez) com o cachorro e "FLASH" em Rubik Dirt.
+- O capítulo que chega é escondido com OPACITY, não clip-path: o IntersectionObserver das cenas conta o
+  clip-path dos ancestrais e marcava a cena como invisível.
+
+Fundos (`src/projects/fundos.js`): GateCheck `gate` (tipografia gigante do produto + laser de QR); WSL
+`ondas` = parede de LED passando a foto real do surf (`wsl-onda.webp`, recortada do wsl-1, ancorada à direita
+da TV para o surfista não ficar escondido, exposição levantada — o original é um pôr do sol escuro) + faixa do
+SporTV com o texto correndo; Rare7 `ouro` (ouro líquido + RARE7 em relevo); FLASH `flash` = parede de estúdio
+forrada de cartelas de tatuagem (`src/projects/flash-sheet.js` desenha os 8 desenhos em canvas) sendo feitas pela
+agulha, mais fraca atrás da coluna de texto. Numa versão anterior a cartela era um painel único e a câmera só via
+um pedaço gigante dela: agora são quadros de 1,25 m repetidos.
+Vinheta do WSL: a faixa principal tem borda de onda quebrando (clip-path) com espuma (SVG) na mesma curva.
+- CUIDADO: CanvasTexture/TextureLoader já vêm com flipY — amostrar com `v` direto. Com `1 - v` o texto saía
+  de cabeça para baixo.
+- Fontes das marcas: @import do Google Fonts no topo de `src/effects/efeitos.css`.
+
+## BUG CORRIGIDO: cenas 3D paradas depois de rolagem rápida (30/09/2026)
+Os observers liam `es[0].isIntersecting`. Com rolagem rápida o navegador entrega mais de uma entrada no mesmo
+aviso, e a PRIMEIRA é o estado antigo: a cena ficava presa em "invisível" e não desenhava (visto no Rare7:
+laço a 60 fps, 0 quadros renderizados). Agora todos leem a última entrada — cenas GateCheck/WSL/FLASH,
+universo, `aoAproximar` (monta/desmonta cenas) e os módulos de src/effects.
+
+## Ambientes 3D inteiros por projeto (30/09/2026)
+Antes só mudava o painel da parede; o feedback foi que o AMBIENTE tem que ser do projeto.
+- WSL (`src/projects/wsl/praia.js`): praia de campeonato no fim de tarde — céu em shader (violeta do site →
+  laranja), mar com ondas deformando a malha, espuma quebrando na beira e brilho do sol, areia com textura,
+  pranchas fincadas, bandeiras-pena WSL/SPORTV/GE tremulando, palanque dos juízes, tenda, e o totem que segura a
+  TV (`criarAmbiente('praia')` em room.js tira parede, sala escura, treliça e caixas de som). Névoa na cor do
+  horizonte (18–58 m). Sombra atrás da coluna de texto do WSL, porque o céu claro tirava contraste do título.
+  Os adereços ficam na faixa que a câmera vê: ela vem da direita olhando para a esquerda.
+- FLASH (`src/projects/flash/loja.js`): loja de material de tatuagem com entrega — parede de tijolo, neon FLASH +
+  cachorro (tremendo como neon de verdade), estante com 60 frascos de tinta instanciados, caixas de cartucho e
+  luvas, balcão com máquina de tatuar, e a moto do motoboy com o baú vermelho FLASH. Névoa 9–22 m.
+- GateCheck e Rare7 (`src/projects/gatecheck/ambientes.js`, mesma cena, `opcoes.ambiente`):
+  `balada` = entrada de balada/evento com a mesa virando o caixa do check-in — porta com a pista acesa (shader) e
+  feixes, neon GATE ✓ ENTRADA, catracas com leitor de QR piscando, corda de veludo com pedestais de latão, fila com
+  ingresso aceso no celular, cartazes dos eventos do app. `estadio` (Rare7) = a mesa atrás do gol de um estádio à noite: gol
+  com rede a 12 m na direção da câmera, gramado em shader (faixas de corte + todas as linhas do campo), bola na marca
+  do pênalti, bandeirinhas, arquibancadas lotadas com flashes de câmera, 4 torres de refletor, placas de LED
+  "RARE7 · CAMISAS OFICIAIS · QUALIDADE PREMIUM" rolando e o manequim com a camisa 10 do Brasil ao lado da mesa.
+  O estádio vai a ~130 m: `camera.far` sobe para 260 e a névoa vai para 60–200 m, só no Rare7.
+  O percurso da câmera do Rare7 (`CHAVES_ESTADIO` em gatecheck/index.js) começa mais alto e atrás, olhando o
+  estádio por cima do gol; do meio em diante é o trilho do GateCheck. Sem isso só sobrava uma faixa acima do monitor.
+- ENQUADRAMENTO (medido pelo ângulo da câmera, que sai de (2; 1,7; 1,7) olhando para -x -z): na parede do fundo
+  (z -2,7) o centro do quadro cai em x ~ -3, a borda direita em x ~ 0, a coluna de texto cobre x < -4,3, e a faixa
+  de parede visível acima do monitor é y 1,2–2,1. Tudo o que precisa ser visto fica dentro disso.
+- `fundos.js`/`flash-sheet.js`/`wsl-onda.webp` (painéis de parede das versões anteriores) foram apagados: nenhum
+  ambiente usa mais painel.
+
+## Monitor do Rare7 cintilando / GateCheck sem entrada (30/09/2026)
+- **Rare7:** o `camera.far = 260` usado para caber o estádio derrubou a precisão de profundidade, e as peças do monitor, a milímetros umas das outras (tela, moldura, vidro), passaram a brigar entre si. O estádio foi compactado para ~70 m (a câmera só vê até pouco depois do meio-campo), com near 0,1 e far 120 (mesma razão do padrão 0,05/60). A névoa ficou em 45–110. Regra: não aumentar o far sem subir o near na mesma proporção.
+- **GateCheck:** ganhou `CHAVES_BALADA`, um começo alto e atrás mirando a porta, e depois as mesmas chaves finais do estádio. A porta ficou com 2,5 de altura e o neon "GATE ✓ ENTRADA" foi para cima dela. A fila, o cordão e os cartazes foram para a direita da porta (a esquerda fica atrás do texto).
+
+## GateCheck: vinheta de entrada e pessoas da fila (30/09/2026)
+- **Vinheta:** como o GateCheck é o primeiro capítulo, não tem capítulo anterior pra segurar. O ingresso cai enquanto o capítulo sobe a última tela (a cena fica escondida por opacity), o laser lê o QR, aparece o carimbo "ACESSO LIBERADO" e o ingresso rasga no picote com o capítulo já parado no topo. Ele tem +50vh de altura (+30vh no celular), descontados via __portalAtraso.
+- **Pessoas:** a cápsula com a cabeça solta virou uma figura articulada, com tênis, pernas, tronco, braços com cotovelo, pescoço, cabeça e 3 tipos de cabelo. Tem 3 poses: celular com QR aceso, conversa e mãos no bolso. Tem balanço idle e roupas coloridas, e ganhou duas point lights na fila (sem elas a figura vira vulto contra a parede escura).
+
+## GateCheck: ambiente mais vivo (30/09/2026)
+- **Pessoas:** ganharam olhos, sobrancelhas e nariz. O celular virou um aparelho preso ao tronco, na frente do peito, com o QR aceso (antes o antebraço ficava espetado e a tela nem aparecia). A fila foi virada pra câmera.
+- **Novidades:** segurança de STAFF na cabeça da fila, com leitor de QR piscando e ponto de rádio; marquise com lâmpadas correndo; silhuetas pulando no grave lá dentro da porta; fumaça subindo nos feixes; fita de LED no rodapé e no alto; brilho da porta no chão; painel "CHECK-INS AO VIVO" contando sozinho.
+- **Cartazes:** viraram lightbox com moldura e espaçamento de 0,78. Antes se sobrepunham e as bordas davam z-fight.
+
+## GateCheck: fila viva com check-in (30/09/2026)
+- `src/projects/gatecheck/fila.js`: figura nova (tronco e quadril em lathe, sem a emenda serrilhada; ombro redondo; pernas com pivô e ciclo de caminhada; cabelo como calota inclinada, que deixa os olhos livres; roupa, altura e cabelo sorteados em `vestir()`).
+- **Ciclo:** o primeiro da fila levanta o celular, o segurança lê (tela azul varrendo) e depois vem o resultado:
+  - **verde (70%):** halo, luz e um ✓ na cabeça; a catraca abre, a pessoa entra pela porta e o painel de check-ins soma 1;
+  - **vermelho:** ✕, o segurança balança a cabeça e a pessoa sai pela frente da corda, olhando pro chão.
+- A fila anda a cada saída e repõe na hora pelo fim, usando um pool de bonecos (quem sai de cena fica invisível e volta com outra cara).
+- A corda começou a partir de x 0,98 pra cabeça da fila ficar livre na frente do segurança. O contador aleatório antigo saiu; agora só conta check-in válido.
+- **Um entrando no outro (30/09/2026):** a fila recebia o destino novo no instante do resultado, e o de trás andava por cima de quem ainda estava saindo. Agora cada pessoa da fila só dá o passo se não tem ninguém a menos de 0,46 m à frente, na direção em que vai (`livre()` em fila.js). O de trás espera o espaço abrir.
