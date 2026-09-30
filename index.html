@@ -7559,11 +7559,16 @@ if(mount){
 
    A suavizacao e a propria transicao CSS: seguir a posicao crua trava, e um
    lerp por quadro exigiria um laco rodando o tempo todo. */
-.hero-name-block{perspective:1000px;perspective-origin:38% 46%}
+.hero-name-block{perspective-origin:38% 46%}
+/* DESEMPENHO (medido no Safari: 19 -> 31 fps so com isto): o bloco gira como
+   UMA peca plana, com a perspectiva dentro do proprio transform. Com
+   preserve-3d o Safari redesenhava as letras gigantes (13 sombras + a camada
+   de codigo mascarada) a cada quadro da inclinacao; plano, ele so inclina a
+   textura ja pronta. Nenhum filho usa Z, entao o visual e o mesmo. */
 .hero-name-block h1.rname{
   position:relative;display:block;
-  transform-style:preserve-3d;
-  transform:rotateX(var(--incX,0deg)) rotateY(var(--incY,0deg));
+  transform-style:flat;
+  transform:perspective(1000px) rotateX(var(--incX,0deg)) rotateY(var(--incY,0deg));
   transition:transform .38s cubic-bezier(.16,1,.3,1);
   will-change:transform;
 }
@@ -7575,17 +7580,13 @@ if(mount){
     /* Aresta clara do lado de onde vem a luz: sem ela a letra tem corpo mas
        nao tem face, e o volume nao fecha. */
     calc(var(--sx,.32) * -1px) calc(var(--sy,.62) * -1px) 0 rgba(214,196,255,.34),
-    calc(var(--sx,.32) * 1px)  calc(var(--sy,.62) * 1px)  0 rgba(86,62,146,.96),
-    calc(var(--sx,.32) * 2px)  calc(var(--sy,.62) * 2px)  0 rgba(80,57,136,.95),
-    calc(var(--sx,.32) * 3px)  calc(var(--sy,.62) * 3px)  0 rgba(74,53,126,.93),
-    calc(var(--sx,.32) * 5px)  calc(var(--sy,.62) * 5px)  0 rgba(66,47,114,.90),
-    calc(var(--sx,.32) * 7px)  calc(var(--sy,.62) * 7px)  0 rgba(58,41,101,.86),
-    calc(var(--sx,.32) * 10px) calc(var(--sy,.62) * 10px) 0 rgba(50,35,88,.82),
+    /* 7 degraus em vez de 13 (cada sombra redesenha o texto inteiro) */
+    calc(var(--sx,.32) * 1.5px) calc(var(--sy,.62) * 1.5px) 0 rgba(84,60,142,.96),
+    calc(var(--sx,.32) * 4px)  calc(var(--sy,.62) * 4px)  0 rgba(70,50,120,.92),
+    calc(var(--sx,.32) * 8px)  calc(var(--sy,.62) * 8px)  0 rgba(56,40,98,.85),
     calc(var(--sx,.32) * 14px) calc(var(--sy,.62) * 14px) 0 rgba(42,30,75,.76),
-    calc(var(--sx,.32) * 19px) calc(var(--sy,.62) * 19px) 0 rgba(34,24,61,.68),
-    calc(var(--sx,.32) * 25px) calc(var(--sy,.62) * 25px) 0 rgba(27,19,49,.58),
+    calc(var(--sx,.32) * 22px) calc(var(--sy,.62) * 22px) 0 rgba(30,21,54,.62),
     calc(var(--sx,.32) * 32px) calc(var(--sy,.62) * 32px) 0 rgba(20,14,37,.46),
-    calc(var(--sx,.32) * 40px) calc(var(--sy,.62) * 40px) 0 rgba(14,10,26,.32),
     calc(var(--sx,.32) * 50px) calc(var(--sy,.62) * 50px) 46px rgba(6,4,12,.62);
   /* DESEMPENHO: a luz do relevo nao segue mais o ponteiro. Eram 13 sombras
      (uma com 46px de desfoque) em letras gigantes, em transicao a cada
@@ -7684,6 +7685,9 @@ if(mount){
 }
 @keyframes codeFlow{to{background-position:0 -260px,0 0}}
 .rname-glow.vivo{animation-play-state:running}
+/* fechada, a camada nem entra na composicao (no Safari a mascara de 16
+   gradientes custava mesmo 100% transparente) */
+.rname-glow:not(.vivo){visibility:hidden}
 @media(prefers-reduced-motion:reduce){.rname-glow{display:none}}
 
 /* Scrollbar: a padrão do Windows entrava clara e cinza no meio de um site

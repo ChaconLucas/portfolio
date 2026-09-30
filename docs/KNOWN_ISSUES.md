@@ -500,3 +500,10 @@ Medido: o JS da primeira tela gasta ~5 ms por quadro. O peso era de pintura e co
   - **Relevo do nome:** 13 `text-shadow` (um com 46 px de desfoque) em letras gigantes, com a direção (`--sx/--sy`) seguindo o ponteiro e transição de 0,38 s. O nome inteiro era repintado a cada quadro enquanto o mouse se mexia. Agora a luz do relevo é fixa e a inclinação 3D (transform) continua seguindo o mouse.
   - **Foco da malha de blueprint:** a máscara radial da camada de tela cheia andava por variável de CSS. Virou `.malha-foco`, uma janela de 600 px com máscara fixa que anda por `transform`, com a malha dentro andando ao contrário (as linhas ficam paradas). Nenhum repaint.
 - **Pilha de barras inclinadas → "arquitetura ao vivo" (`.arq`):** uma requisição de check-in atravessa Interface → Segurança → API → Dados e volta verde como resposta. Cada camada acende e mostra o próprio log. É só keyframes de transform/opacity, sem JS. No celular vira só as 4 pílulas com os nomes.
+
+## Safari: nome do hero a 15-19 fps (30/09/2026)
+Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. Base 19 fps; sem a inclinação 3D do nome, 31; sem a camada de código, 28; sem o relevo, 24. O resto (canvases, malha, cursor, card, animações CSS, filtros) ficou entre 15 e 21, dentro do ruído.
+- **Inclinação:** `transform-style:preserve-3d` → `flat`, com `perspective()` dentro do transform. O Safari redesenhava as letras a cada quadro da inclinação; plano, ele só inclina a textura. Nenhum filho usa Z.
+- **Relevo:** de 13 pra 7 sombras.
+- **Camada de código:** `.rname-glow:not(.vivo){visibility:hidden}`, porque no Safari a máscara de 16 gradientes custava mesmo 100% transparente.
+- **Snippet de medição** (colar no Console): mede o fps por 3 s com cada efeito desligado e mostra um `console.table`. Está no histórico da conversa de 30/09.
