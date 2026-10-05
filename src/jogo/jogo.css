@@ -114,9 +114,12 @@ html.jogo-aberto .cursor-ponto,html.jogo-aberto .cursor-anel{display:none!import
 /* mouse solto: o jogo continua aparecendo, com um convite para travar de novo */
 .jogo-pausa{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
   background:rgba(5,4,11,.45);backdrop-filter:blur(2px);z-index:5;transition:opacity .2s}
-.jogo-pausa b{font-size:22px;letter-spacing:.12em;color:#fff;padding:14px 26px;border-radius:999px;
-  background:linear-gradient(135deg,rgba(124,77,255,.55),rgba(255,61,139,.35));border:1px solid rgba(199,180,255,.6);
-  box-shadow:0 0 40px rgba(124,77,255,.45)}
+.jogo-pausa small{font-size:11px;letter-spacing:.4em;color:rgba(228,220,255,.6)}
+.jogo-pausa button{font:800 18px/1 ui-monospace,Menlo,monospace;letter-spacing:.12em;color:#fff;padding:14px 26px;border-radius:999px;min-width:260px;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.22);cursor:pointer!important;transition:transform .15s,background .15s}
+.jogo-pausa .jp-continuar{background:linear-gradient(135deg,rgba(124,77,255,.55),rgba(255,61,139,.35));border-color:rgba(199,180,255,.6);box-shadow:0 0 40px rgba(124,77,255,.45)}
+.jogo-pausa .jp-sair:hover{background:rgba(255,95,87,.25);border-color:#ff5f57}
+.jogo-pausa button:hover{transform:scale(1.04)}
 .jogo-pausa span{color:rgba(228,220,255,.75);font-size:12px}
 .jogo.mouse-preso .jogo-pausa,.jogo.sem-trava .jogo-pausa,.jogo.carregando .jogo-pausa,.jogo.painel-on .jogo-pausa{opacity:0;pointer-events:none}
 /* com o painel do predio aberto o mouse fica solto: o cursor aparece para clicar */

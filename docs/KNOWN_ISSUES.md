@@ -624,3 +624,11 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - pixel ratio até 1,25;
   - o botão "Pilotar" agora aparece no celular, e no clique pede tela cheia (Android) em vez de travar o mouse;
   - no celular em pé o HUD se reorganiza.
+
+## Jogo: Esc pausa, Esc de novo sai (05/10/2026)
+- **Antes:** o Esc que solta o mouse chega à página antes ou depois de soltar, conforme o navegador, e a janela de 250 ms nem sempre cobria. Às vezes o 2º Esc era ignorado; às vezes o 1º já fechava o jogo.
+- **Agora:**
+  - Esc com o mouse preso chama `exitPointerLock()` e o jogo **pausa** (a simulação para, só redesenha), com o menu "▶ continuar" e "✕ sair do jogo";
+  - o Esc que chega até 500 ms depois de soltar é ignorado;
+  - Esc com o menu na tela sai;
+  - teclas repetidas (`e.repeat`) são ignoradas.

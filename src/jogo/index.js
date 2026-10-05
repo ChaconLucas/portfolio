@@ -80,7 +80,12 @@ export async function abrirJogo() {
       </div>
       <div class="jt-dica">arraste à esquerda para mover · à direita para olhar</div>
     </div>
-    <div class="jogo-pausa"><b>▶ clique para pilotar</b><span>o mouse fica preso ao jogo e vira a mira · <kbd>Esc</kbd> solta o mouse · <kbd>Esc</kbd> de novo sai</span></div>
+    <div class="jogo-pausa">
+      <small>PAUSADO</small>
+      <button type="button" class="jp-continuar">▶ continuar</button>
+      <button type="button" class="jp-sair">✕ sair do jogo</button>
+      <span>o mouse fica preso ao jogo e vira a mira · <kbd>Esc</kbd> pausa · <kbd>Esc</kbd> de novo sai</span>
+    </div>
     <div class="jogo-carregando">carregando a nave…</div>`;
   document.body.appendChild(raiz);
   const $ = (q) => raiz.querySelector(q);
@@ -101,6 +106,8 @@ export async function abrirJogo() {
   // a trava e no documento inteiro: o botao "Pilotar" ja pediu no clique (Safari
   // so aceita no gesto); daqui em diante, cliques no jogo pedem de novo
   const preso = () => !!document.pointerLockElement;
+  // pausa = mouse solto no desktop (o menu "continuar / sair" esta na tela)
+  const pausado = () => !preso() && !semTrava && !painelAberto && !!s;
   const travar = () => { if (preso() || semTrava) return; try { const r = document.documentElement.requestPointerLock?.(); r?.catch?.(() => {}); } catch (e) { /* */ } };
   // estado declarado antes de carregar: o teclado ja escuta durante o carregamento
   let s = null, painelAberto = false;
@@ -177,9 +184,14 @@ export async function abrirJogo() {
   // teclado
   const baixo = (e) => {
     if (e.key === 'Escape') {
+      if (e.repeat) return;
       if (painelAberto) { fecharPainel(); return; }
-      // com o mouse travado, o primeiro Esc so solta o mouse (o navegador ja faz)
-      if (document.pointerLockElement || performance.now() - soltouEm < 250) return;
+      // 1o Esc: o navegador solta o mouse e o jogo pausa (menu continuar/sair).
+      // Esc de novo, com o menu ja na tela, sai. Conforme o navegador, o Esc
+      // que soltou o mouse chega aqui antes ou um pouco depois de soltar: esse
+      // e ignorado (meio segundo de folga)
+      if (document.pointerLockElement) { document.exitPointerLock(); return; }
+      if (!semTrava && performance.now() - soltouEm < 500) return;
       fechar(); return;
     }
     if (!s) return;                                   // ainda carregando
@@ -199,7 +211,8 @@ export async function abrirJogo() {
      deixar. Rodinha = zoom. */
   let mdx = 0, mdy = 0, zoom = 1, soltouEm = 0, ultX = null, ultY = null;
   canvas.addEventListener('click', travar);
-  $('.jogo-pausa').addEventListener('click', travar);
+  $('.jogo-pausa').addEventListener('click', (e) => { if (!e.target.closest('.jp-sair')) travar(); });
+  $('.jp-sair').addEventListener('click', (e) => { e.stopPropagation(); fechar(); });
   // navegador sem trava: cai no modo solto (o movimento do mouse mira mesmo assim)
   document.addEventListener('pointerlockerror', () => { semTrava = true; raiz.classList.add('sem-trava'); });
   const aoMover = (e) => {
@@ -577,7 +590,10 @@ export async function abrirJogo() {
   function quadro() {
     if (!rodando) return;
     requestAnimationFrame(quadro);
-    passo(Math.min(.05, relogio.getDelta()));
+    const dt = Math.min(.05, relogio.getDelta());
+    // pausado (mouse solto, menu na tela): o jogo para; so redesenha
+    if (pausado()) { renderer.render(cena, camera); return; }
+    passo(dt);
   }
 
   function voarNave(dt, c, naSuperficie) {
