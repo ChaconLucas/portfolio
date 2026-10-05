@@ -599,3 +599,28 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - a saída atravessa o mesmo gás no começo.
 - **Astros no céu crescem junto com o planeta** (`porNoCeu` com `kk = min(S, DIST_CEU/dist)`): antes, quem estava atrás do planeta que crescia aparecia na frente dele.
 - **Rótulos:** o nome de um planeta atrás de outro (ou do sol) some (`escondido`).
+
+## Jogo da nave — etapas 3 e 4: prédios com cara própria e controles de toque (05/10/2026)
+- **Prédios (`src/jogo/predios.js`):** 8 tipos, um por tecnologia da área, então na praça nenhum se repete:
+  - torre afinando com janelas e antena piscando;
+  - domo de vidro com núcleo girando;
+  - zigurate com pirâmide;
+  - silos de dados com "bits" subindo;
+  - cubo holográfico flutuando;
+  - antena com prato girando e ondas;
+  - torre torcida;
+  - servidor com LEDs piscando e ventoinha.
+
+  Todos têm a mesma portaria na frente (porta, batente e o círculo de entrada continuam iguais), o letreiro em cima do teto e um **emblema holográfico** com a sigla da tecnologia (sprite girando). A altura continua pelo nível.
+- **Decoração temática por planeta** (`decorar`, instanciada, ~70–130 peças fora da praça): painéis de interface flutuando (Frontend), canos (Backend), monólitos-tela (Mobile), pilhas de discos (Data), pilones de escudo (Security), antenas (Infra), engrenagens (Tooling), barras de gráfico (Analytics) e orbes (AI). Os cristais caíram pra 160.
+- **Toque (etapa 4):**
+  - `TOQUE` = `maxTouchPoints` e `pointer:coarse`, ou `?debugtoque` pra testar no desktop;
+  - metade esquerda da tela: joystick analógico, que aparece onde o dedo encosta;
+  - metade direita: arrastar pra olhar;
+  - botões ⚡ (turbo/correr/dobra), ▲ (subir/pular/decolar), E (ação, pisca verde quando tem algo) e ▼ (descer);
+  - tocar no aviso de ação também interage.
+- **HUD no toque:** compacto, com velocidade e alvo em cima, radar pequeno e sem ajuda de teclas. O painel do prédio ganhou "✕ sair do prédio".
+- **Celular no geral:**
+  - pixel ratio até 1,25;
+  - o botão "Pilotar" agora aparece no celular, e no clique pede tela cheia (Android) em vez de travar o mouse;
+  - no celular em pé o HUD se reorganiza.

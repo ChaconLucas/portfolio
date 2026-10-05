@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { STACK } from './dados.js';
+import { TIPOS, corpoPredio, portaria, emblema, decorar } from './predios.js';
 
 /**
  * As duas cenas do jogo:
@@ -596,7 +597,7 @@ export function criarSuperficie(cena, planeta, opc = {}) {
 
   // cristais espalhados (instanciados)
   {
-    const n = 320, cg = guarda(new THREE.OctahedronGeometry(1, 0)); cg.scale(.6, 1.8, .6);
+    const n = 160, cg = guarda(new THREE.OctahedronGeometry(1, 0)); cg.scale(.6, 1.8, .6);
     const inst = new THREE.InstancedMesh(cg, guarda(new THREE.MeshStandardMaterial({ color: new THREE.Color(`hsl(${(cor + 20) % 360},80%,62%)`), emissive: new THREE.Color(`hsl(${cor},80%,30%)`), roughness: .3, flatShading: true })), n);
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), v = new THREE.Vector3(); const r = rnd(planeta.key.length * 101);
     for (let i = 0; i < n; i++) {
@@ -607,6 +608,10 @@ export function criarSuperficie(cena, planeta, opc = {}) {
     }
     cena.add(inst);
   }
+
+  // decoracao com o tema da area (paineis, canos, discos de dados, barras...)
+  const decor = decorar(planeta.key, cor, alturaChao, RAIO_PRACA + 14, guarda);
+  if (decor.mesh) cena.add(decor.mesh);
 
   // plataforma de pouso
   const pad = new THREE.Group(); cena.add(pad);
@@ -643,6 +648,19 @@ export function criarSuperficie(cena, planeta, opc = {}) {
   const matCorpo = guarda(new THREE.MeshStandardMaterial({ color: 0x16131f, roughness: .55, metalness: .5 }));
   const matNeon = guarda(new THREE.MeshBasicMaterial({ color: corNeon }));
   const matPorta = guarda(new THREE.MeshBasicMaterial({ color: corNeon, transparent: true, opacity: .85 }));
+  // materiais dos corpos dos predios (predios.js)
+  const mats = {
+    corpo: matCorpo, neon: matNeon,
+    vidro: guarda(new THREE.MeshStandardMaterial({ color: new THREE.Color(`hsl(${cor},60%,40%)`), transparent: true, opacity: .45, roughness: .1, metalness: .6, emissive: new THREE.Color(`hsl(${cor},80%,25%)`), emissiveIntensity: .5 })),
+    grade: guarda(new THREE.MeshBasicMaterial({ color: corNeon, wireframe: true, transparent: true, opacity: .35 })),
+    nucleo: guarda(new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: corNeon, emissiveIntensity: 1.6, flatShading: true })),
+    luz: guarda(new THREE.MeshBasicMaterial({ color: 0xffffff })),
+    linha: guarda(new THREE.LineBasicMaterial({ color: corNeon })),
+    linha2: guarda(new THREE.MeshBasicMaterial({ color: corNeon, transparent: true, opacity: .8, depthWrite: false })),
+    prato: guarda(new THREE.MeshStandardMaterial({ color: 0xd8d2ea, roughness: .4, metalness: .6, side: THREE.DoubleSide })),
+    ledInst: guarda(new THREE.MeshBasicMaterial({ color: 0xffffff }))
+  };
+  const animados = [];
   const predios = area.techs.map((tec, i) => {
     const n = area.techs.length;
     const ang = (i / n) * Math.PI * 2 + Math.PI / n;
@@ -651,15 +669,14 @@ export function criarSuperficie(cena, planeta, opc = {}) {
     g.rotation.y = Math.atan2(-x, -z);           // porta (+z local) virada para o centro
     const alt = tec.nivel === 'Primary' || tec.nivel === 'Core' ? 13 : tec.nivel === 'Professional' ? 11 : 9;
     const L = 9, P = 9;
-    const corpo = new THREE.Mesh(guarda(new THREE.BoxGeometry(L, alt, P)), matCorpo); corpo.position.y = alt / 2; g.add(corpo);
-    // arestas em neon
-    [[-L / 2, P / 2], [L / 2, P / 2], [-L / 2, -P / 2], [L / 2, -P / 2]].forEach(([ax, az]) => {
-      const e = new THREE.Mesh(guarda(new THREE.BoxGeometry(.18, alt, .18)), matNeon); e.position.set(ax, alt / 2, az); g.add(e);
-    });
-    const topo = new THREE.Mesh(guarda(new THREE.BoxGeometry(L + .2, .18, P + .2)), matNeon); topo.position.y = alt; g.add(topo);
+    // corpo com cara propria: um tipo por tecnologia da area (nao repete na praca)
+    const tipo = TIPOS[(i + planeta.key.length) % TIPOS.length];
+    const cp = corpoPredio(tipo, alt, corNeon, mats, guarda, i * 31 + cor);
+    g.add(cp.grupo); animados.push(cp.animar);
+    g.add(portaria(mats, guarda, P));
     // porta
-    const porta = new THREE.Mesh(guarda(new THREE.PlaneGeometry(3, 4.6)), matPorta); porta.position.set(0, 2.3, P / 2 + .02); g.add(porta);
-    const batente = new THREE.Mesh(guarda(new THREE.BoxGeometry(3.6, .25, .3)), matNeon); batente.position.set(0, 4.75, P / 2 + .1); g.add(batente);
+    const porta = new THREE.Mesh(guarda(new THREE.PlaneGeometry(3, 4.6)), matPorta); porta.position.set(0, 2.3, P / 2 + .27); g.add(porta);
+    const batente = new THREE.Mesh(guarda(new THREE.BoxGeometry(3.6, .25, .3)), matNeon); batente.position.set(0, 4.75, P / 2 + .35); g.add(batente);
     // letreiro (os dois lados): nome e nivel
     const tx = document.createElement('canvas'); tx.width = 512; tx.height = 160; const c = tx.getContext('2d');
     const desenharLetreiro = (visto) => {
@@ -674,7 +691,10 @@ export function criarSuperficie(cena, planeta, opc = {}) {
     desenharLetreiro(false);
     const texL = guarda(new THREE.CanvasTexture(tx)); texL.colorSpace = THREE.SRGBColorSpace;
     const placa = new THREE.Mesh(guarda(new THREE.PlaneGeometry(8, 2.5)), guarda(new THREE.MeshBasicMaterial({ map: texL, transparent: true, side: THREE.DoubleSide })));
-    placa.position.set(0, alt + 2.2, 0); g.add(placa);
+    placa.position.set(0, cp.topo + 2, 0); g.add(placa);
+    // emblema holografico com a sigla, girando em cima
+    const emb = emblema(tec.nome, corNeon.getStyle(), guarda); emb.position.y = cp.topo + 6.2; g.add(emb);
+    animados.push((t) => { emb.position.y = cp.topo + 6.2 + Math.sin(t * 1.5 + i) * .35; emb.material.rotation = Math.sin(t * .7 + i) * .12; });
     // circulo de luz na frente da porta (onde da para entrar)
     const marca = new THREE.Mesh(guarda(new THREE.RingGeometry(1.4, 1.75, 40)), matNeon); marca.rotation.x = -Math.PI / 2; marca.position.set(0, .06, P / 2 + 3.2); g.add(marca);
     cena.add(g);
@@ -726,6 +746,7 @@ export function criarSuperficie(cena, planeta, opc = {}) {
         if (cena.fog) { const h = Math.max(0, camera.position.y); cena.fog.near = 150 + h * 1.4; cena.fog.far = 700 + h * 5.5; }
       }
       luzes.forEach((m, k) => m.color.setHex(((k + Math.floor(t * 8)) % 12) < 3 ? 0xffffff : 0xffb13b));
+      animados.forEach((f) => f(t)); decor.animar(t);
       farol.material.opacity = .08 + Math.sin(t * 2) * .04;
       for (let i = 0; i < NP; i++) {
         if (vidaP[i] <= 0) { pp[i * 3 + 1] = -999; continue; }

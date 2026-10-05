@@ -35,6 +35,8 @@ export async function abrirJogo() {
   if (window.__jogoAberto) return;
   window.__jogoAberto = true;
   document.documentElement.classList.add('jogo-aberto');
+  // celular/tablet: controles de toque (etapa 4). ?debugtoque forca no desktop
+  const TOQUE = /debugtoque/.test(location.search) || (navigator.maxTouchPoints > 0 && matchMedia('(pointer:coarse)').matches);
 
   const raiz = document.createElement('div');
   raiz.className = 'jogo carregando';
@@ -64,9 +66,20 @@ export async function abrirJogo() {
       <p class="jp-desc"></p>
       <div class="jp-sec"><small>NA ÁREA</small><p class="jp-areadesc"></p></div>
       <div class="jp-sec"><small>USADO EM</small><div class="jp-proj"></div></div>
-      <div class="jp-pe"><kbd>E</kbd> ou <kbd>Esc</kbd> sair do prédio</div>
+      <div class="jp-pe"><span class="jp-teclas"><kbd>E</kbd> ou <kbd>Esc</kbd> sair do prédio</span><button type="button" class="jp-fechar">✕ sair do prédio</button></div>
     </div>
     <div class="jogo-conquista"></div>
+    <div class="jogo-toque">
+      <div class="jt-area"></div>
+      <div class="jt-joy"><i></i></div>
+      <div class="jt-botoes">
+        <button type="button" data-b="turbo" aria-label="turbo / correr">⚡</button>
+        <button type="button" data-b="sobe" aria-label="subir / pular / decolar">▲</button>
+        <button type="button" data-b="acao" aria-label="interagir">E</button>
+        <button type="button" data-b="desce" aria-label="descer">▼</button>
+      </div>
+      <div class="jt-dica">arraste à esquerda para mover · à direita para olhar</div>
+    </div>
     <div class="jogo-pausa"><b>▶ clique para pilotar</b><span>o mouse fica preso ao jogo e vira a mira · <kbd>Esc</kbd> solta o mouse · <kbd>Esc</kbd> de novo sai</span></div>
     <div class="jogo-carregando">carregando a nave…</div>`;
   document.body.appendChild(raiz);
@@ -94,7 +107,7 @@ export async function abrirJogo() {
   const pe = { pos: new THREE.Vector3(), rumo: 0, vel: new THREE.Vector3(), velY: 0, noChao: true };
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, TOQUE ? 1.25 : 1.5));   // celular: menos pixels, mais quadros
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   let cena = new THREE.Scene();          // troca na entrada/saida (a proxima cena e montada antes)
@@ -204,6 +217,59 @@ export async function abrirJogo() {
   addEventListener('mousemove', aoMover);
   document.addEventListener('pointerlockchange', aoTravar);
   aoTravar();   // a trava pode ter vindo do clique em "Pilotar", antes do jogo existir
+
+  /* Toque (etapa 4): metade esquerda = joystick (aparece onde o dedo
+     encosta), metade direita = arrastar para olhar; botoes a direita:
+     turbo, subir/pular, acao (E) e descer. */
+  const tq = { x: 0, y: 0, sobe: 0, desce: 0, turbo: 0 };
+  if (TOQUE) {
+    semTrava = true; raiz.classList.add('toque', 'sem-trava');
+    ajuda.innerHTML = '';
+    const joy = $('.jt-joy'), bola = $('.jt-joy i'), area = $('.jt-area');
+    let joyId = null, olharId = null, jx = 0, jy = 0, ox = 0, oy = 0;
+    const R = 56;
+    const repousoJoy = () => { joy.style.left = '96px'; joy.style.top = (innerHeight - 110) + 'px'; bola.style.transform = ''; joy.classList.remove('on'); };
+    repousoJoy();
+    area.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      if (e.clientX < innerWidth * .45 && joyId === null) {
+        joyId = e.pointerId; jx = e.clientX; jy = e.clientY;
+        joy.style.left = jx + 'px'; joy.style.top = jy + 'px'; joy.classList.add('on');
+      } else if (olharId === null) { olharId = e.pointerId; ox = e.clientX; oy = e.clientY; }
+      try { area.setPointerCapture(e.pointerId); } catch (er) { /* */ }
+    });
+    area.addEventListener('pointermove', (e) => {
+      if (e.pointerId === joyId) {
+        let dx = e.clientX - jx, dy = e.clientY - jy; const d = Math.hypot(dx, dy);
+        if (d > R) { dx *= R / d; dy *= R / d; }
+        bola.style.transform = `translate(${dx}px,${dy}px)`;
+        tq.x = dx / R; tq.y = -dy / R;
+      } else if (e.pointerId === olharId && !painelAberto) {
+        mdx += (e.clientX - ox) * 1.5; mdy += (e.clientY - oy) * 1.5; ox = e.clientX; oy = e.clientY;
+      }
+    });
+    const soltar = (e) => {
+      if (e.pointerId === joyId) { joyId = null; tq.x = tq.y = 0; repousoJoy(); }
+      if (e.pointerId === olharId) olharId = null;
+    };
+    area.addEventListener('pointerup', soltar); area.addEventListener('pointercancel', soltar);
+    raiz.querySelectorAll('.jt-botoes button').forEach((b) => {
+      const k = b.dataset.b;
+      b.addEventListener('pointerdown', (e) => {
+        e.preventDefault(); b.classList.add('on');
+        if (k === 'acao') { if (s) interagir(); return; }
+        tq[k] = 1;
+        if (k === 'sobe' && s && s.aPe && pe.noChao && !painelAberto) { pe.velY = 6.2; pe.noChao = false; }
+      });
+      const fim = () => { b.classList.remove('on'); if (k !== 'acao') tq[k] = 0; };
+      b.addEventListener('pointerup', fim); b.addEventListener('pointercancel', fim); b.addEventListener('pointerleave', fim);
+    });
+    // tocar no aviso de acao tambem interage
+    acao.addEventListener('pointerdown', (e) => { e.preventDefault(); if (s) interagir(); });
+    addEventListener('resize', repousoJoy);
+    setTimeout(() => raiz.querySelector('.jt-dica')?.classList.add('some'), 6000);
+  }
+  $('.jp-fechar').addEventListener('click', () => fecharPainel());
   canvas.addEventListener('wheel', aoRodar, { passive: false });
 
   /* ---------------------------------------------------------------- mundo -- */
@@ -280,7 +346,12 @@ export async function abrirJogo() {
   }
   montarRotulos();
 
-  function mostrarAcao(txt) { if (acao.dataset.txt === (txt || '')) return; acao.dataset.txt = txt || ''; acao.innerHTML = txt || ''; acao.classList.toggle('on', !!txt); }
+  function mostrarAcao(txt) {
+    if (acao.dataset.txt === (txt || '')) return; acao.dataset.txt = txt || '';
+    // no toque, as teclas viram os botoes da tela
+    acao.innerHTML = TOQUE && txt ? txt.replace(/<kbd>Espaço<\/kbd>/g, '<kbd>▲</kbd>') : (txt || '');
+    acao.classList.toggle('on', !!txt); raiz.classList.toggle('tem-acao', !!txt && /<kbd>E<\/kbd>/.test(txt));
+  }
   let conquistaT = 0;
   function mostrarConquista(txt) { conquista.innerHTML = txt; conquista.classList.add('on'); clearTimeout(conquistaT); conquistaT = setTimeout(() => conquista.classList.remove('on'), 3600); }
 
@@ -540,10 +611,11 @@ export async function abrirJogo() {
     s.tModo += dt;
     const T = s.tModo;
     // sem setas: quem vira e o mouse (a visao); W/A/S/D so movem, relativo a ela
-    const acelera = ok('KeyW') ? 1 : 0, freia = ok('KeyS') ? 1 : 0;
-    const lado = (ok('KeyA') ? 1 : 0) - (ok('KeyD') ? 1 : 0);
-    const sobe = (ok('Space', 'KeyR') ? 1 : 0) - (ok('ControlLeft', 'ControlRight', 'KeyF', 'KeyC') ? 1 : 0);
-    const turbo = ok('ShiftLeft', 'ShiftRight') && acelera;
+    // teclado ou toque (joystick analogico)
+    const acelera = Math.max(ok('KeyW') ? 1 : 0, tq.y > .15 ? tq.y : 0), freia = Math.max(ok('KeyS') ? 1 : 0, tq.y < -.15 ? -tq.y : 0);
+    const lado = Math.max(-1, Math.min(1, (ok('KeyA') ? 1 : 0) - (ok('KeyD') ? 1 : 0) - (Math.abs(tq.x) > .15 ? tq.x : 0)));
+    const sobe = Math.max(-1, Math.min(1, (ok('Space', 'KeyR') ? 1 : 0) - (ok('ControlLeft', 'ControlRight', 'KeyF', 'KeyC') ? 1 : 0) + tq.sobe - tq.desce));
+    const turbo = (ok('ShiftLeft', 'ShiftRight') || tq.turbo > 0) && acelera > 0;
     const ctl = { acelera, freia, lado, sobe, turbo };
     let empuxo = .12, reentra = 0, tremor = 0;
 
@@ -747,8 +819,9 @@ export async function abrirJogo() {
     else {
       const fx2 = Math.sin(s.alvoRumo), fz = Math.cos(s.alvoRumo);
       _v.set(fx2 * (c.acelera - c.freia) + fz * c.lado, 0, fz * (c.acelera - c.freia) - fx2 * c.lado);
-      const correndo = ok('ShiftLeft', 'ShiftRight');
-      if (_v.lengthSq() > 0) _v.normalize().multiplyScalar(correndo ? 6.8 : 3.4);
+      const correndo = ok('ShiftLeft', 'ShiftRight') || tq.turbo > 0;
+      // analogico: joystick pela metade anda mais devagar
+      if (_v.lengthSq() > 0) { const f = Math.min(1, _v.length()); _v.normalize().multiplyScalar((correndo ? 6.8 : 3.4) * f); }
       pe.vel.lerp(_v, 1 - Math.exp(-dt * (pe.noChao ? 10 : 2)));
     }
     pe.pos.addScaledVector(pe.vel, dt);
@@ -863,6 +936,7 @@ export async function abrirJogo() {
     removeEventListener('keydown', baixo); removeEventListener('keyup', cima); removeEventListener('resize', medir);
     removeEventListener('mousemove', aoMover); document.removeEventListener('pointerlockchange', aoTravar);
     if (document.pointerLockElement) document.exitPointerLock();
+    if (document.fullscreenElement) document.exitFullscreen?.()?.catch?.(() => {});
     tecla.clear(); clearTimeout(conquistaT);
     nave?.destruir(); astro?.destruir(); mundo.destruir(); ent.mundoProx?.destruir();
     rt.dispose(); posMat.dispose(); fotoTex?.dispose(); fotoMat.dispose(); removeEventListener('resize', medirPos);

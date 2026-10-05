@@ -93,6 +93,9 @@ import('./avatar-ascii.js').then(({ montarAvatarAscii }) => montarAvatarAscii())
 document.getElementById('botaoPilotar')?.addEventListener('click', () => {
   // a trava do mouse tem que ser pedida AQUI, no mesmo instante do clique: o
   // Safari recusa se vier depois de carregar o jogo (fim do gesto do usuario)
-  try { const r = document.documentElement.requestPointerLock?.(); r?.catch?.(() => {}); } catch (e) { /* sem trava */ }
+  const toque = navigator.maxTouchPoints > 0 && matchMedia('(pointer:coarse)').matches;
+  // celular: tela cheia (onde der: Android sim, iPhone nao) em vez de travar o mouse
+  if (toque) { try { const r = document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }); r?.catch?.(() => {}); } catch (e) { /* */ } }
+  else try { const r = document.documentElement.requestPointerLock?.(); r?.catch?.(() => {}); } catch (e) { /* sem trava */ }
   import('../jogo/index.js').then(({ abrirJogo }) => abrirJogo());
 });
