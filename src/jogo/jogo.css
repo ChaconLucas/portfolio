@@ -1,0 +1,59 @@
+/* Jogo da nave: tela cheia por cima do site, HUD no estilo do terminal. */
+html.jogo-aberto,html.jogo-aberto body{overflow:hidden!important}
+.jogo{position:fixed;inset:0;z-index:200;background:#05040b;color:#e4dcff;
+  font:500 12px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;user-select:none;cursor:default}
+.jogo *{cursor:default}
+.jogo-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.jogo-rotulos{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.jogo-rotulo{position:absolute;left:0;top:0;display:flex;flex-direction:column;align-items:center;gap:2px;transition:opacity .2s;will-change:transform}
+.jogo-rotulo b{font-size:11px;letter-spacing:.14em;color:var(--cor);text-transform:uppercase;text-shadow:0 0 12px rgba(0,0,0,.9)}
+.jogo-rotulo span{font-size:10px;color:rgba(228,220,255,.55)}
+.jogo-flash{position:absolute;inset:0;opacity:0;pointer-events:none;transition:opacity .5s ease}
+.jogo-flash.on{opacity:1;transition:opacity .45s ease-in}
+.jogo-topo{position:absolute;left:24px;right:24px;top:20px;display:flex;justify-content:space-between;align-items:center}
+.jogo-titulo{display:flex;gap:12px;align-items:baseline}
+.jogo-titulo b{letter-spacing:.22em;color:#c7b4ff}
+.jogo-titulo span{color:#2bff8f;letter-spacing:.08em}
+.jogo-titulo span::before{content:"● ";animation:jogoPisca 1.4s ease-in-out infinite}
+@keyframes jogoPisca{50%{opacity:.25}}
+.jogo-sair{font:inherit;font-weight:700;letter-spacing:.14em;color:#fff;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:8px 14px;cursor:pointer}
+.jogo-sair:hover{background:rgba(255,95,87,.2);border-color:#ff5f57}
+.jogo-ajuda{position:absolute;left:24px;top:62px;display:flex;flex-direction:column;gap:6px;color:rgba(228,220,255,.55);font-size:11px}
+.jogo kbd{display:inline-block;min-width:20px;padding:2px 6px;margin-right:3px;border-radius:5px;text-align:center;
+  font:700 10px/1.4 ui-monospace,Menlo,monospace;color:#fff;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.22);box-shadow:0 2px 0 rgba(0,0,0,.4)}
+.jogo-acao{position:absolute;left:50%;bottom:120px;transform:translate(-50%,8px);padding:12px 18px;border-radius:12px;text-align:center;
+  background:rgba(12,10,22,.78);border:1px solid rgba(169,139,255,.35);box-shadow:0 0 30px rgba(124,77,255,.25);
+  opacity:0;transition:opacity .25s,transform .25s;font-size:13px;display:flex;flex-direction:column;gap:4px}
+.jogo-acao.on{opacity:1;transform:translate(-50%,0)}
+.jogo-acao b{color:#fff}
+.jogo-acao span{color:rgba(228,220,255,.6);font-size:11px}
+.jogo-painel{position:absolute;left:24px;bottom:24px;display:flex;gap:12px}
+.jogo-vel,.jogo-alvo{padding:12px 16px;border-radius:12px;background:rgba(12,10,22,.7);border:1px solid rgba(255,255,255,.1);min-width:170px}
+.jogo-painel small{display:block;font-size:9px;letter-spacing:.2em;color:rgba(228,220,255,.45);margin-bottom:4px}
+.jogo-painel b{font-size:18px;color:#fff}
+.jogo-alvo span{display:block;color:#c7b4ff}
+.jogo-vel i{display:block;height:3px;margin-top:8px;border-radius:3px;background:rgba(255,255,255,.1);overflow:hidden}
+.jogo-vel em{display:block;height:100%;background:linear-gradient(90deg,#7c4dff,#4fd2ff);transform-origin:0 50%;transform:scaleX(0)}
+.jogo-radar{position:absolute;right:24px;bottom:24px;width:150px;height:150px;border-radius:50%;
+  background:radial-gradient(circle,rgba(20,14,40,.75),rgba(8,6,16,.85));border:1px solid rgba(169,139,255,.3)}
+.jogo-carregando{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:#c7b4ff;letter-spacing:.12em}
+@media(max-width:900px){.jogo-ajuda{display:none}.jogo-radar{width:110px;height:110px}.jogo-vel,.jogo-alvo{min-width:0}}
+
+
+/* mira no centro com o mouse travado; dica para travar quando solto */
+.jogo-mira{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;
+  border:1.5px solid rgba(199,180,255,.7);box-shadow:0 0 12px rgba(124,77,255,.5);opacity:0;transition:opacity .2s;pointer-events:none}
+.jogo-mira::after{content:"";position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:#fff}
+.jogo.mouse-preso .jogo-mira{opacity:1}
+.jogo-dica-mouse{position:absolute;left:50%;top:22%;transform:translateX(-50%);padding:9px 16px;border-radius:999px;
+  background:rgba(12,10,22,.72);border:1px solid rgba(169,139,255,.4);color:#e4dcff;font-size:12px;letter-spacing:.06em;
+  pointer-events:none;transition:opacity .2s;opacity:.75}
+.jogo.mouse-preso .jogo-dica-mouse{opacity:0;animation:none}
+.jogo.mouse-preso .jogo-canvas{cursor:none}
+/* mouse solto: um anel no centro mostra a zona morta (cursor dentro = reto) */
+.jogo:not(.mouse-preso) .jogo-mira{opacity:.45;width:110px;height:110px;margin:-55px 0 0 -55px;border-style:dashed;border-color:rgba(199,180,255,.35);box-shadow:none}
+.jogo:not(.mouse-preso) .jogo-mira::after{opacity:.6}
+/* o site esconde o cursor do sistema (cursor proprio); no jogo volta uma mira nativa */
+html.cursor-proprio .jogo,html.cursor-proprio .jogo *{cursor:crosshair!important}
+html.cursor-proprio .jogo .jogo-sair{cursor:pointer!important}
+html.jogo-aberto .cursor-ponto,html.jogo-aberto .cursor-anel{display:none!important}

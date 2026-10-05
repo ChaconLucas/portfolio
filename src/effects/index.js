@@ -88,3 +88,8 @@ import('./transicao-capitulos.js').then(({ montarTransicaoCapitulos }) => montar
 
 // Avatar em ASCII na marca do header (no lugar do planeta)
 import('./avatar-ascii.js').then(({ montarAvatarAscii }) => montarAvatarAscii());
+
+// Jogo da nave: so carrega quando alguem clica em "Pilotar"
+document.getElementById('botaoPilotar')?.addEventListener('click', () => {
+  import('../jogo/index.js').then(({ abrirJogo }) => abrirJogo());
+});

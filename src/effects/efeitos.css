@@ -496,3 +496,19 @@
 .at-linha{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:9px 14px 12px;border-top:1px solid rgba(255,255,255,.06);cursor:text}
 .at-input{flex:1;min-width:0;font:inherit;color:#fff;background:none;border:0;outline:0;caret-color:#2bff8f}
 @media(max-width:560px){.ascii-term{font-size:10.5px}.at-rosto{max-height:240px}}
+
+/* botao do site que abre o jogo */
+/* canto de baixo a direita: em cima ficava atras do menu fixo (PROJETOS/CONTATO)
+   e embaixo no centro abre o painel da stack */
+.pilotar{position:absolute;right:32px;bottom:40px;z-index:6;display:flex;align-items:center;gap:8px;
+  font:800 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.18em;color:#fff;cursor:pointer;
+  padding:11px 16px;border-radius:999px;border:1px solid rgba(169,139,255,.55);
+  background:linear-gradient(135deg,rgba(124,77,255,.35),rgba(255,61,139,.2));
+  box-shadow:0 0 0 0 rgba(124,77,255,.5),0 10px 30px rgba(0,0,0,.4);animation:pilotarPulso 2.4s ease-out infinite;
+  transition:transform .25s cubic-bezier(.2,.8,.2,1),background .25s}
+.pilotar:hover{transform:translateY(-2px) scale(1.04);background:linear-gradient(135deg,rgba(124,77,255,.6),rgba(255,61,139,.35))}
+@keyframes pilotarPulso{70%{box-shadow:0 0 0 14px rgba(124,77,255,0),0 10px 30px rgba(0,0,0,.4)}100%{box-shadow:0 0 0 0 rgba(124,77,255,0),0 10px 30px rgba(0,0,0,.4)}}
+/* so com o universo interativo (mesma regra dos rotulos dos planetas), e so
+   com mouse/teclado por enquanto: os controles de toque sao a etapa 4 */
+#introOrbit:not(.is-interactive) .pilotar{opacity:0;pointer-events:none}
+@media (hover:none),(pointer:coarse){.pilotar{display:none}}

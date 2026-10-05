@@ -5055,6 +5055,7 @@ nav{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
 <canvas id="threeCanvas"></canvas>
 <div class="three-labels" id="threeLabels"></div>
 <div class="universe-hud-mini">STACK UNIVERSE <span>·</span> CLIQUE / ARRASTE PARA EXPLORAR</div>
+<button class="pilotar" id="botaoPilotar" type="button" aria-label="Pilotar a nave pelo Stack Universe">🚀 PILOTAR NAVE</button>
 <div aria-live="polite" class="three-stack-panel" id="threeStackPanel">
 <div class="three-stack-head">
 <div>
@@ -6694,7 +6695,7 @@ if(mount){
  // opacidade inline e a verdade; no celular o CSS forca opacity:1, entao la
  // nao se usa isto.
  const orbitaCamada=document.getElementById('introOrbit');
- function animate(){requestAnimationFrame(animate);if(!universeVisible)return;
+ function animate(){requestAnimationFrame(animate);if(!universeVisible||window.__jogoAberto)return;
   if(orbitaCamada&&innerWidth>900&&orbitaCamada.style.opacity!==''&&+orbitaCamada.style.opacity<.004)return;
   const t=clock.getElapsedTime();
   universeScroll=window.__portfolioUniverseScroll||0;
@@ -6788,6 +6789,7 @@ if(mount){
   // O Contato tambem pinta fundo opaco (#04050a !important).
   const coberturas=[document.querySelector('.intro-sticky'),document.getElementById('contact')].filter(Boolean);
   function draw(t){
+    if(window.__jogoAberto){requestAnimationFrame(draw);return;}   // jogo da nave por cima: nada a desenhar aqui
     for(const el of coberturas){
       const c=el.getBoundingClientRect();
       if(c.top<=0&&c.bottom>=innerHeight){requestAnimationFrame(draw);return;}
