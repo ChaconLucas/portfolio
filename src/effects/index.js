@@ -91,5 +91,8 @@ import('./avatar-ascii.js').then(({ montarAvatarAscii }) => montarAvatarAscii())
 
 // Jogo da nave: so carrega quando alguem clica em "Pilotar"
 document.getElementById('botaoPilotar')?.addEventListener('click', () => {
+  // a trava do mouse tem que ser pedida AQUI, no mesmo instante do clique: o
+  // Safari recusa se vier depois de carregar o jogo (fim do gesto do usuario)
+  try { const r = document.documentElement.requestPointerLock?.(); r?.catch?.(() => {}); } catch (e) { /* sem trava */ }
   import('../jogo/index.js').then(({ abrirJogo }) => abrirJogo());
 });

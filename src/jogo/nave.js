@@ -58,6 +58,16 @@ export async function criarNave(cena) {
   halo.scale.setScalar(1.6); chama.add(halo);
   const luz = new THREE.PointLight(0xa07bff, 0, 18, 1.6); luz.position.set(0, 0, atras - .6); corpo.add(luz);
 
+  // plasma da reentrada: concha na frente do nariz + brilho, de laranja a branco
+  const frente = COMPRIMENTO * .5;
+  const plasma = new THREE.Group(); plasma.position.set(0, 0, frente * .55); corpo.add(plasma); plasma.visible = false;
+  const conchaGeo = new THREE.SphereGeometry(1.25, 28, 18, 0, Math.PI * 2, 0, Math.PI * .5); conchaGeo.rotateX(Math.PI / 2);
+  const concha = new THREE.Mesh(conchaGeo, new THREE.MeshBasicMaterial({ color: 0xff7a2e, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  concha.scale.set(1, 1, 1.6); plasma.add(concha);
+  const fogo = new THREE.Sprite(new THREE.SpriteMaterial({ map: brilho, color: 0xffa040, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+  fogo.scale.setScalar(5); plasma.add(fogo);
+  let reentra = 0;
+
   // rastro (no mundo)
   const N = 220;
   const pos = new Float32Array(N * 3), vida = new Float32Array(N), tamP = new Float32Array(N);
@@ -67,11 +77,14 @@ export async function criarNave(cena) {
   geo.setAttribute('vida', new THREE.BufferAttribute(vida, 1));
   geo.setAttribute('tam', new THREE.BufferAttribute(tamP, 1));
   const rastro = new THREE.Points(geo, new THREE.ShaderMaterial({
-    uniforms: { mapa: { value: brilho }, escala: { value: 300 } },
+    uniforms: { mapa: { value: brilho }, escala: { value: 300 }, calor: { value: 0 } },
     vertexShader: `attribute float vida; attribute float tam; varying float v; uniform float escala;
-      void main(){ v = vida; vec4 mv = modelViewMatrix * vec4(position,1.); gl_PointSize = tam * vida * escala / -mv.z; gl_Position = projectionMatrix * mv; }`,
-    fragmentShader: `uniform sampler2D mapa; varying float v;
-      void main(){ if (v <= 0.) discard; vec4 t = texture2D(mapa, gl_PointCoord); vec3 c = mix(vec3(.45,.3,1.), vec3(1.,.95,1.), v*v); gl_FragColor = vec4(c, t.a * v * .8); }`,
+      void main(){ v = vida; vec4 mv = modelViewMatrix * vec4(position,1.); gl_PointSize = min(48., tam * vida * escala / -mv.z); gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `uniform sampler2D mapa; uniform float calor; varying float v;
+      void main(){ if (v <= 0.) discard; vec4 t = texture2D(mapa, gl_PointCoord);
+        vec3 frio = mix(vec3(.45,.3,1.), vec3(1.,.95,1.), v*v);
+        vec3 quente = mix(vec3(1.,.35,.05), vec3(1.,.9,.6), v*v);
+        gl_FragColor = vec4(mix(frio, quente, calor), t.a * v * .8); }`,
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
   }));
   rastro.frustumCulled = false;
@@ -83,6 +96,8 @@ export async function criarNave(cena) {
   return {
     raiz, corpo, modelo, rastro,
     get empuxo() { return empuxo; },
+    /** 0..1: intensidade da reentrada (plasma no nariz, faiscas laranja) */
+    reentrada(k) { reentra = k; },
     /**
      * @param dt segundos
      * @param alvo 0..1 (acelerador), turbo boolean
@@ -98,12 +113,22 @@ export async function criarNave(cena) {
       halo.material.opacity = Math.min(1, .3 + e * .8);
       halo.scale.setScalar(1.2 + e * 1.6);
       luz.intensity = e * 6;
+      // reentrada
+      plasma.visible = reentra > .01;
+      if (plasma.visible) {
+        const f = 1 + Math.sin(t * 47) * .06 + Math.sin(t * 29) * .05;
+        concha.material.opacity = reentra * .42;
+        concha.material.color.setRGB(1, .35 + reentra * .3, .1 + reentra * .15);
+        concha.scale.set(f, f, (1.2 + reentra * 1.4) * f);
+        fogo.material.opacity = reentra * .75; fogo.scale.setScalar((2.6 + reentra * 3.4) * f);
+      }
+      rastro.material.uniforms.calor.value += (reentra - rastro.material.uniforms.calor.value) * .1;
 
       // particulas: soltas no bocal, no mundo
       raiz.updateMatrixWorld();
       _bocal.set(0, 0, atras - .2).applyMatrix4(corpo.matrixWorld);
       _tras.set(0, 0, -1).transformDirection(corpo.matrixWorld);
-      acumulado += dt * (e > .05 ? 70 + e * 160 : 0);
+      acumulado += dt * (e > .05 ? 70 + e * 160 : 0) + dt * reentra * 260;
       while (acumulado >= 1) {
         acumulado -= 1;
         const i = proxima; proxima = (proxima + 1) % N;

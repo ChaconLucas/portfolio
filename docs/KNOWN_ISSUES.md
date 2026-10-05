@@ -520,3 +520,82 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
 - **Mouse e teclado juntos (05/10/2026):** o mouse solto só vira a nave enquanto alguma tecla de movimento está apertada (W/S/A/D/Espaço/Ctrl/setas); parada, o mouse fica livre. A/D viraram deslize lateral (34 m/s²) e as setas ←/→ continuam virando, pra quem joga só no teclado. Com o mouse travado, ele mira sempre.
 - **Controle "de jogo" (05/10/2026):** o modelo virou mira em terceira pessoa. O MOVIMENTO do mouse (`movementX/Y`, que existe sem trava; fallback pela diferença de `clientX`) gira a mira (`alvoRumo/alvoMira`) na hora, e a câmera fica atrás da mira. A nave persegue a mira com inércia: mola de giro com taxa máxima de 2,6 rad/s, leve passada e inclinação proporcional à velocidade de giro. Mouse parado, nada gira; não depende de tecla. Pousado, a mira só orbita a câmera. As setas também mexem na mira.
 - **Flutuar parada (05/10/2026):** a "gravidade leve" da superfície (6 m/s²) fazia a nave descer sozinha. Saiu. Com os controles soltos, o arrasto sobe (1,8 no geral e 3 no vertical) e a nave freia até pairar na altura em que está. Pra descer: Ctrl ou nariz pra baixo + W.
+
+## Jogo da nave — etapa 2: entrada cinematográfica, a pé e prédios da stack (05/10/2026)
+- **Entrada sem flash:** `entrando` (2,25 s) faz o mergulho acelerando até a superfície, com a câmera abrindo de lado, o plasma no nariz (`nave.reentrada(k)`: concha e brilho de laranja a branco, faíscas laranja no rastro), a borda da tela em brasa (`.jogo-calor`) e tremor. As nuvens (`.jogo-nuvens`) cobrem a tela e a cena troca. Em `descendo`, a nave sai das nuvens a 255 m e o piloto automático desce até ~70 m perto da praça. A saída (`subindo`) é o caminho inverso; no espaço o plasma e as nuvens se dissipam.
+- **A pé:** astronauta da Quaternius (`public/assets/jogo/astronauta.glb`, 774 KB, ~234 KB gzip; clips Idle_Neutral, Walk, Run, Wave e Interact). Pousado, E sai da nave (acenando) e Espaço decola; a pé, W/A/S/D andam relativos à câmera, Shift corre, Espaço pula, E entra no prédio ou embarca. Colide com os prédios e a nave. Na superfície a nave tem escala 2,6 (pessoa ao lado).
+- **Prédios da stack:** um por tecnologia da área (`STACK` em `src/jogo/dados.js`, gerado da `stackData` do index.html), em anel com raio 46 numa praça plana de raio 70, com porta virada pro centro, letreiro em neon com nome e nível, e caminho de luz. E na porta abre o painel: nível, descrição, a área e "usado em" (`PROJETOS_POR_TECH`, ou o `usado` da área), com links "ver no site", que fecham o jogo e rolam até o capítulo. Visitado, o letreiro fica verde; todos vistos dá a conquista "planeta completo ✓". O progresso fica no HUD e no radar (que mostra a praça).
+- **Sem setas (05/10/2026):** a pedido do Lucas, as setas saíram. Só o mouse vira (a visão), e W/A/S/D movem relativos a ela; o deslize A/D da nave usa `alvoRumo` (a visão), não o nariz.
+- **Escala e velocidade da luz (05/10/2026):** o sistema cresceu (`ESC_ORBITA` 26→92, `ESC_TAM` 7→24; sol de raio 52; cinturão em 880; limite 1050; céu a 3000 m; far da câmera 7000), e a câmera fica 35% mais longe da nave no espaço. Velocidade normal até ~430 km/h. Shift+W entra em **dobra** (`s.dobra`): aceleração de até 490, teto de ~2600–3000 km/h, FOV +34°, tremor leve, túnel de linhas (`.jogo-dobra`, conic-gradient girando) e a poeira virando riscos esticados na direção do voo (LineSegments em `criarEspaco`). Bater num planeta ou no sol corta a dobra.
+- **Cursor:** dentro do jogo o cursor some (`cursor:none`; o mouse pilota pelo movimento) e só volta em cima do botão de sair e dos links do painel. O anel tracejado do centro saiu. A dica do mouse foi pra baixo, no centro.
+- **Mouse sempre preso (05/10/2026):** o clique em "Pilotar" já trava o ponteiro (`requestPointerLock` dentro da ativação do usuário). Com o mouse solto ele não pilota (antes o cursor batia na borda e aparecia fora do jogo), e a tela mostra "▶ clique para pilotar". Esc solta e o 2º Esc sai. O painel do prédio solta o mouse (pra clicar nos links) e trava de novo ao fechar. Se o navegador recusar (`pointerlockerror`), entra o modo reserva `sem-trava`, em que o movimento pilota mesmo solto. A mira fica sempre no centro.
+- **Câmera colada na dobra:** a câmera de voo suaviza o deslocamento relativo à nave (`camRel`/`olhaRel`), não a posição no mundo. Suavizar no mundo deixava a câmera ~90 m pra trás a 800 m/s e a nave sumia lá na frente. Em dobra a câmera chega 22% mais perto e o FOV só abre +14°; o efeito fica nos riscos e no túnel.
+- **Borda do sistema:** só remove a componente da velocidade que vai pra fora (a nave desliza na borda). Antes cortava a velocidade pela metade a cada quadro e a nave ficava presa.
+- **Distorção em volta na dobra (05/10/2026):** pós-processamento só com `s.dobra > .02`. A cena vai pra um render target (MSAA 4) e um quad de tela inteira aplica desfoque radial de 14 amostras puxando pro centro, lente curvando as bordas e aberração cromática. A força cresce do centro (`smoothstep(.16,.62,r)`), então a nave fica nítida. O shader aplica tonemapping e colorspace (o render target é linear). O túnel em CSS caiu pra 55% de opacidade.
+- **"Tudo achatado" (05/10/2026):** ao inserir o pós-processamento eu apaguei sem querer a chamada `medir()` (que dimensiona o renderer). O canvas ficou no padrão 300×150 esticado pra tela inteira: tudo achatado e pixelado. Recolocada. Ao mexer nesse trecho, conferir `canvas.width` contra `innerWidth * pixelRatio`.
+
+## Jogo: mouse no Safari, entrada "como entrar na Terra" e planetas maiores (05/10/2026)
+- **Trava do mouse:** o Safari só aceita `requestPointerLock` dentro do próprio gesto. Agora o clique em "Pilotar" (`src/effects/index.js`) pede a trava no `documentElement` antes de carregar o jogo, e o jogo confere `document.pointerLockElement` (qualquer elemento) e chama `aoTravar()` ao abrir. Cliques no jogo pedem de novo.
+- **Escala:** `ESC_ORBITA` 165 e `ESC_TAM` 62 (planetas com raio 40–63), sol de raio 130, cinturão em ~1580, limite 1780, câmera com near 0,4 e far 16000. Velocidade normal até ~680 km/h e dobra até ~3400 km/h.
+- **Tipos de planeta:** `atmosfera` em `PLANETAS`. Frontend, Backend, Mobile, Data, Security e Analytics têm atmosfera; Infra, Tooling e AI Workflow são tipo lua (céu preto estrelado, sem neblina nem nuvens, chão acinzentado, sem fogo de reentrada).
+- **Entrada contínua:** `entrando` (2,6 s) é um mergulho acelerando (k^2,3) até a superfície do planeta, que cresce até encher a tela. No fim um véu da cor do céu (ou do chão, nos tipo lua) cobre a troca de cena. Em `descendo` a nave sai a 1500 m sobre um **globo** de raio 6000 (o terreno de 3000 m curva junto: `alturaChao` desconta `r²/2R`), vê o horizonte curvo, atravessa as nuvens em 450–750 m (overlay pela altitude) e desce até ~85 m perto da praça. A neblina abre com a altitude. A subida passa de 220 m, vai até 1700 e sai pelo escuro.
+- **Globo** a -R-22: os vales do terreno descem até ~-15 e o globo aparecia neles como manchas.
+
+## Jogo: entrada no planeta sem corte (05/10/2026)
+- **Problema:** perto de um planeta de ~60 m, a nave (3,2 m, câmera ~20 m atrás) parecia do tamanho dele, e a troca de cena era um véu de cor cobrindo a tela. O ponto de vista também pulava: mergulhando de frente pro planeta e, logo depois, voando nivelado sobre um chão.
+- **Como ficou:** `entrando` dura 5,2 s. Quem cresce é o planeta, em escala log, em volta do ponto embaixo da nave, até o raio do globo da superfície (`R_GLOBO`). Ao mesmo tempo a altitude relativa h/R cai até a de chegada (1723/6000), e a nave anda pra frente, então o rastro sai certo.
+  - A nave e a câmera vão de "como estavam" para o mergulho no centro, depois para o voo nivelado: slerp de quaternions; a câmera usa offset no referencial dela.
+  - A base do planeta no ponto de entrada (`ex`, `n` = pra fora, `f` = o que era "cima" na tela) é mapeada na base da superfície em `P_SUP` (`S2W`/`W2S`). Por isso, no fim, espaço e superfície estão no **mesmo ponto de vista**. `irParaSuperficie` converte posição, câmera, rumo e velocidade por essa base.
+  - Antes de trocar, a última imagem do espaço vai para `rtFoto` e se dissolve por cima da superfície em 0,9 s (quad com tonemapping e colorspace). O véu saiu.
+- **`criarEspaco().aproximar(p, R, centro, kCeu, kLuz, dirLuz)`:**
+  - escala e move o planeta;
+  - esconde os planetas e o sol que ele engole, as órbitas e o cinturão;
+  - acende uma luz direcional no lugar do sol da superfície (entrando pelo lado da noite, era uma bola escura);
+  - leva a cor e o emissivo ao tom do globo;
+  - com atmosfera, o fundo vira a cor do céu, as estrelas e nebulosas apagam e entra a mesma neblina da superfície a ~1700 m;
+  - o planeta focado para de girar.
+- **Planetas com mais cara de planeta:**
+  - textura 1024×512 com grão fino;
+  - os tipo lua têm crateras e cor dessaturada;
+  - os com atmosfera ganham uma casca de nuvens a 1,08 R. No globo da superfície há a mesma casca, a ~480 m, a altura das nuvens de lá. O globo usa a mesma textura do planeta.
+- **Plasma e rastro:** o brilho do plasma foi reduzido (com a nave em escala 2,6 ele virava uma bola branca), e as partículas do rastro têm tamanho máximo de 48 px (perto da câmera viravam manchas enormes).
+- **Teste:** com `?debugjogo`, sobrescrever `window.requestAnimationFrame = () => 0` antes de abrir o jogo deixa a simulação só no `__jogo.passo(n)`, quadro a quadro. O print do painel às vezes vem atrasado; basta tirar outro.
+
+## Jogo: céu com o sistema, saída sem corte e troca sem engasgo (05/10/2026)
+- **Os outros planetas e o sol não somem mais na entrada.** Antes eram escondidos quando o planeta crescendo os "engolia". Agora `porNoCeu` escala cada astro em volta do olho: mesma direção e mesmo tamanho na tela, só que a `DIST_CEU` (7000) da câmera. A direção sai de onde a nave estaria no sistema de verdade (`ent.ver`). No fim da entrada eles aparecem 2× maiores (`m`).
+- **Céu da superfície:** os mesmos planetas (`montarPlaneta`, mesma textura, nuvens e anel) e o sol, nas direções reais (`atualizar` recebe `verdadeiro` e `W2S`), sem neblina, com a luz do sol junto.
+  - Os tipo lua mostram o mesmo céu estrelado do espaço (`ceuEstrelado`), girado por `qW2S`.
+  - Os com ar têm o domo em degradê (`domoCeu`). No espaço, o mesmo domo é girado pra "cima" da superfície e aparece com `kCeu`.
+  - Cerca de metade dos planetas fica abaixo do horizonte, porque o sistema é plano.
+- **O globo da superfície é o próprio planeta** (`montarPlaneta` com escala `R_GLOBO/raio`, girado por `qW2S` × o giro que o planeta tinha). Todos os planetas param de girar ao entrar (`focar`).
+  - O terreno pega a cor de cada vértice da textura do globo logo abaixo, sem um quadrado de outra cor visto do alto.
+  - As luzes do espaço viram as da superfície no fim (`luzEntrada` + `hemi` acendem, ambiente e contraluz apagam).
+- **Troca sem engasgo:**
+  - a próxima cena é montada antes, numa `Scene` separada: a superfície no E, o espaço ao começar a subir (`prepararSaida`);
+  - é compilada com uma luz pontual de mentira, no lugar da luz do propulsor;
+  - na troca só se troca a referência (`let cena`).
+- **Foto da dissolução:** a "foto" vem de `copyFramebufferToTexture`, logo depois de redesenhar o quadro. Com render target, o domo (ShaderMaterial sem os chunks de cor) saía mais claro que na tela.
+- **Saída (`saindo`, 4,6 s):** o caminho inverso, usando a mesma base da entrada.
+  - Em 1500 m a cena troca no mesmo ponto de vista.
+  - O planeta encolhe até o tamanho real enquanto a nave se afasta, o céu escurece, as estrelas voltam, e a órbita e o cinturão reaparecem.
+  - A nave vira para fora, puxada para o lado do sol.
+  - No fim, `terminarSaida` desloca nave e câmera juntas pro lugar de verdade (nada muda na tela) e `restaurar()` devolve tudo. O véu preto e o `voltarAoEspaco` saíram.
+- **Custo:** montar a superfície leva ~100 ms no E (as texturas ficam em cache, então a volta leva ~20 ms). A troca leva ~50 ms de JS.
+
+## Jogo: planetas e sol iguais ao site, maiores, e camada de gás na entrada (05/10/2026)
+- **Igual ao Stack Universe do site:**
+  - `PLANETAS` usa órbita, ângulo, tamanho e matiz do `domains` do index.html (todos roxo/azul), com órbitas elípticas (z × .55);
+  - `canvasPlaneta` é o `planetTexture` do site, com semente `27 + i*41`;
+  - o material é o `MeshPhysicalMaterial` do site (bump, clearcoat, sheen, emissivo), mais a atmosfera fina (1.055 R), a esfera "sombra" e o anel do Tooling;
+  - o sol é o shader de plasma do site com os três brilhos (glow e duas texturas de raios);
+  - as luzes também são as do site (pontual do sol, hemisférica, fill, rim azul e ambiente), com as intensidades das pontuais × `ESC^decaimento`, e exposição 1,24 no espaço (1 na superfície).
+- **Escala:** uma unidade do site vale `ESC = 340` m, para tamanho e distância. Os planetas têm raio de 220 a 350 m, o sol 517 m, o cinturão fica em ~3700 e o limite em 4000. A velocidade vai até 320 m/s, e até ~2200 m/s na dobra. A nave começa em (-1500, 650, 2900), olhando o sistema como a câmera do site. Câmera com far 45000, estrelas a 20000.
+- **Só do jogo, invisíveis de longe:** a atmosfera grossa (`atmosfera()`, casca de 1.2 R com brilho pela distância do raio de visão ao centro, mais borda no disco) e as nuvens aparecem só durante a entrada (`halo`, `nuv` em `aproximar`).
+- **Camada de gás (planetas com ar):**
+  - a entrada passa a durar 7 s; mergulha, e entre u≈.3 e .7 atravessa o gás;
+  - o gás é uma esfera de 75 m em volta da câmera (a nave fica dentro e aparece), na cor do planeta, com 80 fiapos (sprites) vindo de frente em velocidade (`velGas`);
+  - nesse trecho: plasma, tremor, FOV +10, poeira esticada e o céu ganhando cor por trás;
+  - depois o gás abre, a nave nivela e se vê o horizonte curvo;
+  - a saída atravessa o mesmo gás no começo.
+- **Astros no céu crescem junto com o planeta** (`porNoCeu` com `kk = min(S, DIST_CEU/dist)`): antes, quem estava atrás do planeta que crescia aparecia na frente dele.
+- **Rótulos:** o nome de um planeta atrás de outro (ou do sol) some (`escondido`).

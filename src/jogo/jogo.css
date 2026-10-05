@@ -2,7 +2,8 @@
 html.jogo-aberto,html.jogo-aberto body{overflow:hidden!important}
 .jogo{position:fixed;inset:0;z-index:200;background:#05040b;color:#e4dcff;
   font:500 12px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;user-select:none;cursor:default}
-.jogo *{cursor:default}
+.jogo,.jogo *{cursor:none}
+.jogo .jogo-sair,.jogo .jp-proj a{cursor:pointer!important}
 .jogo-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .jogo-rotulos{position:absolute;inset:0;pointer-events:none;overflow:hidden}
 .jogo-rotulo{position:absolute;left:0;top:0;display:flex;flex-direction:column;align-items:center;gap:2px;transition:opacity .2s;will-change:transform}
@@ -45,15 +46,86 @@ html.jogo-aberto,html.jogo-aberto body{overflow:hidden!important}
   border:1.5px solid rgba(199,180,255,.7);box-shadow:0 0 12px rgba(124,77,255,.5);opacity:0;transition:opacity .2s;pointer-events:none}
 .jogo-mira::after{content:"";position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:#fff}
 .jogo.mouse-preso .jogo-mira{opacity:1}
-.jogo-dica-mouse{position:absolute;left:50%;top:22%;transform:translateX(-50%);padding:9px 16px;border-radius:999px;
+/* discreta embaixo: no meio atrapalhava a visao e no topo cobria o titulo */
+.jogo-dica-mouse{position:absolute;left:50%;bottom:178px;transform:translateX(-50%);white-space:nowrap;padding:7px 14px;font-size:11px!important;border-radius:999px;
   background:rgba(12,10,22,.72);border:1px solid rgba(169,139,255,.4);color:#e4dcff;font-size:12px;letter-spacing:.06em;
   pointer-events:none;transition:opacity .2s;opacity:.75}
 .jogo.mouse-preso .jogo-dica-mouse{opacity:0;animation:none}
 .jogo.mouse-preso .jogo-canvas{cursor:none}
-/* mouse solto: um anel no centro mostra a zona morta (cursor dentro = reto) */
-.jogo:not(.mouse-preso) .jogo-mira{opacity:.45;width:110px;height:110px;margin:-55px 0 0 -55px;border-style:dashed;border-color:rgba(199,180,255,.35);box-shadow:none}
-.jogo:not(.mouse-preso) .jogo-mira::after{opacity:.6}
-/* o site esconde o cursor do sistema (cursor proprio); no jogo volta uma mira nativa */
-html.cursor-proprio .jogo,html.cursor-proprio .jogo *{cursor:crosshair!important}
-html.cursor-proprio .jogo .jogo-sair{cursor:pointer!important}
+
+/* sem o anel tracejado: com a mira por movimento nao existe zona morta */
+/* o site tem cursor proprio; no jogo o cursor some (o mouse pilota pelo movimento) */
+html.cursor-proprio .jogo,html.cursor-proprio .jogo *{cursor:none!important}
+html.cursor-proprio .jogo .jogo-sair,html.cursor-proprio .jogo .jp-proj a{cursor:pointer!important}
 html.jogo-aberto .cursor-ponto,html.jogo-aberto .cursor-anel{display:none!important}
+
+/* reentrada: a borda da tela em brasa (opacidade vem do JS) */
+.jogo-calor{position:absolute;inset:0;pointer-events:none;opacity:0;
+  background:radial-gradient(120% 90% at 50% 55%,transparent 38%,rgba(255,120,40,.35) 62%,rgba(255,70,20,.75) 100%);
+  mix-blend-mode:screen}
+/* nuvens: quatro manchas que crescem rapido (a nave passando por dentro) */
+.jogo-nuvens{position:absolute;inset:0;pointer-events:none;opacity:0;overflow:hidden;--z:1}
+.jogo-nuvens i{position:absolute;inset:-30%;border-radius:50%;transform:scale(var(--z));
+  background:radial-gradient(closest-side,rgba(245,240,255,.95),rgba(225,215,245,.6) 55%,transparent)}
+.jogo-nuvens i:nth-child(1){left:-50%;top:-20%;right:20%;bottom:10%}
+.jogo-nuvens i:nth-child(2){left:20%;top:-40%;right:-40%;bottom:30%;transform:scale(calc(var(--z) * 1.2))}
+.jogo-nuvens i:nth-child(3){left:-20%;top:30%;right:-10%;bottom:-50%;transform:scale(calc(var(--z) * .9))}
+.jogo-nuvens i:nth-child(4){inset:-10%;background:rgba(235,228,250,.55);border-radius:0}
+
+/* painel do predio da stack */
+.jogo-predio{position:absolute;z-index:6;left:50%;top:50%;width:min(460px,calc(100vw - 32px));transform:translate(-50%,-46%) scale(.96);
+  padding:24px 24px 18px;border-radius:16px;background:linear-gradient(180deg,rgba(18,14,32,.96),rgba(8,7,14,.97));
+  border:1px solid color-mix(in srgb,var(--cor,#a98bff) 50%,transparent);
+  box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 60px color-mix(in srgb,var(--cor,#a98bff) 25%,transparent);
+  opacity:0;pointer-events:none;transition:opacity .25s,transform .3s cubic-bezier(.2,.8,.2,1)}
+.jogo-predio.on{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+.jp-topo{display:flex;justify-content:space-between;gap:12px;font-size:10px;letter-spacing:.16em}
+.jp-nivel{color:#0b0714;background:var(--cor,#a98bff);padding:4px 9px;border-radius:999px;font-weight:800;text-transform:uppercase}
+.jp-area{color:rgba(228,220,255,.55);align-self:center}
+.jp-nome{margin:14px 0 6px;font:900 40px/1 ui-monospace,Menlo,monospace;color:#fff;letter-spacing:-.02em}
+.jp-desc{margin:0;color:var(--cor,#c7b4ff);font-size:14px}
+.jp-sec{margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08)}
+.jp-sec small{display:block;font-size:9px;letter-spacing:.2em;color:rgba(228,220,255,.45);margin-bottom:6px}
+.jp-sec p{margin:0;color:rgba(228,220,255,.8);font-size:12px;line-height:1.55}
+.jp-proj{display:flex;flex-wrap:wrap;gap:8px}
+.jp-proj a,.jp-semlink{display:inline-flex;gap:8px;align-items:center;padding:7px 11px;border-radius:9px;font-size:12px;font-weight:700;text-decoration:none;
+  color:#fff;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14)}
+.jp-proj a{cursor:pointer!important}
+.jp-proj a span{color:var(--cor,#c7b4ff);font-weight:500;font-size:11px}
+.jp-proj a:hover{border-color:var(--cor,#a98bff);background:rgba(255,255,255,.1)}
+.jp-semlink{color:rgba(228,220,255,.7);font-weight:500}
+.jp-pe{margin-top:16px;font-size:11px;color:rgba(228,220,255,.5)}
+
+/* conquista (planeta completo) */
+.jogo-conquista{position:absolute;left:50%;top:84px;transform:translate(-50%,-14px);padding:12px 20px;border-radius:12px;text-align:center;
+  background:rgba(10,30,20,.86);border:1px solid #2bff8f;box-shadow:0 0 40px rgba(43,255,143,.3);display:flex;flex-direction:column;gap:3px;
+  opacity:0;transition:opacity .3s,transform .4s cubic-bezier(.2,.8,.2,1);pointer-events:none}
+.jogo-conquista.on{opacity:1;transform:translate(-50%,0)}
+.jogo-conquista b{color:#2bff8f;font-size:15px;letter-spacing:.06em}
+.jogo-conquista span{color:rgba(228,255,240,.75);font-size:11px}
+
+/* dobra (Shift + W no espaco): tunel de linhas de velocidade saindo do centro */
+.jogo-dobra{position:absolute;inset:-10%;pointer-events:none;opacity:0;mix-blend-mode:screen;filter:opacity(.55);
+  background:
+    radial-gradient(circle at 50% 50%,transparent 0 16%,rgba(120,200,255,.0) 22%,rgba(120,200,255,.22) 60%,rgba(170,140,255,.45) 100%),
+    repeating-conic-gradient(from var(--giro,0deg) at 50% 50%,rgba(200,230,255,.0) 0deg 3.2deg,rgba(200,230,255,.55) 3.6deg,rgba(200,230,255,.0) 4deg 7.5deg);
+  -webkit-mask:radial-gradient(circle at 50% 50%,transparent 0 14%,#000 55%);mask:radial-gradient(circle at 50% 50%,transparent 0 14%,#000 55%)}
+
+/* mouse solto: o jogo continua aparecendo, com um convite para travar de novo */
+.jogo-pausa{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  background:rgba(5,4,11,.45);backdrop-filter:blur(2px);z-index:5;transition:opacity .2s}
+.jogo-pausa b{font-size:22px;letter-spacing:.12em;color:#fff;padding:14px 26px;border-radius:999px;
+  background:linear-gradient(135deg,rgba(124,77,255,.55),rgba(255,61,139,.35));border:1px solid rgba(199,180,255,.6);
+  box-shadow:0 0 40px rgba(124,77,255,.45)}
+.jogo-pausa span{color:rgba(228,220,255,.75);font-size:12px}
+.jogo.mouse-preso .jogo-pausa,.jogo.sem-trava .jogo-pausa,.jogo.carregando .jogo-pausa,.jogo.painel-on .jogo-pausa{opacity:0;pointer-events:none}
+/* com o painel do predio aberto o mouse fica solto: o cursor aparece para clicar */
+html.cursor-proprio .jogo.painel-on .jogo-predio,html.cursor-proprio .jogo.painel-on .jogo-predio *{cursor:default!important}
+html.cursor-proprio .jogo.painel-on .jp-proj a{cursor:pointer!important}
+html.cursor-proprio .jogo .jogo-pausa,html.cursor-proprio .jogo .jogo-pausa *{cursor:pointer!important}
+/* a mira da nave fica sempre no centro (preso ou, sem trava, no modo solto) */
+.jogo.sem-trava .jogo-mira{opacity:1}
+.jogo.mouse-preso .jogo-dica-mouse,.jogo:not(.sem-trava) .jogo-dica-mouse{display:none}
+
+/* veu de cor que cobre a troca de cena (ceu/chao do planeta na entrada, escuro na saida) */
+.jogo-veu{position:absolute;inset:0;pointer-events:none;opacity:0}
