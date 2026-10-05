@@ -632,3 +632,32 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - o Esc que chega até 500 ms depois de soltar é ignorado;
   - Esc com o menu na tela sai;
   - teclas repetidas (`e.repeat`) são ignoradas.
+
+## Jogo: nave no site, espaço de jogo, mapa, tiros, sons, mundo aberto, interiores e jetpack (05/10/2026, em andamento)
+- **Site:** a nave do jogo orbita os planetas no Stack Universe (uma volta e meia em cada, curva bezier até o próximo). Clicar nela (ou no rótulo "🚀 pilotar") abre o jogo pelo mesmo caminho do botão Pilotar.
+- **Espaço:**
+  - planetas ~2× maiores (`ESC_TAM` 650, órbitas ×700, menor folga ~280 m);
+  - céu pintado com a faixa da Via Láctea, mais três camadas de estrelas com cor e cintilar (shader);
+  - cinturão com 5000 rochas e 4 campos de asteroides que giram, batem na nave e quebram com tiro (voltam em 25 s);
+  - 2 buracos negros no cenário (disco de acreção em shader e anel de fótons).
+- **Tiros:**
+  - **Clique** (com o mouse preso; segurar dá rajada) ou **✦** no toque;
+  - dois lasers saindo das asas (`tiros.js`), com faíscas e clarão;
+  - quebram rochas e soltam faíscas em planetas, no chão e nos prédios.
+- **Mapa:** **M** (ou 🗺) mostra uma visão de cima. No espaço: planetas com progresso, cinturão, campos, buracos negros e a nave. Na superfície: os locais das tecnologias, visitados ou não.
+- **Sons** (`som.js`, Web Audio, nada baixado):
+  - motor só quando acelera;
+  - ronco na reentrada, no gás e na dobra;
+  - jetpack, tiro, explosão, dobra, passos, pouso, porta, bips e acorde de conquista;
+  - **N** (ou 🔊) liga e desliga, e fica lembrado.
+- **Superfície (mundo aberto):**
+  - mapa de ±2000 m com montanhas (`criarAltura`);
+  - cada tecnologia num **local espalhado** (480–1320 m): praça, plataforma de pouso e feixe de luz de 420 m com o nome no alto (fica verde quando visitado);
+  - decoração temática espalhada; sair do planeta só acima de 430 m.
+- **Interior dos prédios (`interior.js`):** E na porta leva a um salão em y -3000, montado só enquanto se está dentro:
+  - chão de grade em neon e paredes com código correndo;
+  - emblema holográfico com icosaedro e partículas;
+  - painéis NÍVEL / O QUE É / NA ÁREA / USADO EM;
+  - terminal (E abre os links dos projetos) e portal de saída (E).
+- **Astronauta:** corre em 8 direções olhando pra câmera (Walk, Run, Run_Back, Run_Left, Run_Right), com o ritmo da animação pela velocidade e o som dos passos. **Jetpack** (segurar Espaço no ar ou ▲) com chama, fumaça e combustível que recarrega no chão; **C** rola.
+- **A conferir:** a superfície nova, o interior e o jetpack ainda não foram testados a fundo no preview.

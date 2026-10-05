@@ -6669,6 +6669,71 @@ if(mount){
   const label=document.createElement('button');label.className='three-planet-label';label.textContent=name;label.dataset.key=key;labelsRoot.appendChild(label);labels.push(label);label.onclick=()=>selectPlanet(mesh);mesh.userData.group=group;
  });
 
+ // NAVE do jogo orbitando os planetas: da uma volta e meia em um, viaja (curva
+ // suave) para o proximo e orbita de novo. Clicar nela abre o jogo (igual ao
+ // botao "Pilotar"). Mesmo modelo do jogo (public/assets/jogo/nave.glb).
+ const nave={raiz:new THREE.Group(),corpo:new THREE.Group(),pronta:false,i:0,fase:'orbita',th:0,th2:0,voltas:0,u:0,dur:3,
+  pos:new THREE.Vector3(),ant:new THREE.Vector3(),p0:new THREE.Vector3(),v0:new THREE.Vector3(),ordem:[1,7,4,6,2,8,3,5,0]};   // comeca pelos de fora (o Frontend passa rente ao sol)
+ nave.raiz.add(nave.corpo);nave.raiz.visible=false;universe.add(nave.raiz);
+ if(/debugnave/.test(location.search))window.__naveSite={nave,camera,universe};
+ const naveChama=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:0xb48cff,transparent:true,opacity:.9,depthWrite:false,blending:THREE.AdditiveBlending}));
+ naveChama.position.z=-.52;naveChama.scale.setScalar(.45);nave.corpo.add(naveChama);
+ // alvo invisivel maior que a nave, para ser facil de clicar
+ const naveAlvo=new THREE.Mesh(new THREE.SphereGeometry(.7,10,8),new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false,colorWrite:false}));nave.raiz.add(naveAlvo);
+ import('three/examples/jsm/loaders/GLTFLoader.js').then(({GLTFLoader})=>new GLTFLoader().load('/assets/jogo/nave.glb',(g)=>{
+  const m=g.scene,bb=new THREE.Box3().setFromObject(m),sz=bb.getSize(new THREE.Vector3()),k=.95/Math.max(sz.x,sz.y,sz.z);
+  m.scale.setScalar(k);m.position.sub(bb.getCenter(new THREE.Vector3()).multiplyScalar(k));
+  const h=new THREE.Group();h.add(m);h.rotation.y=Math.PI;nave.corpo.add(h);   // o modelo vem com o nariz em -z
+  nave.pronta=true;nave.raiz.visible=true;
+ })).catch(()=>{});
+ const naveRotulo=document.createElement('button');naveRotulo.className='three-planet-label nave-rotulo';naveRotulo.textContent='🚀 pilotar';naveRotulo.style.opacity='0';labelsRoot.appendChild(naveRotulo);
+ naveRotulo.onclick=()=>document.getElementById('botaoPilotar')?.click();
+ const _np=new THREE.Vector3(),_nv=new THREE.Vector3(),_nw=new THREE.Vector3();
+ function naveRaio(idx){return planetMeshes[idx].geometry.parameters.radius*1.35+.5}
+ function navePonto(idx,th,out){const g=planetMeshes[idx].userData.group,ro=naveRaio(idx);return out.set(Math.cos(th)*ro,Math.sin(th)*ro*.28,Math.sin(th)*ro).add(g.position)}
+ function naveTang(idx,th,out){const ro=naveRaio(idx);return out.set(-Math.sin(th)*ro,Math.cos(th)*ro*.28,Math.cos(th)*ro)}
+ let naveHover=false;
+ function moverNave(dt){
+  if(!nave.pronta)return;
+  nave.ant.copy(nave.pos);
+  if(nave.fase==='orbita'){
+   nave.th+=dt*.9;nave.voltas+=dt*.9;
+   navePonto(nave.ordem[nave.i],nave.th,nave.pos);
+   if(nave.voltas>Math.PI*3){
+    // proximo planeta: sai pela tangente e entra na orbita dele pela tangente
+    nave.fase='viagem';nave.u=0;nave.p0.copy(nave.pos);naveTang(nave.ordem[nave.i],nave.th,nave.v0).multiplyScalar(.9);
+    nave.i=(nave.i+1)%nave.ordem.length;nave.th2=Math.random()*Math.PI*2;
+    nave.dur=Math.max(2.6,Math.min(7,navePonto(nave.ordem[nave.i],nave.th2,_np).distanceTo(nave.p0)/1.5));
+   }
+  }else{
+   nave.u=Math.min(1,nave.u+dt/nave.dur);
+   const u=nave.u,a=1-u,L=nave.dur/3;
+   const p3=navePonto(nave.ordem[nave.i],nave.th2,_np),v3=naveTang(nave.ordem[nave.i],nave.th2,_nv).multiplyScalar(.9);
+   // bezier cubica: P0, P0+v0*L, P3-v3*L, P3 (o planeta de destino se move: P3 e calculado ao vivo)
+   nave.pos.copy(nave.p0).multiplyScalar(a*a*a)
+    .addScaledVector(_nw.copy(nave.p0).addScaledVector(nave.v0,L),3*a*a*u)
+    .addScaledVector(_nw.copy(p3).addScaledVector(v3,-L),3*a*u*u)
+    .addScaledVector(p3,u*u*u);
+   if(u>=1){nave.fase='orbita';nave.th=nave.th2;nave.voltas=0;}
+  }
+  nave.raiz.position.copy(nave.pos);
+  _nv.subVectors(nave.pos,nave.ant);
+  if(_nv.lengthSq()>1e-9){_nw.copy(nave.pos).add(_nv);universe.localToWorld(_nw);nave.raiz.lookAt(_nw)}
+  // inclina para dentro da curva na orbita; nivela viajando
+  nave.corpo.rotation.z+=((nave.fase==='orbita'?-.5:0)-nave.corpo.rotation.z)*Math.min(1,dt*3);
+  naveChama.material.opacity=.75+Math.random()*.25;naveChama.scale.setScalar((naveHover?.6:.45)+Math.random()*.07);
+  // rotulo "pilotar" acompanha a nave quando o mouse esta em cima
+  nave.raiz.getWorldPosition(_nw);_nw.project(camera);
+  const w=mount.clientWidth,h=mount.clientHeight;
+  naveRotulo.style.left=((_nw.x*.5+.5)*w)+'px';naveRotulo.style.top=((-_nw.y*.5+.5)*h-26)+'px';
+  const mostra=naveHover&&_nw.z<1;naveRotulo.style.opacity=mostra?'1':'0';naveRotulo.style.pointerEvents=mostra?'auto':'none';
+ }
+ const naveNoPonteiro=()=>nave.pronta&&raycaster.intersectObject(naveAlvo,false).length>0;
+ let downX=0,downY=0;
+ canvas.addEventListener('pointerdown',e=>{downX=e.clientX;downY=e.clientY},true);
+ // clique (evento de gesto do usuario: o "Pilotar" consegue travar o mouse)
+ canvas.addEventListener('click',e=>{if(Math.abs(e.clientX-downX)+Math.abs(e.clientY-downY)>6)return;pointerXY(e);raycaster.setFromCamera(mouse,camera);if(naveNoPonteiro())document.getElementById('botaoPilotar')?.click()});
+
  let selected=null,focusTarget=new THREE.Vector3(0,0,0),focusAmount=0,dragging=false,lastX=0,lastY=0,targetYaw=.18,targetPitch=-.09;
  let universeScroll=0,universeScrollSmooth=0;
  const raycaster=new THREE.Raycaster(),mouse=new THREE.Vector2();
@@ -6680,8 +6745,8 @@ if(mount){
  function resize(){const w=mount.clientWidth,h=mount.clientHeight;if(!w||!h)return;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()} new ResizeObserver(resize).observe(mount);resize();
  function pointerXY(e){const r=canvas.getBoundingClientRect();mouse.x=((e.clientX-r.left)/r.width)*2-1;mouse.y=-((e.clientY-r.top)/r.height)*2+1}
  canvas.addEventListener('pointerdown',e=>{dragging=true;lastX=e.clientX;lastY=e.clientY;canvas.classList.add('dragging');canvas.setPointerCapture(e.pointerId)});
- canvas.addEventListener('pointermove',e=>{if(dragging){targetYaw+=(e.clientX-lastX)*.0032;targetPitch=Math.max(-.34,Math.min(.28,targetPitch+(e.clientY-lastY)*.0020));lastX=e.clientX;lastY=e.clientY}else{pointerXY(e);raycaster.setFromCamera(mouse,camera);canvas.style.cursor=raycaster.intersectObjects(planetMeshes,false).length?'pointer':'grab'}});
- canvas.addEventListener('pointerup',e=>{const moved=Math.abs(e.clientX-lastX)+Math.abs(e.clientY-lastY);dragging=false;canvas.classList.remove('dragging');pointerXY(e);raycaster.setFromCamera(mouse,camera);const hit=raycaster.intersectObjects(planetMeshes,false)[0];if(hit)selectPlanet(hit.object)});
+ canvas.addEventListener('pointermove',e=>{if(dragging){targetYaw+=(e.clientX-lastX)*.0032;targetPitch=Math.max(-.34,Math.min(.28,targetPitch+(e.clientY-lastY)*.0020));lastX=e.clientX;lastY=e.clientY}else{pointerXY(e);raycaster.setFromCamera(mouse,camera);naveHover=naveNoPonteiro();canvas.style.cursor=naveHover||raycaster.intersectObjects(planetMeshes,false).length?'pointer':'grab'}});
+ canvas.addEventListener('pointerup',e=>{const moved=Math.abs(e.clientX-lastX)+Math.abs(e.clientY-lastY);dragging=false;canvas.classList.remove('dragging');pointerXY(e);raycaster.setFromCamera(mouse,camera);if(naveNoPonteiro())return;const hit=raycaster.intersectObjects(planetMeshes,false)[0];if(hit)selectPlanet(hit.object)});
 
  const _lblCenter=new THREE.Vector3(),_lblEdge=new THREE.Vector3(),_lblUp=new THREE.Vector3();
  const clock=new THREE.Clock();
@@ -6698,6 +6763,7 @@ if(mount){
  function animate(){requestAnimationFrame(animate);if(!universeVisible||window.__jogoAberto)return;
   if(orbitaCamada&&innerWidth>900&&orbitaCamada.style.opacity!==''&&+orbitaCamada.style.opacity<.004)return;
   const t=clock.getElapsedTime();
+  moverNave(Math.min(.05,t-(animate.tAnt||t)));animate.tAnt=t;
   universeScroll=window.__portfolioUniverseScroll||0;
   universeScrollSmooth+=(universeScroll-universeScrollSmooth)*.07;
 

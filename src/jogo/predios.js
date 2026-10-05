@@ -194,21 +194,21 @@ export function emblema(nome, cor, guarda) {
  * Decoracao tematica espalhada pelo planeta (instanciada). Devolve a lista de
  * meshes e um animar(t) (as que flutuam/piscam).
  */
-export function decorar(key, cor, alturaChao, raioLivre, guarda) {
+export function decorar(key, cor, alturaChao, livre, guarda) {
   const r = rnd(key.length * 977 + 13);
   const corNeon = new THREE.Color(`hsl(${cor},95%,66%)`);
   const matBrilho = guarda(new THREE.MeshStandardMaterial({ color: new THREE.Color(`hsl(${cor},70%,55%)`), emissive: corNeon, emissiveIntensity: .9, roughness: .3, flatShading: true }));
   const matEscuro = guarda(new THREE.MeshStandardMaterial({ color: 0x1a1626, roughness: .6, metalness: .4, emissive: new THREE.Color(`hsl(${cor},80%,20%)`), emissiveIntensity: .4, flatShading: true }));
   const T = {
-    frontend: { geo: () => new THREE.BoxGeometry(6, 3.6, .15), mat: guarda(new THREE.MeshBasicMaterial({ color: corNeon, transparent: true, opacity: .35, side: THREE.DoubleSide, depthWrite: false })), n: 90, voa: 7, esc: [.6, 1.6] },  // paineis de interface
-    backend: { geo: () => new THREE.CylinderGeometry(.6, .6, 10, 8), mat: matEscuro, n: 110, esc: [.6, 1.8], deitado: .5 },   // canos
-    mobile: { geo: () => new THREE.BoxGeometry(2.4, 5, .5), mat: matBrilho, n: 90, esc: [.6, 1.4] },                              // monolitos-tela
-    data: { geo: () => new THREE.CylinderGeometry(2, 2, .9, 20), mat: matBrilho, n: 70, pilha: 4, esc: [.7, 1.5] },              // discos de banco
-    security: { geo: () => new THREE.OctahedronGeometry(1.4, 0), mat: matBrilho, n: 80, voa: 5, esc: [.6, 1.3] },                  // pilones de escudo
-    infra: { geo: () => new THREE.CylinderGeometry(.12, .25, 9, 6), mat: matEscuro, n: 70, esc: [.7, 1.6] },                     // antenas
-    tooling: { geo: () => new THREE.TorusGeometry(1.8, .55, 6, 10), mat: matEscuro, n: 80, esc: [.6, 1.6], deitado: 1 },          // engrenagens
-    analytics: { geo: () => new THREE.BoxGeometry(1.6, 1, 1.6), mat: matBrilho, n: 130, barra: true, esc: [1, 1] },              // barras
-    ai: { geo: () => new THREE.SphereGeometry(1.2, 14, 10), mat: matBrilho, n: 90, voa: 9, esc: [.5, 1.5] }                       // orbes
+    frontend: { geo: () => new THREE.BoxGeometry(6, 3.6, .15), mat: guarda(new THREE.MeshBasicMaterial({ color: corNeon, transparent: true, opacity: .35, side: THREE.DoubleSide, depthWrite: false })), n: 220, voa: 7, esc: [.6, 1.6] },  // paineis de interface
+    backend: { geo: () => new THREE.CylinderGeometry(.6, .6, 10, 8), mat: matEscuro, n: 260, esc: [.6, 1.8], deitado: .5 },   // canos
+    mobile: { geo: () => new THREE.BoxGeometry(2.4, 5, .5), mat: matBrilho, n: 220, esc: [.6, 1.4] },                              // monolitos-tela
+    data: { geo: () => new THREE.CylinderGeometry(2, 2, .9, 20), mat: matBrilho, n: 160, pilha: 4, esc: [.7, 1.5] },              // discos de banco
+    security: { geo: () => new THREE.OctahedronGeometry(1.4, 0), mat: matBrilho, n: 200, voa: 5, esc: [.6, 1.3] },                  // pilones de escudo
+    infra: { geo: () => new THREE.CylinderGeometry(.12, .25, 9, 6), mat: matEscuro, n: 180, esc: [.7, 1.6] },                     // antenas
+    tooling: { geo: () => new THREE.TorusGeometry(1.8, .55, 6, 10), mat: matEscuro, n: 200, esc: [.6, 1.6], deitado: 1 },          // engrenagens
+    analytics: { geo: () => new THREE.BoxGeometry(1.6, 1, 1.6), mat: matBrilho, n: 300, barra: true, esc: [1, 1] },              // barras
+    ai: { geo: () => new THREE.SphereGeometry(1.2, 14, 10), mat: matBrilho, n: 220, voa: 9, esc: [.5, 1.5] }                       // orbes
   }[key];
   if (!T) return { animar() {} };
   const geo = guarda(T.geo());
@@ -218,7 +218,7 @@ export function decorar(key, cor, alturaChao, raioLivre, guarda) {
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), v = new THREE.Vector3(), e = new THREE.Euler();
   let k = 0;
   for (let i = 0; i < T.n; i++) {
-    let x, z; do { x = (r() - .5) * 1300; z = (r() - .5) * 1300; } while (Math.hypot(x, z) < raioLivre);
+    let x, z; do { x = (r() - .5) * 3600; z = (r() - .5) * 3600; } while (!livre(x, z, 20));
     const esc = T.esc[0] + r() * (T.esc[1] - T.esc[0]);
     const chao = alturaChao(x, z);
     if (T.barra) {

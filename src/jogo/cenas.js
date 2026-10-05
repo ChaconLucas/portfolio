@@ -31,9 +31,11 @@ export const PLANETAS = [
 // escala do sistema: planetas e distancias grandes o bastante para a nave
 // parecer pequena e o Shift (dobra) fazer sentido
 // uma unidade do site = ESC metros: mesmas proporcoes de tamanho e distancia
-const ESC = 340, ESC_ORBITA = ESC, ESC_TAM = ESC;
-export const LIMITE_ESPACO = 4000;
-export const RAIO_SOL = 1.52 * ESC;
+// (os tamanhos crescem mais que as distancias: planetas bem maiores na tela,
+// sem encostar uns nos outros — a menor folga fica em ~280 m)
+const ESC = 700, ESC_ORBITA = ESC, ESC_TAM = 650;
+export const LIMITE_ESPACO = 9500;
+export const RAIO_SOL = 1.52 * ESC_TAM;
 
 function rnd(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
 
@@ -237,27 +239,128 @@ function montarSol(guarda) {
   sp(raios(93), 0xf0d9ff, .31, 11.3);
   return sol;
 }
-// estrelas e nebulosas (sempre as mesmas: a superficie dos tipo lua mostra o
-// mesmo ceu, girado)
+// ceu: um fundo pintado (faixa da Via Lactea e nebulosas) e tres camadas de
+// estrelas com brilho, cor e cintilar proprios (sempre as mesmas: a
+// superficie dos tipo lua mostra o mesmo ceu, girado)
+function canvasFundo() {
+  return emCache('fundo', () => {
+    const W = 2048, H = 1024, c = document.createElement('canvas'); c.width = W; c.height = H;
+    const x = c.getContext('2d'), r = rnd(4242);
+    x.fillStyle = '#04030a'; x.fillRect(0, 0, W, H);
+    const nuvem = (cx, cy, rx, ry, cor, a) => {
+      const g = x.createRadialGradient(cx, cy, 0, cx, cy, rx); g.addColorStop(0, cor.replace('A', a)); g.addColorStop(1, cor.replace('A', 0));
+      x.save(); x.translate(cx, cy); x.scale(1, ry / rx); x.translate(-cx, -cy); x.fillStyle = g; x.beginPath(); x.arc(cx, cy, rx, 0, Math.PI * 2); x.fill(); x.restore();
+    };
+    x.globalCompositeOperation = 'lighter';
+    // faixa da galaxia: ondula pelo meio da textura
+    for (let i = 0; i < 520; i++) {
+      const px = r() * W, py = H / 2 + Math.sin(px / W * Math.PI * 2) * 60 + (r() - .5) * (r() < .7 ? 90 : 220);
+      const cores = ['rgba(150,110,255,A)', 'rgba(255,120,200,A)', 'rgba(110,160,255,A)', 'rgba(255,220,240,A)'];
+      nuvem(px, py, 30 + r() * 130, 14 + r() * 50, cores[Math.floor(r() * cores.length)], .025 + r() * .05);
+    }
+    // poeira escura cortando a faixa
+    x.globalCompositeOperation = 'source-over';
+    for (let i = 0; i < 160; i++) { const px = r() * W, py = H / 2 + Math.sin(px / W * Math.PI * 2) * 60 + (r() - .5) * 40; nuvem(px, py, 20 + r() * 60, 6 + r() * 14, 'rgba(4,3,10,A)', .25 + r() * .3); }
+    x.globalCompositeOperation = 'lighter';
+    // nebulosas soltas
+    for (let i = 0; i < 9; i++) {
+      const px = r() * W, py = 120 + r() * (H - 240), cor = ['rgba(124,77,255,A)', 'rgba(255,61,154,A)', 'rgba(61,123,255,A)', 'rgba(61,220,200,A)'][i % 4];
+      for (let k = 0; k < 26; k++) nuvem(px + (r() - .5) * 260, py + (r() - .5) * 140, 40 + r() * 140, 30 + r() * 90, cor, .02 + r() * .04);
+    }
+    // poeira de estrelas fininha (mais densa na faixa)
+    for (let i = 0; i < 14000; i++) {
+      const naFaixa = r() < .55, px = r() * W, py = naFaixa ? H / 2 + Math.sin(px / W * Math.PI * 2) * 60 + (r() - .5) * (r() * 200) : r() * H;
+      x.fillStyle = `rgba(255,255,255,${.08 + r() * .3})`; x.fillRect(px, py, 1, 1);
+    }
+    return c;
+  });
+}
 function ceuEstrelado(guarda, mats) {
   const ceu = new THREE.Group();
-  const n = 3500, p = new Float32Array(n * 3), cor = new Float32Array(n * 3); const r = rnd(9);
-  for (let i = 0; i < n; i++) {
-    const u = r() * 2 - 1, a = r() * Math.PI * 2, s = Math.sqrt(1 - u * u), R = 20000;
-    p[i * 3] = s * Math.cos(a) * R; p[i * 3 + 1] = u * R; p[i * 3 + 2] = s * Math.sin(a) * R;
-    const k = .55 + r() * .45, roxo = r() < .2;
-    cor[i * 3] = k * (roxo ? .8 : 1); cor[i * 3 + 1] = k * (roxo ? .7 : .97); cor[i * 3 + 2] = k;
-  }
-  const g = guarda(new THREE.BufferGeometry()); g.setAttribute('position', new THREE.BufferAttribute(p, 3)); g.setAttribute('color', new THREE.BufferAttribute(cor, 3));
-  const mEst = guarda(new THREE.PointsMaterial({ size: 1.6, sizeAttenuation: false, vertexColors: true, depthWrite: false, transparent: true, fog: false }));
-  ceu.add(new THREE.Points(g, mEst)); mats?.push([mEst, 1]);
-  const neb = guarda(texRadial([[0, 'rgba(140,90,255,.35)'], [1, 'rgba(140,90,255,0)']]));
-  [[-1, .2, -.4, 0x7c4dff], [.6, -.1, .8, 0xff3d9a], [.2, .5, -1, 0x3d7bff]].forEach(([x, y, z, c]) => {
-    const s = new THREE.Sprite(guarda(new THREE.SpriteMaterial({ map: neb, color: c, transparent: true, opacity: .55, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })));
-    mats?.push([s.material, .55]);
-    s.position.set(x, y, z).normalize().multiplyScalar(19500); s.scale.setScalar(16000); ceu.add(s);
-  });
+  const tf = guarda(new THREE.CanvasTexture(canvasFundo())); tf.colorSpace = THREE.SRGBColorSpace;
+  const fundo = new THREE.Mesh(guarda(new THREE.SphereGeometry(21000, 48, 24)), guarda(new THREE.MeshBasicMaterial({ map: tf, side: THREE.BackSide, transparent: true, depthWrite: false, fog: false })));
+  fundo.rotation.set(.35, 0, .55); fundo.renderOrder = -3; ceu.add(fundo); mats?.push([fundo.material, 1]);
+  // estrelas: tamanho, cor (azulada, branca, amarela, avermelhada) e cintilar
+  const uni = { tempo: { value: 0 }, opacidade: { value: 1 } };
+  const camada = (n, R, tMin, tMax, seed, faixa) => {
+    const p = new Float32Array(n * 3), cor = new Float32Array(n * 3), tam = new Float32Array(n), fase = new Float32Array(n); const r = rnd(seed);
+    for (let i = 0; i < n; i++) {
+      let u = r() * 2 - 1, a = r() * Math.PI * 2;
+      if (faixa && r() < .5) u = (r() - .5) * .25;            // parte delas junto da faixa
+      const s = Math.sqrt(1 - u * u);
+      p[i * 3] = s * Math.cos(a) * R; p[i * 3 + 1] = u * R; p[i * 3 + 2] = s * Math.sin(a) * R;
+      const tipo = r(), c = tipo < .18 ? [.7, .8, 1] : tipo < .7 ? [1, 1, 1] : tipo < .9 ? [1, .92, .75] : [1, .7, .6];
+      cor.set(c, i * 3); tam[i] = tMin + Math.pow(r(), 3) * (tMax - tMin); fase[i] = r() * 100;
+    }
+    const g = guarda(new THREE.BufferGeometry());
+    g.setAttribute('position', new THREE.BufferAttribute(p, 3)); g.setAttribute('color', new THREE.BufferAttribute(cor, 3));
+    g.setAttribute('tam', new THREE.BufferAttribute(tam, 1)); g.setAttribute('fase', new THREE.BufferAttribute(fase, 1));
+    const pts = new THREE.Points(g, guarda(new THREE.ShaderMaterial({
+      uniforms: uni, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      vertexShader: `attribute float tam; attribute float fase; varying vec3 vC; varying float vB; uniform float tempo;
+        void main(){ vC = color; vB = .65 + .35 * sin(tempo * (1.5 + fract(fase) * 3.) + fase);
+          vec4 mv = modelViewMatrix * vec4(position, 1.); gl_PointSize = tam * (.8 + .4 * vB); gl_Position = projectionMatrix * mv; }`,
+      fragmentShader: `uniform float opacidade; varying vec3 vC; varying float vB;
+        void main(){ vec2 d = gl_PointCoord - .5; float r = length(d) * 2.;
+          float nucleo = smoothstep(1., .0, r); float cruz = max(0., 1. - abs(d.x) * 14.) * max(0., 1. - abs(d.y) * 2.) + max(0., 1. - abs(d.y) * 14.) * max(0., 1. - abs(d.x) * 2.);
+          float a = (pow(nucleo, 2.5) + cruz * .35) * vB * opacidade; if (a < .01) discard;
+          gl_FragColor = vec4(vC * a, a); }`,
+      vertexColors: true
+    })));
+    pts.frustumCulled = false; ceu.add(pts);
+  };
+  camada(7000, 19000, 1.2, 2.6, 9, true);
+  camada(1400, 18500, 2.2, 5.5, 19, true);
+  camada(160, 18000, 5, 11, 29, false);
+  mats?.push([{ set opacity(v) { uni.opacidade.value = v; } }, 1]);
+  ceu.userData.tempo = uni.tempo;
   return ceu;
+}
+/**
+ * Buraco negro (cenario, longe): horizonte preto, anel de fotons, disco de
+ * acrecao girando (shader) e um anel "dobrado" por cima, de frente para a
+ * camera (o efeito de lente do disco de tras).
+ */
+function buracoNegro(raio, guarda) {
+  const g = new THREE.Group();
+  const u = { tempo: { value: 0 } };
+  const disco = new THREE.Mesh(guarda(new THREE.RingGeometry(raio * 1.5, raio * 5.5, 160, 4)), guarda(new THREE.ShaderMaterial({
+    uniforms: u, transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+    vertexShader: 'varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }',
+    fragmentShader: `uniform float tempo; varying vec2 vP;
+      float h(float n){ return fract(sin(n) * 43758.5453); }
+      void main(){
+        float r = length(vP), a = atan(vP.y, vP.x);
+        float k = clamp((r - ${(raio * 1.5).toFixed(1)}) / ${(raio * 4).toFixed(1)}, 0., 1.);
+        float giro = a + tempo * (1.4 - k) * 1.2 + k * 6.;
+        float faixas = .55 + .45 * sin(giro * 3. + k * 40.) * sin(giro * 7. - k * 23. + 1.7);
+        vec3 quente = vec3(1., .95, .85), meio = vec3(1., .55, .2), frio = vec3(.55, .25, .9);
+        vec3 c = mix(quente, meio, smoothstep(0., .35, k)); c = mix(c, frio, smoothstep(.35, 1., k));
+        float al = (1. - smoothstep(.7, 1., k)) * smoothstep(0., .05, k) * (.55 + .45 * faixas);
+        gl_FragColor = vec4(c * al * 1.6, al);
+      }`
+  })));
+  disco.rotation.x = Math.PI / 2 - .22; g.add(disco);
+  // brilho/anel de fotons e o arco de lente, sempre de frente (sprites)
+  const tex = (f) => { const c = document.createElement('canvas'); c.width = c.height = 512; const x = c.getContext('2d'); f(x); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return guarda(t); };
+  const anel = tex((x) => { const gr = x.createRadialGradient(256, 256, 70, 256, 256, 256); gr.addColorStop(0, 'rgba(255,240,220,0)'); gr.addColorStop(.36, 'rgba(255,230,200,0)'); gr.addColorStop(.4, 'rgba(255,235,210,1)'); gr.addColorStop(.47, 'rgba(255,150,80,.55)'); gr.addColorStop(.7, 'rgba(160,80,255,.12)'); gr.addColorStop(1, 'rgba(120,60,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 512, 512); });
+  const sp = new THREE.Sprite(guarda(new THREE.SpriteMaterial({ map: anel, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })));
+  sp.scale.setScalar(raio * 5.4); g.add(sp);
+  const horizonte = new THREE.Mesh(guarda(new THREE.SphereGeometry(raio, 48, 32)), guarda(new THREE.MeshBasicMaterial({ color: 0x000000, fog: false })));
+  horizonte.renderOrder = 2; g.add(horizonte);
+  g.userData.u = u;
+  return g;
+}
+// rocha: icosaedro amassado por ruido (o mesmo deslocamento para vertices
+// repetidos: sem rachaduras)
+function geoRocha(seed, guarda) {
+  const geo = guarda(new THREE.IcosahedronGeometry(1, 1)), p = geo.attributes.position, v = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p, i);
+    const n = Math.sin(v.x * 3.1 + seed) * Math.cos(v.y * 2.7 - seed) * .5 + Math.sin(v.z * 4.3 + v.x * 1.7 + seed * 2) * .25;
+    v.multiplyScalar(1 + n * .35); p.setXYZ(i, v.x, v.y * .8, v.z);
+  }
+  geo.computeVertexNormals(); return geo;
 }
 // ceu com ar: degrade da cor do planeta (claro no horizonte, escuro no alto).
 // O "alto" e o y local; no espaco o domo e girado para o "cima" da superficie
@@ -334,20 +437,42 @@ export function criarEspaco(cena) {
     return { ...d, i, raio, ...m, pos: m.grupo.position, orig: m.grupo.position.clone() };
   });
 
-  // cinturao de asteroides entre Analytics e o resto
+  // cinturao de asteroides por fora do sistema (girando devagar)
+  const matRocha = guarda(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .95, flatShading: true, transparent: true, fog: false }));
+  const corRocha = (r, c) => c.setHSL(.7 + (r() - .5) * .12, .12 + r() * .15, .32 + r() * .25);
   const cinturao = (() => {
-    const n = 2400, geo = guarda(new THREE.IcosahedronGeometry(1, 0));
-    const mat = guarda(new THREE.MeshStandardMaterial({ color: 0x6e6385, roughness: 1, flatShading: true, transparent: true, fog: false }));
-    const inst = new THREE.InstancedMesh(geo, mat, n); const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new THREE.Vector3(), p = new THREE.Vector3();
+    const n = 5000, geo = geoRocha(1.7, guarda);
+    const inst = new THREE.InstancedMesh(geo, matRocha, n); const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new THREE.Vector3(), p = new THREE.Vector3(), c = new THREE.Color();
     const r = rnd(77);
     for (let i = 0; i < n; i++) {
-      const a = r() * Math.PI * 2, R = 3700 + (r() - .5) * 360;
-      p.set(Math.cos(a) * R, (r() - .5) * 160, Math.sin(a) * R * .55);
-      q.setFromEuler(e.set(r() * 6, r() * 6, r() * 6)); const k = 6 + r() * 30; s.set(k, k * (.6 + r() * .6), k);
-      inst.setMatrixAt(i, m.compose(p, q, s));
+      const a = r() * Math.PI * 2, R = 9.4 * ESC + (r() - .5) * 700 * (r() < .8 ? 1 : 2);
+      p.set(Math.cos(a) * R, (r() - .5) * 260 * r(), Math.sin(a) * R * .55);
+      q.setFromEuler(e.set(r() * 6, r() * 6, r() * 6)); const k = 8 + Math.pow(r(), 3) * 70; s.set(k, k * (.6 + r() * .6), k * (.8 + r() * .4));
+      inst.setMatrixAt(i, m.compose(p, q, s)); inst.setColorAt(i, corRocha(r, c));
     }
     cena.add(inst); return inst;
   })();
+  // campos de asteroides grandes, girando: dao para atravessar desviando e
+  // para destruir com os tiros
+  const rochas = (() => {
+    const centros = [[2050, 3.8, 260], [8100, 1.0, 520], [8400, 3.4, 520], [8000, 5.4, 520]];
+    const lista = [], r = rnd(555);
+    centros.forEach(([R, a, esp]) => {
+      const cx = Math.cos(a) * R, cz = Math.sin(a) * R * .55;
+      for (let i = 0; i < 60; i++) {
+        const k = 18 + Math.pow(r(), 2.2) * 150;
+        lista.push({ c: new THREE.Vector3(cx + (r() - .5) * esp * 2, (r() - .5) * esp * .7, cz + (r() - .5) * esp * 2), k, eixo: new THREE.Vector3(r() - .5, r() - .5, r() - .5).normalize(), w: (r() - .5) * .5, a: r() * 6, vivo: true, volta: 0, cor: corRocha(r, new THREE.Color()) });
+      }
+    });
+    const inst = new THREE.InstancedMesh(geoRocha(4.2, guarda), matRocha, lista.length);
+    lista.forEach((x, i) => inst.setColorAt(i, x.cor));
+    cena.add(inst);
+    return { inst, lista };
+  })();
+  // buracos negros no cenario (longe, fora do limite do voo)
+  const buracos = [[-15500, 3200, -11000, 900], [17000, -4200, 7500, 600]].map(([x, y, z, r]) => {
+    const b = buracoNegro(r, guarda); b.position.set(x, y, z); b.lookAt(0, 0, 0); b.rotateX(1.1); cena.add(b); return b;
+  });
 
   // poeira perto da camera: e ela que mostra velocidade (o ceu esta longe
   // demais). Cada grao e um segmento: parado e um ponto; em dobra (Shift)
@@ -405,7 +530,11 @@ export function criarEspaco(cena) {
   }
 
   return {
-    planetas, cena,
+    planetas, cena, rochas, buracos,
+    mapaInfo: { cinturao: { raio: 9.4 * ESC, largura: 700 }, campos: [[2050, 3.8, 260], [8100, 1.0, 520], [8400, 3.4, 520], [8000, 5.4, 520]].map(([R, a, e]) => ({ x: Math.cos(a) * R, z: Math.sin(a) * R * .55, r: e * 1.2 })) },
+    /** esfera (c, r) bate em alguma rocha viva? devolve a rocha */
+    rochaEm(c, r) { for (const x of rochas.lista) if (x.vivo && x.c.distanceToSquared(c) < (x.k + r) * (x.k + r)) return x; return null; },
+    quebrarRocha(x) { x.vivo = false; x.volta = 25; },
     sol: { pos: sol.position, raio: RAIO_SOL },
     /** comeca a entrar (ou acabou de sair) de p: ele para de girar e ganha neblina */
     focar(p) {
@@ -438,7 +567,7 @@ export function criarEspaco(cena) {
       for (const x of planetas) if (x !== p) porNoCeu(x.grupo, x.orig, o.olho, o.verdadeiro, s, o.m);
       porNoCeu(sol, _dir.set(0, 0, 0), o.olho, o.verdadeiro, s, o.m); luzSol.position.copy(sol.position); luzSolSup.position.copy(sol.position);
       orbitas.forEach((l) => { l.material.opacity = .18 * (1 - o.kFora); l.visible = o.kFora < 1; });
-      cinturao.material.opacity = 1 - o.kFora; cinturao.visible = o.kFora < 1;
+      cinturao.material.opacity = 1 - o.kFora; cinturao.visible = rochas.inst.visible = o.kFora < 1;
       // as luzes viram as da superficie
       luzEntrada.intensity = 2.2 * o.kLuz; luzEntrada.target.position.copy(o.centro);
       luzEntrada.position.copy(LUZ_SUP).applyQuaternion(o.qS2W).multiplyScalar(o.R * 3).add(o.centro);
@@ -464,7 +593,7 @@ export function criarEspaco(cena) {
       sol.position.set(0, 0, 0); sol.scale.setScalar(1); luzSol.position.set(0, 0, 0); luzSolSup.position.set(0, 0, 0);
       luzSol.intensity = 235 * Math.pow(ESC, 1.34); luzSolSup.intensity = 0; luzesSite.forEach(([l, i]) => { l.intensity = i; });
       orbitas.forEach((l) => { l.material.opacity = .18; l.visible = true; });
-      cinturao.material.opacity = 1; cinturao.visible = true;
+      cinturao.material.opacity = 1; cinturao.visible = rochas.inst.visible = true;
       luzEntrada.intensity = 0; hemi.intensity = 0;
       if (domo) domo.material.uniforms.forca.value = 0;
       matsCeu.forEach(([m, op]) => { m.opacity = op; });
@@ -478,6 +607,16 @@ export function criarEspaco(cena) {
       atualizarGas(dt, camera);
       planetas.forEach((p, i) => { if (!focado) { p.corpo.rotation.y += dt * (.05 + i * .006); if (p.nuvens) p.nuvens.rotation.y += dt * (.065 + i * .006); } });
       cinturao.rotation.y += dt * .002;
+      ceu.userData.tempo.value = t; buracos.forEach((b) => { b.userData.u.tempo.value = t; });
+      {
+        const m = _m4, q = _q4, s = _s4;
+        rochas.lista.forEach((x, i) => {
+          if (x.volta > 0) { x.volta -= dt; if (x.volta <= 0) x.vivo = true; }
+          x.a += x.w * dt;
+          rochas.inst.setMatrixAt(i, m.compose(x.c, q.setFromAxisAngle(x.eixo, x.a), s.setScalar(x.vivo ? x.k : 0)));
+        });
+        rochas.inst.instanceMatrix.needsUpdate = true;
+      }
       const c = camera.position, dobra = extra.dobra || 0;
       const v = extra.vel ? extra.vel.length() : 0;
       if (extra.vel && v > .01) _dir.copy(extra.vel).divideScalar(v); else _dir.set(0, 0, 0);
@@ -505,20 +644,44 @@ export function criarEspaco(cena) {
     }
   };
 }
-const _cor = new THREE.Color(), _vs = new THREE.Vector3();
+const _cor = new THREE.Color(), _vs = new THREE.Vector3(), _m4 = new THREE.Matrix4(), _q4 = new THREE.Quaternion(), _s4 = new THREE.Vector3();
 
 /* ============================================================ superficie == */
-// altura do terreno: morros suaves; a praca (raio 70: plataforma + anel de
-// predios da stack) e plana
-export const RAIO_PRACA = 70, RAIO_PREDIOS = 46;
+// a plataforma central (onde a nave chega) fica numa praca plana de raio 40;
+// cada tecnologia tem o seu LOCAL espalhado pelo mapa (raio plano 60): uma
+// praca com o predio, uma plataforma de pouso e um feixe de luz que se ve de
+// longe. Entre eles, morros e montanhas.
+export const RAIO_PRACA = 40, RAIO_LOCAL = 60, LIMITE_SUP = 2000;
 // o chao curva junto com um globo gigante por baixo: descendo do alto se ve o
 // horizonte curvo do planeta, que vai achatando ate virar chao
 export const R_GLOBO = 6000;
-export function alturaChao(x, z) {
-  const h = Math.sin(x * .021) * Math.cos(z * .017) * 9 + Math.sin(x * .053 + z * .031) * 3.5 + Math.cos(z * .071 - x * .013) * 2;
-  const d = Math.hypot(x, z);
-  const plano = Math.min(1, Math.max(0, (d - RAIO_PRACA) / 40));
-  return h * plano * plano * (3 - 2 * plano) - (x * x + z * z) / (2 * R_GLOBO);
+const suaveC = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+// os locais das tecnologias: espalhados em volta da plataforma, alternando
+// perto e longe, sem encostar uns nos outros
+function locaisDe(key, n) {
+  const r = rnd(key.length * 7919 + 17), out = [];
+  for (let i = 0; i < n; i++) {
+    let x, z, ok = false, tent = 0;
+    while (!ok && tent++ < 200) {
+      const ang = (i / n) * Math.PI * 2 + (r() - .5) * .5, R = (i % 2 ? 900 : 480) + r() * 420;
+      x = Math.cos(ang) * R; z = Math.sin(ang) * R;
+      ok = out.every((o) => Math.hypot(o.x - x, o.z - z) > 330);
+    }
+    out.push({ x, z });
+  }
+  return out;
+}
+function criarAltura(locais) {
+  const zonas = [{ x: 0, z: 0, r: RAIO_PRACA + 25 }, ...locais.map((l) => ({ x: l.x, z: l.z, r: RAIO_LOCAL }))];
+  return function alturaChao(x, z) {
+    // morros + montanhas "de crista" que crescem longe das pracas
+    const h = Math.sin(x * .021) * Math.cos(z * .017) * 11 + Math.sin(x * .053 + z * .031) * 4 + Math.cos(z * .071 - x * .013) * 2.5;
+    const crista = 1 - Math.abs(Math.sin(x * .0042 + Math.cos(z * .0031) * 1.7) * Math.cos(z * .0047 - x * .0012));
+    let longe = 1;
+    for (const zn of zonas) { const d = Math.hypot(x - zn.x, z - zn.z); longe = Math.min(longe, suaveC((d - zn.r) / 70)); }
+    const montanha = Math.pow(crista, 3) * 120 * suaveC((Math.hypot(x, z) - 250) / 400);
+    return (h + montanha * longe) * longe - (x * x + z * z) / (2 * R_GLOBO);
+  };
 }
 
 /**
@@ -531,6 +694,11 @@ export function criarSuperficie(cena, planeta, opc = {}) {
   const lixo = []; const guarda = (o) => { lixo.push(o); return o; };
   const cor = planeta.cor, ar = planeta.atmosfera !== false;
   const qW2S = opc.qW2S || new THREE.Quaternion();
+  const area = STACK[planeta.key] || { techs: [] };
+  const locais = locaisDe(planeta.key, area.techs.length);
+  const alturaChao = criarAltura(locais);
+  const livre = (x, z, folga = 0) => Math.hypot(x, z) > RAIO_PRACA + 15 + folga && locais.every((l) => Math.hypot(x - l.x, z - l.z) > RAIO_LOCAL + 10 + folga);
+  const toque = typeof matchMedia !== 'undefined' && matchMedia('(pointer:coarse)').matches;
   const { ceu: ceuCor, chao: corChao } = coresPlaneta(planeta);
   cena.background = ceuCor;
   // neblina so com atmosfera; a distancia acompanha a altitude (ver atualizar)
@@ -568,7 +736,7 @@ export function criarSuperficie(cena, planeta, opc = {}) {
   if (gl.nuvens) { gl.nuvens.material.side = THREE.DoubleSide; gl.nuvens.material.opacity = .7; gl.nuvens.visible = true; }   // vistas de baixo tambem
 
   // terreno low-poly (curva junto com o globo: ver alturaChao)
-  const TAM = 3000, SEG = 220;
+  const TAM = 4600, SEG = toque ? 170 : 260;
   const geo = guarda(new THREE.PlaneGeometry(TAM, TAM, SEG, SEG)); geo.rotateX(-Math.PI / 2);
   const p = geo.attributes.position;
   for (let i = 0; i < p.count; i++) p.setY(i, alturaChao(p.getX(i), p.getZ(i)));
@@ -597,11 +765,11 @@ export function criarSuperficie(cena, planeta, opc = {}) {
 
   // cristais espalhados (instanciados)
   {
-    const n = 160, cg = guarda(new THREE.OctahedronGeometry(1, 0)); cg.scale(.6, 1.8, .6);
+    const n = 420, cg = guarda(new THREE.OctahedronGeometry(1, 0)); cg.scale(.6, 1.8, .6);
     const inst = new THREE.InstancedMesh(cg, guarda(new THREE.MeshStandardMaterial({ color: new THREE.Color(`hsl(${(cor + 20) % 360},80%,62%)`), emissive: new THREE.Color(`hsl(${cor},80%,30%)`), roughness: .3, flatShading: true })), n);
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), v = new THREE.Vector3(); const r = rnd(planeta.key.length * 101);
     for (let i = 0; i < n; i++) {
-      let x, z; do { x = (r() - .5) * 1400; z = (r() - .5) * 1400; } while (Math.hypot(x, z) < RAIO_PRACA + 10);
+      let x, z; do { x = (r() - .5) * 3800; z = (r() - .5) * 3800; } while (!livre(x, z));
       const k = 1 + r() * 3.5;
       v.set(x, alturaChao(x, z) + k * .8, z); q.setFromAxisAngle(new THREE.Vector3(r() - .5, 1, r() - .5).normalize(), r() * .6); s.setScalar(k);
       inst.setMatrixAt(i, m.compose(v, q, s));
@@ -610,7 +778,7 @@ export function criarSuperficie(cena, planeta, opc = {}) {
   }
 
   // decoracao com o tema da area (paineis, canos, discos de dados, barras...)
-  const decor = decorar(planeta.key, cor, alturaChao, RAIO_PRACA + 14, guarda);
+  const decor = decorar(planeta.key, cor, alturaChao, livre, guarda);
   if (decor.mesh) cena.add(decor.mesh);
 
   // plataforma de pouso
@@ -642,8 +810,7 @@ export function criarSuperficie(cena, planeta, opc = {}) {
   const poeira = new THREE.Points(gp, guarda(new THREE.PointsMaterial({ color: new THREE.Color(`hsl(${cor},30%,70%)`), size: .7, transparent: true, opacity: .6, depthWrite: false })));
   poeira.frustumCulled = false; cena.add(poeira);
 
-  /* ---- predios da stack: um por tecnologia da area, em anel na praca ---- */
-  const area = STACK[planeta.key] || { techs: [] };
+  /* ---- predios da stack: um por tecnologia, cada um no seu local ---- */
   const corNeon = new THREE.Color(`hsl(${cor},95%,68%)`);
   const matCorpo = guarda(new THREE.MeshStandardMaterial({ color: 0x16131f, roughness: .55, metalness: .5 }));
   const matNeon = guarda(new THREE.MeshBasicMaterial({ color: corNeon }));
@@ -661,12 +828,13 @@ export function criarSuperficie(cena, planeta, opc = {}) {
     ledInst: guarda(new THREE.MeshBasicMaterial({ color: 0xffffff }))
   };
   const animados = [];
+  const texFeixe = guarda(texRadial([[0, 'rgba(255,255,255,1)'], [1, 'rgba(255,255,255,0)']]));
+  const matPracaL = guarda(new THREE.MeshStandardMaterial({ color: 0x1b1726, roughness: .7, metalness: .3 }));
+  const matPadL = guarda(new THREE.MeshStandardMaterial({ color: 0x23202e, roughness: .6, metalness: .4 }));
   const predios = area.techs.map((tec, i) => {
-    const n = area.techs.length;
-    const ang = (i / n) * Math.PI * 2 + Math.PI / n;
-    const x = Math.cos(ang) * RAIO_PREDIOS, z = Math.sin(ang) * RAIO_PREDIOS;
+    const { x, z } = locais[i];
     const g = new THREE.Group(); g.position.set(x, alturaChao(x, z), z);
-    g.rotation.y = Math.atan2(-x, -z);           // porta (+z local) virada para o centro
+    g.rotation.y = Math.atan2(-x, -z);           // porta (+z local) virada para a plataforma central
     const alt = tec.nivel === 'Primary' || tec.nivel === 'Core' ? 13 : tec.nivel === 'Professional' ? 11 : 9;
     const L = 9, P = 9;
     // corpo com cara propria: um tipo por tecnologia da area (nao repete na praca)
@@ -697,13 +865,40 @@ export function criarSuperficie(cena, planeta, opc = {}) {
     animados.push((t) => { emb.position.y = cp.topo + 6.2 + Math.sin(t * 1.5 + i) * .35; emb.material.rotation = Math.sin(t * .7 + i) * .12; });
     // circulo de luz na frente da porta (onde da para entrar)
     const marca = new THREE.Mesh(guarda(new THREE.RingGeometry(1.4, 1.75, 40)), matNeon); marca.rotation.x = -Math.PI / 2; marca.position.set(0, .06, P / 2 + 3.2); g.add(marca);
+    // o local: praca com anel de neon, plataforma de pouso pequena na frente e
+    // trilha de luzes ate a porta
+    const praca = new THREE.Mesh(guarda(new THREE.CylinderGeometry(26, 27, .5, 48)), matPracaL); praca.position.y = -.2; g.add(praca);
+    const anelL = new THREE.Mesh(guarda(new THREE.RingGeometry(25.4, 26.2, 64)), matNeon); anelL.rotation.x = -Math.PI / 2; anelL.position.y = .07; g.add(anelL);
+    const padL = new THREE.Mesh(guarda(new THREE.CylinderGeometry(7, 7.4, .5, 32)), matPadL); padL.position.set(0, .05, 19); g.add(padL);
+    const anelP = new THREE.Mesh(guarda(new THREE.RingGeometry(5.4, 5.9, 40)), matNeon); anelP.rotation.x = -Math.PI / 2; anelP.position.set(0, .32, 19); g.add(anelP);
+    for (let k = 0; k < 4; k++) { const l = new THREE.Mesh(guarda(new THREE.BoxGeometry(.5, .15, .5)), matNeon); l.position.set(-1.6, .1, P / 2 + 4.5 + k * 2); g.add(l); const l2 = l.clone(); l2.position.x = 1.6; g.add(l2); }
+    // feixe de luz alto (de longe da para achar o local) e o nome la em cima
+    const feixe = new THREE.Mesh(guarda(new THREE.CylinderGeometry(1.2, 5, 420, 20, 1, true)), guarda(new THREE.MeshBasicMaterial({ color: corNeon, transparent: true, opacity: .16, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false })));
+    feixe.position.y = 210; g.add(feixe);
+    const brilhoTopo = new THREE.Sprite(guarda(new THREE.SpriteMaterial({ map: texFeixe, color: corNeon, transparent: true, opacity: .8, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })));
+    brilhoTopo.position.y = 150; brilhoTopo.scale.setScalar(26); g.add(brilhoTopo);
+    const tn = document.createElement('canvas'); tn.width = 512; tn.height = 128; const cn = tn.getContext('2d');
+    const desenharNome = (visto) => {
+      cn.clearRect(0, 0, 512, 128); cn.font = '900 64px ui-monospace, Menlo, monospace'; cn.textAlign = 'center'; cn.textBaseline = 'middle';
+      cn.shadowColor = visto ? '#2bff8f' : corNeon.getStyle(); cn.shadowBlur = 18; cn.fillStyle = '#fff';
+      cn.fillText((visto ? '✓ ' : '') + (tec.nome.length > 12 ? tec.nome.slice(0, 11) + '…' : tec.nome), 256, 64);
+    };
+    desenharNome(false);
+    const texN = guarda(new THREE.CanvasTexture(tn)); texN.colorSpace = THREE.SRGBColorSpace;
+    const nomeAlto = new THREE.Sprite(guarda(new THREE.SpriteMaterial({ map: texN, transparent: true, depthWrite: false, fog: false })));
+    nomeAlto.position.y = 172; nomeAlto.scale.set(64, 16, 1); g.add(nomeAlto);
+    animados.push((t) => { feixe.material.opacity = .13 + Math.sin(t * 1.7 + i) * .04; brilhoTopo.scale.setScalar(24 + Math.sin(t * 2.2 + i) * 4); });
     cena.add(g);
-    // caminho de luz ate a plataforma
-    const caminho = new THREE.Mesh(guarda(new THREE.PlaneGeometry(.35, RAIO_PREDIOS - P / 2 - 13)), guarda(new THREE.MeshBasicMaterial({ color: corNeon, transparent: true, opacity: .35 })));
-    caminho.rotation.x = -Math.PI / 2; caminho.rotation.z = -ang + Math.PI / 2;
-    const meio = (13 + RAIO_PREDIOS - P / 2) / 2; caminho.position.set(Math.cos(ang) * meio, alturaChao(Math.cos(ang) * meio, Math.sin(ang) * meio) + .05, Math.sin(ang) * meio); cena.add(caminho);
-    const portaMundo = new THREE.Vector3(0, 0, P / 2 + 3.2).applyAxisAngle(new THREE.Vector3(0, 1, 0), g.rotation.y).add(g.position);
-    return { tec, grupo: g, pos: g.position, porta: portaMundo, raio: 6.6, visto: false, marcarVisto() { this.visto = true; desenharLetreiro(true); texL.needsUpdate = true; } };
+    const eixoY = new THREE.Vector3(0, 1, 0);
+    const portaMundo = new THREE.Vector3(0, 0, P / 2 + 3.2).applyAxisAngle(eixoY, g.rotation.y).add(g.position);
+    const padMundo = new THREE.Vector3(0, 0, 19).applyAxisAngle(eixoY, g.rotation.y).add(g.position);
+    return {
+      tec, grupo: g, pos: g.position, porta: portaMundo, pad: padMundo, raio: 6.6, visto: false, tipo,
+      marcarVisto() {
+        this.visto = true; desenharLetreiro(true); texL.needsUpdate = true; desenharNome(true); texN.needsUpdate = true;
+        feixe.material.color.set(0x2bff8f); brilhoTopo.material.color.set(0x2bff8f);
+      }
+    };
   });
 
   /* ---- camada de nuvens (so com atmosfera): a nave atravessa descendo (y 450-750) ---- */
@@ -711,17 +906,17 @@ export function criarSuperficie(cena, planeta, opc = {}) {
   const nuvens = new THREE.Group(); cena.add(nuvens);
   if (ar) {
     const r = rnd(41); const corN = new THREE.Color(`hsl(${cor},35%,82%)`);
-    for (let i = 0; i < 140; i++) {
+    for (let i = 0; i < 200; i++) {
       // vistas do chao viravam manchas brancas: mais transparentes e com neblina
       const sp = new THREE.Sprite(guarda(new THREE.SpriteMaterial({ map: texNuvem, color: corN, transparent: true, opacity: .28 + r() * .2, depthWrite: false })));
-      const a = r() * Math.PI * 2, R = Math.sqrt(r()) * 1700;
-      sp.position.set(Math.cos(a) * R, 450 + r() * 300, -500 + Math.sin(a) * R);
+      const a = r() * Math.PI * 2, R = Math.sqrt(r()) * 2300;
+      sp.position.set(Math.cos(a) * R, 450 + r() * 300, -300 + Math.sin(a) * R);
       sp.scale.setScalar(180 + r() * 260); nuvens.add(sp);
     }
   }
 
   return {
-    alturaChao, predios, nuvens, atmosfera: ar, corCeu: ceuCor, corChao, ceuAstros,
+    alturaChao, predios, nuvens, atmosfera: ar, corCeu: ceuCor, corChao, ceuAstros, limite: LIMITE_SUP, corNeon: corNeon.getStyle(), cena,
     levantarPoeira(x, z, forca) {
       for (let i = 0; i < NP; i++) {
         if (vidaP[i] > 0 && Math.random() > forca) continue;
@@ -736,7 +931,7 @@ export function criarSuperficie(cena, planeta, opc = {}) {
       // (do alto se ve o globo inteiro; no chao fecha como antes)
       if (camera) {
         ceu.position.copy(camera.position);
-        if (estrelas) estrelas.position.copy(camera.position);
+        if (estrelas) { estrelas.position.copy(camera.position); estrelas.userData.tempo.value = t; }
         if (extra.verdadeiro) for (const a of ceuAstros) {
           _vs.subVectors(a.orig, extra.verdadeiro); const dist = _vs.length();
           _vs.applyMatrix4(extra.W2S).multiplyScalar(DIST_CEU / dist);

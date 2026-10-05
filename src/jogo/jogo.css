@@ -183,3 +183,29 @@ html.cursor-proprio .jogo .jogo-pausa,html.cursor-proprio .jogo .jogo-pausa *{cu
 }
 .jogo.toque .jp-nome{font-size:30px}
 .jogo.toque .jogo-predio{max-height:calc(100vh - 24px);overflow:auto}
+
+/* botoes do topo: mapa e som */
+.jogo-botoes-topo{display:flex;gap:8px;align-items:center}
+.jogo-mapa-bt,.jogo-som{font:700 14px/1 ui-monospace,Menlo,monospace;color:#fff;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);
+  border-radius:999px;width:36px;height:34px;cursor:pointer!important;display:grid;place-items:center}
+.jogo-mapa-bt:hover,.jogo-som:hover{background:rgba(124,77,255,.3)}
+html.cursor-proprio .jogo .jogo-mapa-bt,html.cursor-proprio .jogo .jogo-som{cursor:pointer!important}
+/* combustivel do jetpack (so a pe) */
+.jogo-comb{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);width:200px;padding:8px 12px;border-radius:10px;
+  background:rgba(12,10,22,.7);border:1px solid rgba(255,255,255,.1);opacity:0;transition:opacity .25s;pointer-events:none}
+.jogo.a-pe .jogo-comb{opacity:1}
+.jogo-comb small{display:block;font-size:9px;letter-spacing:.2em;color:rgba(228,220,255,.5);margin-bottom:5px}
+.jogo-comb i{display:block;height:5px;border-radius:5px;background:rgba(255,255,255,.1);overflow:hidden}
+.jogo-comb em{display:block;height:100%;background:linear-gradient(90deg,#4fd2ff,#8fd8ff);transform-origin:0 50%}
+.jogo-comb.vazio em{background:#ff5f57}
+/* mapa (M) */
+.jogo-mapa{position:absolute;inset:0;width:100%;height:100%;z-index:7;opacity:0;pointer-events:none;transition:opacity .2s;
+  background:radial-gradient(circle at 50% 50%,rgba(14,10,30,.94),rgba(5,4,11,.97))}
+.jogo.mapa-on .jogo-mapa{opacity:1}
+.jogo.mapa-on .jogo-acao,.jogo.mapa-on .jogo-rotulos{opacity:0}
+/* toque: 3 fileiras de botoes */
+.jt-botoes{grid-template-columns:repeat(2,58px);gap:10px}
+.jt-botoes button{width:58px;height:58px}
+.jt-botoes [data-b=tiro]{color:#ff7ad9}
+.jogo.toque .jogo-comb{bottom:auto;top:110px;width:150px}
+.jogo.toque .jogo-mapa-bt{display:none}
