@@ -770,3 +770,14 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - a pé, a mira também para em prédios e em outros jogadores (antes atravessava e o tiro ia para o chão atrás).
 - **Login visível:** ao abrir o jogo aparece um aviso grande "LOGADO COMO …" (ou "SEM CONTA"), próprio, sem ser trocado por outros avisos. Embaixo do título fica um selo com ponto verde.
 - **Rodinha do mouse:** para cima aproxima e para baixo afasta (estava invertida).
+
+## Jogo: cor de cada jogador, nave do admin e mirar com o botão direito (07/10/2026)
+- **Cor por jogador:** tirada do nome (`matizDe` em `nave.js`), sempre a mesma. Pinta a nave no shader mantendo o claro/escuro da textura, além da chama, do nome em cima, do placar e do selo do HUD.
+- **Nave do admin:** roxa e rosa, com dois anéis girando, luzes nas asas e aura; o nome leva 👑.
+  - O servidor manda `admin` por jogador (pelo email no segredo `ADMINS`).
+  - Ninguém mais recebe roxo ou rosa (matiz de 250 a 345 é pulado).
+- **Botão direito = mirar:**
+  - a pé, a câmera chega no ombro e o ângulo fecha ~32%;
+  - na nave, zoom de ~45%;
+  - o mouse fica mais fino e a mira fecha e acende verde;
+  - o menu do botão direito fica bloqueado durante o jogo.

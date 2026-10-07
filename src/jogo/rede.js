@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import PartySocket from 'partysocket';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as clonarEsqueleto } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { pintarNave, enfeitesAdmin, matizDe, corCss } from './nave.js';
 
 /**
  * Multiplayer: conecta na SALA do lugar onde o jogador esta ("espaco" ou
@@ -32,7 +33,7 @@ export function criarRede({ token, host, modeloNave, aoEvento }) {
   }
 
   function receber(m) {
-    if (m.t === 'oi') { meuId = m.id; m.jogadores.forEach((j) => atualizarRemoto(j, true)); aoEvento('conectado', { id: m.id, nome: m.nome, n: remotos.size }); }
+    if (m.t === 'oi') { meuId = m.id; m.jogadores.forEach((j) => atualizarRemoto(j, true)); aoEvento('conectado', { id: m.id, nome: m.nome, admin: !!m.admin, n: remotos.size }); }
     else if (m.t === 'entrou') { atualizarRemoto(m, true); aoEvento('entrou', m); }
     else if (m.t === 'estado') atualizarRemoto(m);
     else if (m.t === 'saiu') { const r = remotos.get(m.id); if (r) { removerVisual(r); remotos.delete(m.id); aoEvento('saiu', { nome: r.nome }); } }
@@ -49,10 +50,11 @@ export function criarRede({ token, host, modeloNave, aoEvento }) {
     if (j.id === meuId) return;
     let r = remotos.get(j.id);
     if (!r) {
-      r = { id: j.id, nome: j.nome || 'astronauta', pvp: !!j.pvp, vida: j.vida ?? 100, vivo: true, pos: new THREE.Vector3(), alvo: new THREE.Vector3(), rumo: 0, alvoRumo: 0, modo: 'espaco', esc: 1, vel: 0, rotuloSujo: true, flash: 0, obj: null, tipo: null };
+      r = { id: j.id, nome: j.nome || 'astronauta', admin: !!j.admin, matiz: matizDe(j.nome), pvp: !!j.pvp, vida: j.vida ?? 100, vivo: true, pos: new THREE.Vector3(), alvo: new THREE.Vector3(), rumo: 0, alvoRumo: 0, modo: 'espaco', esc: 1, vel: 0, rotuloSujo: true, flash: 0, obj: null, tipo: null };
       remotos.set(j.id, r); novo = true;
     }
-    if (j.nome) r.nome = j.nome;
+    if (j.nome && j.nome !== r.nome) { r.nome = j.nome; r.matiz = matizDe(j.nome); }
+    if (j.admin !== undefined && !!j.admin !== r.admin) { r.admin = !!j.admin; r.tipo = 'refazer'; }
     if (j.p) { r.alvo.fromArray(j.p); if (novo) r.pos.copy(r.alvo); }
     if (j.r !== undefined) r.alvoRumo = j.r;
     if (j.modo) r.modo = j.modo;
@@ -73,9 +75,12 @@ export function criarRede({ token, host, modeloNave, aoEvento }) {
       const acoes = {}; ['Idle_Neutral', 'Walk', 'Run', 'Idle'].forEach((n) => { const c = clip(n); if (c) { acoes[n] = mixer.clipAction(c); acoes[n].play(); acoes[n].setEffectiveWeight(n === 'Idle_Neutral' ? 1 : 0); } });
       r.mixer = mixer; r.acoes = acoes;
     } else if (tipo === 'nave' && modeloNave) {
-      const m = modeloNave.clone(true); const corpo = new THREE.Group(); corpo.add(m); g.add(corpo);
+      // cada um com a sua cor (do nome); o admin com a nave roxa e rosa
+      const m = pintarNave(modeloNave.clone(true), { matiz: r.matiz, admin: r.admin }); const corpo = new THREE.Group(); corpo.add(m); g.add(corpo);
+      if (r.admin) corpo.add(enfeitesAdmin(brilhoTex()));
+      const cor = r.admin ? 0xff4fd8 : new THREE.Color().setHSL(r.matiz / 360, .85, .6).getHex();
       // chama do propulsor
-      const ch = new THREE.Mesh(new THREE.ConeGeometry(.3, 1.6, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0xb48cff, transparent: true, opacity: .8, blending: THREE.AdditiveBlending, depthWrite: false }));
+      const ch = new THREE.Mesh(new THREE.ConeGeometry(.3, 1.6, 12, 1, true), new THREE.MeshBasicMaterial({ color: cor, transparent: true, opacity: .8, blending: THREE.AdditiveBlending, depthWrite: false }));
       ch.rotation.x = -Math.PI / 2; ch.position.z = -2.4; corpo.add(ch);
       r.mixer = null;
     }
@@ -97,12 +102,20 @@ export function criarRede({ token, host, modeloNave, aoEvento }) {
     const { cv, tex } = r.rotulo, c = cv.getContext('2d');
     c.clearRect(0, 0, 256, 64);
     c.font = '800 26px ui-monospace, Menlo, monospace'; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.lineWidth = 5; c.strokeStyle = 'rgba(0,0,0,.75)'; c.strokeText((r.pvp ? '⚔ ' : '') + r.nome, 128, 22);
-    c.fillStyle = r.pvp ? '#ff6b6b' : '#e9e2ff'; c.fillText((r.pvp ? '⚔ ' : '') + r.nome, 128, 22);
+    const txt = (r.pvp ? '⚔ ' : '') + (r.admin ? '👑 ' : '') + r.nome;
+    c.lineWidth = 5; c.strokeStyle = 'rgba(0,0,0,.75)'; c.strokeText(txt, 128, 22);
+    c.fillStyle = r.pvp ? '#ff6b6b' : corCss(r.matiz, r.admin); c.fillText(txt, 128, 22);
     if (r.pvp) { c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(48, 44, 160, 10); c.fillStyle = r.vida > 35 ? '#2bff8f' : '#ff5f57'; c.fillRect(48, 44, 160 * Math.max(0, r.vida) / 100, 10); }
     tex.needsUpdate = true; r.rotuloSujo = false;
   }
 
+  let _brilho = null;
+  function brilhoTex() {
+    if (_brilho) return _brilho;
+    const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+    g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.35, 'rgba(255,255,255,.5)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+    return (_brilho = new THREE.CanvasTexture(c));
+  }
   const _v = new THREE.Vector3();
   return {
     get sala() { return sala; }, get meuId() { return meuId; }, remotos,

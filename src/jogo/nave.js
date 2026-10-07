@@ -36,6 +36,8 @@ export async function criarNave(cena) {
   const centro = caixa.getCenter(new THREE.Vector3()).multiplyScalar(escala);
   modelo.position.sub(centro);
   modelo.traverse((o) => { if (o.isMesh) { o.material.side = THREE.FrontSide; } });
+  // copia sem pintura: base para as naves dos outros jogadores
+  const modeloBase = modelo.clone(true);
 
   const raiz = new THREE.Group();        // posicao e rumo
   const corpo = new THREE.Group();       // inclinacao visual (banco, arfagem)
@@ -93,8 +95,17 @@ export async function criarNave(cena) {
   const _bocal = new THREE.Vector3(), _tras = new THREE.Vector3();
 
   let empuxo = 0;            // 0..1 suavizado
+  let corChama = 0x8a5cff, extras = null;
   return {
-    raiz, corpo, modelo, rastro,
+    raiz, corpo, modelo, modeloBase, rastro,
+    /** pinta a nave do jogador (cor do nome; admin: roxa e rosa com enfeites) */
+    pintar(o) {
+      pintarNave(modelo, o);
+      corChama = o.admin ? 0xff4fd8 : new THREE.Color().setHSL(o.matiz / 360, .85, .6).getHex();
+      halo.material.color.setHex(corChama); luz.color.setHex(corChama);
+      if (extras) { corpo.remove(extras); extras = null; }
+      if (o.admin) { extras = enfeitesAdmin(brilho); corpo.add(extras); }
+    },
     get empuxo() { return empuxo; },
     /** 0..1: intensidade da reentrada (plasma no nariz, faiscas laranja) */
     reentrada(k) { reentra = k; },
@@ -109,7 +120,7 @@ export async function criarNave(cena) {
       chama.visible = e > .02;
       envelope.scale.set(.6 + e * .5, .6 + e * .5, (.4 + e * 2.6) * tremor);
       nucleo.scale.set(.3 + e * .25, .3 + e * .25, (.25 + e * 1.4) * tremor);
-      envelope.material.color.setHex(turbo ? 0x4fd2ff : 0x8a5cff);
+      envelope.material.color.setHex(turbo ? 0x4fd2ff : corChama);
       halo.material.opacity = Math.min(1, .3 + e * .8);
       halo.scale.setScalar(1.2 + e * 1.6);
       luz.intensity = e * 6;
@@ -155,4 +166,68 @@ export async function criarNave(cena) {
       geo.dispose(); rastro.material.dispose(); brilho.dispose();
     }
   };
+}
+
+/* ---- cor de cada jogador ----
+   matiz (0–360) tirado do nome: sempre a mesma cor para o mesmo jogador */
+export function matizDe(nome) {
+  let h = 2166136261;
+  for (const ch of String(nome || '')) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); }
+  // pula o roxo e o rosa (250–345): sao so da nave do admin
+  const m = (h >>> 0) % 265;
+  return m < 250 ? m : m + 95;
+}
+/** cor CSS do jogador (rotulo, placar, HUD) */
+export const corCss = (matiz, admin) => admin ? '#ff6bd6' : `hsl(${matiz} 90% 68%)`;
+
+/**
+ * Pinta um modelo da nave sem perder os detalhes da textura: no shader a cor
+ * vira a do jogador mantendo o claro/escuro da textura (a textura e quase toda
+ * cinza, entao girar o matiz nao bastava). Admin: ouro, mais metalico.
+ * Os materiais sao clonados, o modelo de origem nao muda. Pode ser chamado de
+ * novo para trocar a cor.
+ */
+export function pintarNave(modelo, { matiz = 270, admin = false } = {}) {
+  const cor = admin ? new THREE.Color(.45, .18, 1) : new THREE.Color().setHSL(matiz / 360, 1, .5);
+  const cor2 = admin ? new THREE.Color(1, .3, .82) : cor;
+  modelo.traverse((o) => {
+    if (!o.isMesh) return;
+    let u = o.material.userData.pintura;
+    if (!u) {
+      o.material = o.material.clone();
+      u = o.material.userData.pintura = { uCor: { value: new THREE.Color() }, uCor2: { value: new THREE.Color() }, uForca: { value: 0 } };
+      o.material.onBeforeCompile = (sh) => {
+        sh.uniforms.uCor = u.uCor; sh.uniforms.uCor2 = u.uCor2; sh.uniforms.uForca = u.uForca;
+        sh.fragmentShader = sh.fragmentShader
+          .replace('void main() {', 'uniform vec3 uCor; uniform vec3 uCor2; uniform float uForca;\nvoid main() {')
+          .replace('#include <map_fragment>', `#include <map_fragment>
+            float lumN = dot(diffuseColor.rgb, vec3(.299, .587, .114));
+            vec3 corN = mix(uCor, uCor2, smoothstep(.35, .7, lumN));   // escuro numa cor, claro na outra
+            diffuseColor.rgb = mix(diffuseColor.rgb, corN * (.18 + lumN * 1.25), uForca);`);
+      };
+      o.material.customProgramCacheKey = () => 'nave-pintada';
+      u.metal = o.material.metalness; u.rug = o.material.roughness;
+    }
+    u.uCor.value.copy(cor); u.uCor2.value.copy(cor2); u.uForca.value = admin ? .92 : .88;
+    o.material.metalness = admin ? Math.max(u.metal, .8) : u.metal; o.material.roughness = admin ? Math.min(u.rug, .28) : u.rug;
+  });
+  return modelo;
+}
+
+/** enfeites da nave do admin: anel rosa girando, luzes nas pontas das asas e aura */
+export function enfeitesAdmin(brilho) {
+  const g = new THREE.Group();
+  const ouro = new THREE.MeshBasicMaterial({ color: 0xff5fd2, transparent: true, opacity: .85, blending: THREE.AdditiveBlending, depthWrite: false });
+  const anel = new THREE.Mesh(new THREE.TorusGeometry(2.1, .035, 6, 64), ouro);
+  anel.rotation.x = Math.PI / 2; g.add(anel);
+  const anel2 = new THREE.Mesh(new THREE.TorusGeometry(2.25, .02, 6, 64), ouro.clone()); anel2.material.color.setHex(0x8f5cff); anel2.rotation.x = Math.PI / 2; g.add(anel2);
+  let t = 0;
+  anel.onBeforeRender = () => { t += .016; anel.rotation.y = Math.sin(t * .9) * .35; anel2.rotation.y = -Math.sin(t * .9) * .35; anel2.material.opacity = .5 + Math.cos(t * 3) * .25; ouro.opacity = .6 + Math.sin(t * 3) * .25; };
+  for (const lado of [-1, 1]) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: brilho, color: lado < 0 ? 0x9a6bff : 0xff6bd6, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    s.position.set(lado * 1.35, 0, -.4); s.scale.setScalar(.9); g.add(s);
+  }
+  const aura = new THREE.Sprite(new THREE.SpriteMaterial({ map: brilho, color: 0xc06bff, transparent: true, opacity: .22, blending: THREE.AdditiveBlending, depthWrite: false }));
+  aura.scale.setScalar(4); g.add(aura);
+  return g;
 }

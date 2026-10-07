@@ -130,12 +130,12 @@ export class Sala extends Server {
 
   async onConnect(conn, ctx) {
     const token = new URL(ctx.request.url).searchParams.get('token');
-    const nome = await contas(this.env).validar(token);
+    const eu = await contas(this.env).quem(token), nome = eu && eu.nome;
     if (!nome) { conn.send(JSON.stringify({ t: 'erro', msg: 'faça login para jogar online' })); conn.close(4001, 'login'); return; }
-    const j = { id: conn.id, nome, p: [0, 0, 0], r: 0, modo: 'espaco', arma: null, pvp: false, vida: 100, vivo: true, abates: 0, mortes: 0, ultTiro: 0 };
+    const j = { id: conn.id, nome, admin: ehAdmin(this.env, eu.email), p: [0, 0, 0], r: 0, modo: 'espaco', arma: null, pvp: false, vida: 100, vivo: true, abates: 0, mortes: 0, ultTiro: 0 };
     this.jogadores.set(conn.id, j);
     contas(this.env).presenca(conn.id, nome, this.name, true).catch(() => {});
-    conn.send(JSON.stringify({ t: 'oi', id: conn.id, nome, jogadores: [...this.jogadores.values()].filter((x) => x.id !== conn.id).map(publico) }));
+    conn.send(JSON.stringify({ t: 'oi', id: conn.id, nome, admin: j.admin, jogadores: [...this.jogadores.values()].filter((x) => x.id !== conn.id).map(publico) }));
     this.broadcast(JSON.stringify({ t: 'entrou', ...publico(j) }), [conn.id]);
   }
 
@@ -177,7 +177,7 @@ export class Sala extends Server {
     this.broadcast(JSON.stringify({ t: 'saiu', id: conn.id }));
   }
 }
-const publico = (j) => ({ id: j.id, nome: j.nome, p: j.p, r: j.r, modo: j.modo, arma: j.arma, pvp: j.pvp, vida: j.vida, abates: j.abates, mortes: j.mortes, esc: j.esc || 1 });
+const publico = (j) => ({ id: j.id, nome: j.nome, admin: !!j.admin, p: j.p, r: j.r, modo: j.modo, arma: j.arma, pvp: j.pvp, vida: j.vida, abates: j.abates, mortes: j.mortes, esc: j.esc || 1 });
 
 /* --------------------------------------------------------------- rotas -- */
 // admins: emails no segredo ADMINS (nao fica no codigo)

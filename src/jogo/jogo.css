@@ -402,3 +402,14 @@ html.cursor-proprio .jogo .jogo-pvp{cursor:pointer!important}
 .jogo-ajuda{top:92px}
 .jogo-arma header b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .jogo-troca canvas{width:240px;height:94px}
+
+/* cor de cada jogador (placar) e selo do admin */
+.jogo-tab .cor-j{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:8px;vertical-align:middle;box-shadow:0 0 6px currentColor}
+.jogo-conta.adm{border-color:rgba(255,107,214,.6)}
+.jogo-conta.adm b{color:#ff6bd6}
+.jogo-conta.adm b::before{content:"👑 "}
+
+/* mirando (botao direito): a mira fecha e acende */
+.jogo-mira{transition:opacity .2s,transform .15s}
+.jogo.mirando .jogo-mira{transform:scale(.75)}
+.jogo.mirando .jogo-mira::after{background:#2bff8f;box-shadow:0 0 6px #2bff8f}

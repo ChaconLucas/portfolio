@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import './jogo.css';
-import { criarNave } from './nave.js';
+import { criarNave, matizDe, corCss } from './nave.js';
 import { criarAstronauta } from './astronauta.js';
 import { criarEspaco, criarSuperficie, LIMITE_ESPACO, R_GLOBO } from './cenas.js';
 import { STACK, PROJETOS_POR_TECH, ANCORA } from './dados.js';
@@ -123,8 +123,8 @@ export async function abrirJogo() {
 
   const AJUDA = {
     nave: `<span><kbd>W</kbd><kbd>S</kbd> acelerar / frear</span><span><kbd>A</kbd><kbd>D</kbd> para os lados</span>
-      <span><kbd>Espaço</kbd><kbd>Ctrl</kbd> subir / descer</span><span><kbd>Shift</kbd>+<kbd>W</kbd> velocidade da luz</span><span><kbd>E</kbd> interagir</span><span><kbd>Mouse</kbd> visão / direção · rodinha = zoom</span>`,
-    pe: `<span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> andar</span><span><kbd>Shift</kbd> correr · <kbd>Espaço</kbd> pular · <kbd>C</kbd> rolar</span>
+      <span><kbd>Espaço</kbd><kbd>Ctrl</kbd> subir / descer</span><span><kbd>Shift</kbd>+<kbd>W</kbd> velocidade da luz</span><span><kbd>E</kbd> interagir</span><span><kbd>Mouse</kbd> visão / direção · rodinha = zoom</span><span><kbd>Botão dir.</kbd> mirar (zoom)</span>`,
+    pe: `<span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> andar</span><span><kbd>Shift</kbd> correr · <kbd>Espaço</kbd> pular · <kbd>C</kbd> rolar</span><span><kbd>Botão dir.</kbd> mirar</span>
       <span><kbd>Espaço</kbd> no ar = jetpack · <kbd>Espaço</kbd>/<kbd>Ctrl</kbd> sobe/desce · <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> voa</span>
       <span><kbd>E</kbd> entrar no prédio / embarcar</span><span><kbd>Mouse</kbd> câmera · rodinha = zoom</span>`
   };
@@ -261,11 +261,19 @@ export async function abrirJogo() {
      deixar. Rodinha = zoom. */
   let mdx = 0, mdy = 0, zoom = 1, soltouEm = 0, ultX = null, ultY = null;
   // clique: com o mouse preso atira (segurar = rajada); solto, trava o mouse
-  let atirando = false;
+  let atirando = false, mirandoBt = false, mirarK = 0;   // mirarK: 0..1 suave
   // com o mouse preso o clique chega no <html> (o elemento travado), nao no
   // canvas: por isso escuta no documento
-  const aoApertar = (e) => { som.destravar(); if (e.button === 0 && !TOQUE && (preso() || (semTrava && e.target === canvas)) && !inventarioAberto && !mapaAberto) atirando = true; };
-  const aoSoltar = () => { atirando = false; };
+  // botao esquerdo atira; o direito (segurando) mira: a pe a camera chega no
+  // ombro e fecha o angulo, na nave so da um zoom
+  const aoApertar = (e) => {
+    som.destravar();
+    if (TOQUE || !(preso() || (semTrava && e.target === canvas)) || inventarioAberto || mapaAberto) return;
+    if (e.button === 0) atirando = true; else if (e.button === 2) mirandoBt = true;
+  };
+  const aoSoltar = (e) => { if (e.button === 2) mirandoBt = false; else atirando = false; };
+  const semMenu = (e) => { if (raiz.isConnected) e.preventDefault(); };
+  document.addEventListener('contextmenu', semMenu);
   document.addEventListener('mousedown', aoApertar); addEventListener('mouseup', aoSoltar);
   canvas.addEventListener('click', travar);
   $('.jogo-pausa').addEventListener('click', (e) => { if (!e.target.closest('.jp-sair')) travar(); });
@@ -357,7 +365,11 @@ export async function abrirJogo() {
   tiros = criarTiros(); cena.add(tiros.grupo);
   /* ---- online (precisa de conta): uma sala por lugar ---- */
   const sess = sessao();
-  rede = sess ? criarRede({ token: sess.token, host: HOST_SALAS, modeloNave: nave.modelo, aoEvento: (tipo, m) => eventoRede(tipo, m) }) : null;
+  // minha nave na minha cor (a mesma que os outros veem); admin: roxa e rosa
+  let souAdm = false;
+  const minhaCor = () => corCss(matizDe(sess?.usuario), souAdm);
+  if (sess) nave.pintar({ matiz: matizDe(sess.usuario) });
+  rede = sess ? criarRede({ token: sess.token, host: HOST_SALAS, modeloNave: nave.modeloBase, aoEvento: (tipo, m) => eventoRede(tipo, m) }) : null;
   const salaAtual = () => (mundo.planetas ? 'espaco' : 'planeta-' + s.planeta.key);
   queueMicrotask(() => rede?.entrar(salaAtual()));
   queueMicrotask(() => cena.add(vista1));
@@ -707,19 +719,19 @@ export async function abrirJogo() {
     raiz.classList.toggle('tab-on', v); if (!v) return;
     const linhas = [];
     const eu = rede ? rede.meuId : null, st = (id) => stats.get(id) || { abates: 0, mortes: 0 };
-    linhas.push({ nome: (sess?.usuario || 'você') + ' (você)', pvp: meuPvp, ...st(eu), eu: true });
-    if (rede) for (const r of rede.remotos.values()) linhas.push({ nome: r.nome, pvp: r.pvp, ...st(r.id) });
+    linhas.push({ nome: (souAdm ? '👑 ' : '') + (sess?.usuario || 'você') + ' (você)', cor: sess ? minhaCor() : '', pvp: meuPvp, ...st(eu), eu: true });
+    if (rede) for (const r of rede.remotos.values()) linhas.push({ nome: (r.admin ? '👑 ' : '') + r.nome, cor: corCss(r.matiz, r.admin), pvp: r.pvp, ...st(r.id) });
     linhas.sort((a, b) => b.abates - a.abates || a.mortes - b.mortes);
     tabUI.querySelector('h4 span').textContent = rede ? `${linhas.length} na sala ${rede.sala}` : 'offline (sem conta)';
-    tabUI.querySelector('tbody').innerHTML = linhas.map((x) => `<tr class="${x.eu ? 'eu' : ''}"><td>${x.nome}</td><td>${x.pvp ? '<span class="pvp">⚔ ligado</span>' : '<span class="paz">desligado</span>'}</td><td>${x.abates}</td><td>${x.mortes}</td></tr>`).join('');
+    tabUI.querySelector('tbody').innerHTML = linhas.map((x) => `<tr class="${x.eu ? 'eu' : ''}"><td><i class="cor-j" style="background:${x.cor || '#888'}"></i>${x.nome}</td><td>${x.pvp ? '<span class="pvp">⚔ ligado</span>' : '<span class="paz">desligado</span>'}</td><td>${x.abates}</td><td>${x.mortes}</td></tr>`).join('');
   }
 
   /* ---- PvP e eventos do online ---- */
   let meuPvp = false, minhaVida = 100, morto = false;
   const onlineUI = $('.jogo-online'), feedUI = $('.jogo-feed'), vidaUI = $('.jogo-vida'), placarUI = $('.jogo-placar'), morteUI = $('.jogo-morte'), danoUI = $('.jogo-dano');
-  if (!sessao()) onlineUI.innerHTML = '<i class="off"></i>offline · crie uma conta no terminal do site para jogar online';
+  if (!sessao()) onlineUI.innerHTML = '<i class="off"></i>offline';
   // quem esta logado: fixo embaixo do titulo e um aviso ao abrir
-  $('.jogo-conta').innerHTML = sessao() ? `<i></i>logado como <b>${sessao().usuario}</b>` : '<i class="off"></i><b>sem conta</b> · offline';
+  $('.jogo-conta').innerHTML = sessao() ? `<i style="background:${corCss(matizDe(sessao().usuario))};box-shadow:0 0 8px ${corCss(matizDe(sessao().usuario))}"></i>logado como <b>${sessao().usuario}</b>` : '<i class="off"></i><b>sem conta</b> · offline';
   // aviso grande de entrada com a conta (proprio, para nao ser trocado por outros avisos)
   {
     const bv = $('.jogo-bemvindo'), eu = sessao();
@@ -742,7 +754,8 @@ export async function abrirJogo() {
   }
   const NOME_ARMA = { blaster: 'blaster', rifle: 'rifle', canhao: 'canhão', laser: 'lasers', plasma: 'plasma', missil: 'míssil', ions: 'íons' };
   function eventoRede(tipo, m) {
-    if (tipo === 'entrou') noFeed(`<b>${m.nome}</b> entrou aqui`);
+    if (tipo === 'conectado' && m.admin && !souAdm) { souAdm = true; nave.pintar({ matiz: matizDe(sess.usuario), admin: true }); $('.jogo-conta').classList.add('adm'); $('.jogo-conta').style.setProperty('--cj', minhaCor()); }
+    if (tipo === 'entrou') noFeed(`<b style="color:${corCss(matizDe(m.nome), m.admin)}">${m.admin ? '👑 ' : ''}${m.nome}</b> entrou aqui`);
     else if (tipo === 'saiu') noFeed(`<b>${m.nome}</b> saiu`);
     else if (tipo === 'erro') noFeed(`<span class="ruim">${m.msg}</span>`);
     else if (tipo === 'tiro') {
@@ -953,7 +966,7 @@ export async function abrirJogo() {
     e.rot = {}; mundo.planetas.forEach((x) => { e.rot[x.key] = [x.corpo.rotation.y, x.nuvens ? x.nuvens.rotation.y : 0]; });
     const astros = mundo.planetas.filter((x) => x !== p).map((x) => ({ d: x, i: x.i, orig: x.orig.clone(), rotCorpo: e.rot[x.key][0], rotNuvens: e.rot[x.key][1] }));
     e.cenaProx = new THREE.Scene();
-    e.mundoProx = criarSuperficie(e.cenaProx, p, { qW2S: e.qW2S, rotCorpo: e.rot[p.key][0], rotNuvens: e.rot[p.key][1], astros, modeloNave: nave.modelo });
+    e.mundoProx = criarSuperficie(e.cenaProx, p, { qW2S: e.qW2S, rotCorpo: e.rot[p.key][0], rotNuvens: e.rot[p.key][1], astros, modeloNave: nave.modeloBase });
     if (vistos[p.key]) e.mundoProx.predios.forEach((pr) => { if (vistos[p.key].has(pr.tec.nome)) pr.marcarVisto(); });
     prepararCena(e.cenaProx);
   }
@@ -1245,12 +1258,18 @@ export async function abrirJogo() {
     // mira (mouse e setas)
     const livre = s.modo === 'espaco' || s.modo === 'superficie';
     if (livre) {
-      s.alvoRumo -= mdx * .0024;
+      // mirando: o mouse fica mais fino (o angulo de visao fechou)
+      const fino = 1 - mirarK * .55;
+      s.alvoRumo -= mdx * .0024 * fino; mdy *= fino;
       const lim = s.aPe ? .9 : s.pousado ? 1.1 : (s.modo === 'superficie' ? .65 : 1.15);
       s.alvoMira = Math.max(-lim, Math.min(lim, s.alvoMira - mdy * .002));
     }
     mdx = 0; mdy = 0;
 
+    // mirar (botao direito): suave para entrar e sair
+    const podeMirar = mirandoBt && !cinema && !morto && !painelAberto && !mapaAberto && !inventarioAberto && (s.aPe || s.modo === 'espaco' || s.modo === 'superficie');
+    mirarK += ((podeMirar ? 1 : 0) - mirarK) * (1 - Math.exp(-dt * 12));
+    raiz.classList.toggle('mirando', mirarK > .5);
     // camera
     const veloc = s.aPe ? Math.hypot(pe.vel.x, pe.vel.z) : s.vel.length();
     const cmv = Math.cos(s.alvoMira);
@@ -1269,9 +1288,9 @@ export async function abrirJogo() {
       // terceira pessoa a pe: atras e acima do astronauta (armado: por cima do ombro direito)
       // dentro do salao a camera fica mais perto e mais alta (cabe a sala)
       const armado = !!ARMAS[armaIdx].id;
-      const R = (s.dentro ? 4.6 : armado ? 4.3 : 6.5) * zoom, el = Math.max(s.dentro ? .2 : -.15, Math.min(1, (armado ? .12 : .22) - s.alvoMira));
+      const R = (s.dentro ? 4.6 : armado ? 4.3 : 6.5) * zoom * (1 - mirarK * .45), el = Math.max(s.dentro ? .2 : -.15, Math.min(1, (armado ? .12 : .22) - s.alvoMira));
       _m.copy(pe.pos); _m.y += armado ? 1.7 : 1.6;
-      if (armado) { const om = .75; _m.x -= Math.cos(s.alvoRumo) * om; _m.z += Math.sin(s.alvoRumo) * om; }
+      if (armado || mirarK > .01) { const om = .75 * Math.max(armado ? 1 : 0, mirarK); _m.x -= Math.cos(s.alvoRumo) * om; _m.z += Math.sin(s.alvoRumo) * om; }
       _v.set(_m.x - Math.sin(s.alvoRumo) * Math.cos(el) * R, _m.y + Math.sin(el) * R, _m.z - Math.cos(s.alvoRumo) * Math.cos(el) * R);
       if (s.dentro) {
         // dentro do salao: a camera nao atravessa parede nem teto
@@ -1309,8 +1328,9 @@ export async function abrirJogo() {
     // mira de arma (a pe, armado): abre a cada tiro e fecha sozinha
     miraAbre *= Math.exp(-dt * 6);
     raiz.classList.toggle('mira-arma', !!(s.aPe && ARMAS[armaIdx].id)); raiz.style.setProperty('--abre', (6 + miraAbre * 14).toFixed(1) + 'px');
-    const fov = s.aPe ? 60 : 62 + Math.min(1, veloc / 150) * 10 + s.dobra * 14 + (s.modo === 'entrando' ? tremor * 8 + (ent.gas || 0) * 10 : 0);
-    if (Math.abs(camera.fov - fov) > .05) { camera.fov += (fov - camera.fov) * .1; camera.updateProjectionMatrix(); }
+    let fov = s.aPe ? 60 : 62 + Math.min(1, veloc / 150) * 10 + s.dobra * 14 + (s.modo === 'entrando' ? tremor * 8 + (ent.gas || 0) * 10 : 0);
+    fov *= 1 - mirarK * (s.aPe ? .32 : .45);   // mirando: a pe aproxima um pouco, na nave da o zoom
+    if (Math.abs(camera.fov - fov) > .05) { camera.fov += (fov - camera.fov) * (1 - Math.exp(-dt * 14)); camera.updateProjectionMatrix(); }
 
     // overlays da tela
     fx.calor += (reentra - fx.calor) * .15;
@@ -1379,7 +1399,7 @@ export async function abrirJogo() {
       if (id === 'laser' || id === 'plasma') {
         // a propria nave, com os tiros saindo das asas
         const cor = id === 'laser' ? 0xff4fd8 : 0x4fd2ff;
-        const nv = nave.modelo.clone(true); nv.scale.multiplyScalar(.28); g.add(nv);
+        const nv = nave.modeloBase.clone(true); nv.scale.multiplyScalar(.28); g.add(nv);
         const brilho = (x, z, comp, r) => {
           const b = new THREE.Mesh(new THREE.CylinderGeometry(r, r, comp, 10), new THREE.MeshBasicMaterial({ color: cor, transparent: true, opacity: .9, blending: THREE.AdditiveBlending, depthWrite: false })); b.rotation.x = Math.PI / 2; b.position.set(x, -.02, z); g.add(b);
           const n = new THREE.Mesh(new THREE.CylinderGeometry(r * .35, r * .35, comp * 1.02, 8), new THREE.MeshBasicMaterial({ color: 0xffffff })); n.rotation.x = Math.PI / 2; n.position.copy(b.position); g.add(n);
@@ -1654,13 +1674,13 @@ export async function abrirJogo() {
   requestAnimationFrame(quadro);
   // modo de teste (?debugjogo): avanca a simulacao sem depender do rAF
   if (/debugjogo/.test(location.search)) { semTrava = true; raiz.classList.add('sem-trava'); }   // teste: sem convite de clique
-  if (/debugjogo/.test(location.search)) window.__jogo = { s, pe, tecla, mouse: (x, y) => { mdx += x; mdy += y; }, passo: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) passo(dt); }, interagir, get alvo() { return alvoPerto; }, get mundo() { return mundo; }, get predioPerto() { return predioPerto; }, get mapaInfo() { return mapaInfo; }, get destino() { return destino; }, get tiros() { return tiros; }, camera };
+  if (/debugjogo/.test(location.search)) window.__jogo = { s, pe, tecla, mouse: (x, y) => { mdx += x; mdy += y; }, passo: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) passo(dt); }, interagir, get alvo() { return alvoPerto; }, get mundo() { return mundo; }, get predioPerto() { return predioPerto; }, get mapaInfo() { return mapaInfo; }, get destino() { return destino; }, get tiros() { return tiros; }, camera, get nave() { return nave; } };
 
   function fechar() {
     rodando = false;
     removeEventListener('keydown', baixo); removeEventListener('keyup', cima); removeEventListener('resize', medir);
     removeEventListener('mousemove', aoMover); document.removeEventListener('pointerlockchange', aoTravar);
-    document.removeEventListener('mousedown', aoApertar); removeEventListener('mouseup', aoSoltar);
+    document.removeEventListener('mousedown', aoApertar); document.removeEventListener('contextmenu', semMenu); removeEventListener('mouseup', aoSoltar);
     if (document.pointerLockElement) document.exitPointerLock();
     if (document.fullscreenElement) document.exitFullscreen?.()?.catch?.(() => {});
     tecla.clear(); clearTimeout(conquistaT);
