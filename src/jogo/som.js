@@ -51,13 +51,13 @@ export function criarSom() {
     const t = agora(); g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(pico, t + ataque); g.gain.exponentialRampToValueAtTime(0.0001, t + ataque + queda);
   }
-  function tiro() {
-    // "pew": dois tons descendo rapido, um pouco desafinados
+  function tiro(tom = 1) {
+    // "pew": dois tons descendo rapido, um pouco desafinados (tom: agudo/grave por arma)
     const t = agora(), g = ctx.createGain(), f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 3200;
-    f.connect(g); g.connect(comp); envelope(g, .13, .003, .14);
-    [[1900, 'square'], [1420, 'sawtooth']].forEach(([fr, tipo]) => {
+    f.connect(g); g.connect(comp); envelope(g, .13, .003, .14 / Math.min(1, tom));
+    [[1900 * tom, 'square'], [1420 * tom, 'sawtooth']].forEach(([fr, tipo]) => {
       const o = ctx.createOscillator(); o.type = tipo;
-      o.frequency.setValueAtTime(fr, t); o.frequency.exponentialRampToValueAtTime(fr * .14, t + .13);
+      o.frequency.setValueAtTime(fr, t); o.frequency.exponentialRampToValueAtTime(fr * .14, t + .13 / Math.min(1, tom));
       o.connect(f); o.start(t); o.stop(t + .18);
     });
   }

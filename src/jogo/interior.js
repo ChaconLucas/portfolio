@@ -60,7 +60,7 @@ export function criarInterior(tec, info) {
   const R = RAIO_SALA, ALT = 9;
   // chao
   const tg = guarda(texGrade(cor));
-  const chao = new THREE.Mesh(guarda(new THREE.CircleGeometry(R, 64)), guarda(new THREE.MeshStandardMaterial({ color: 0x0b0914, roughness: .35, metalness: .7, emissive: 0xffffff, emissiveMap: tg, emissiveIntensity: .9 })));
+  const chao = new THREE.Mesh(guarda(new THREE.CircleGeometry(R, 64)), guarda(new THREE.MeshStandardMaterial({ color: 0x0b0914, roughness: .35, metalness: .7, emissive: 0xffffff, emissiveMap: tg, emissiveIntensity: .42 })));
   chao.rotation.x = -Math.PI / 2; g.add(chao);
   // paredes com codigo correndo
   const tc = guarda(texCodigo(cor, tec.nome));
@@ -136,7 +136,7 @@ export function criarInterior(tec, info) {
 
   return {
     grupo: g, raio: R - 1.2, altura: ALT,
-    entrada: new THREE.Vector3(0, 0, R - 3.2),           // onde o astronauta aparece (olhando para o centro, -z)
+    entrada: new THREE.Vector3(0, 0, R - 6.5),           // onde o astronauta aparece (olhando para o centro, -z), longe da parede
     porta: new THREE.Vector3(0, 0, R - 2.4),
     terminal: new THREE.Vector3(0, 0, 1.4).applyQuaternion(terminal.quaternion).add(terminal.position),
     obstaculos: [{ x: 0, z: 0, r: 3.1 }, { x: terminal.position.x, z: terminal.position.z, r: 1.1 }],

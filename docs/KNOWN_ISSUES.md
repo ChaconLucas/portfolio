@@ -661,3 +661,90 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - terminal (E abre os links dos projetos) e portal de saída (E).
 - **Astronauta:** corre em 8 direções olhando pra câmera (Walk, Run, Run_Back, Run_Left, Run_Right), com o ritmo da animação pela velocidade e o som dos passos. **Jetpack** (segurar Espaço no ar ou ▲) com chama, fumaça e combustível que recarrega no chão; **C** rola.
 - **A conferir:** a superfície nova, o interior e o jetpack ainda não foram testados a fundo no preview.
+
+## Jogo: mapa interativo com destino e prédios sem afundar (07/10/2026)
+- **Prédios afundando:** o chão desconta a curva do globo (`r²/2R`). A 1 km do centro essa curva inclina o chão ~17%, então a praça de 52 m ficava ~4 m mais baixa de um lado e o prédio (reto) afundava. Agora, dentro de cada praça (e na transição de 70 m), a curva usada é a do centro da praça (`criarAltura`): praça plana de verdade.
+- **Mapa interativo (M):**
+  - arrastar move; rodinha (zoom em volta do cursor) ou pinça no toque;
+  - clique num planeta (área do disco), sol, campo de asteroides, buraco negro, local de tecnologia, plataforma, na **sua nave** (estando a pé) ou em qualquer ponto **marca o destino**; clicar de novo nele desmarca;
+  - o mapa mostra o destino pulsando e uma linha tracejada desde a nave;
+  - com o mapa aberto o mouse fica solto e o jogo não pausa (`pausado()` ignora o mapa). Ao fechar, trava de novo;
+  - cada mundo lembra a vista; na superfície ela começa centrada em você.
+- **Marcador do destino na tela** (`.jogo-destino`):
+  - círculo com nome e distância (até a superfície, no caso de planeta);
+  - fora da visão vira uma seta na borda apontando o caminho;
+  - ao chegar some com aviso e bip;
+  - trocar de cena (entrar/sair de planeta) limpa o destino.
+- **Bug achado no teste:** os dados dos planetas enviados ao mapa não tinham `key`, e o clique num planeta dava erro.
+
+## Jogo: jetpack no Espaço segurado, animações sincronizadas, armas e inventário, tiro da nave (07/10/2026)
+- **Tiro da nave não saía:** com o mouse preso (pointer lock no `<html>`), o `mousedown` vai pro elemento travado e não pro canvas. Agora o clique é ouvido no `document`.
+- **Jetpack:**
+  - sem combustível;
+  - **só liga enquanto o Espaço está segurado no ar**. O pulo é normal: segurando, liga no alto do pulo (`subidaDoPulo` acaba com `velY < 1,2`); soltando e apertando de novo no ar, liga na hora;
+  - ligado: empuxo nas 4 direções com inércia (16 m/s, 30 com Shift) e subida de 7 m/s. Espaço + Ctrl voa reto;
+  - solto no ar: cai com gravidade e mantém o embalo.
+- **Animações fluidas:** todos os ciclos de passo (Walk, Run, Run_Back, Run_Left, Run_Right, Run_Shoot) andam numa **fase comum** controlada à mão (`timeScale` 0, `time = fase × duração`), avançada pela velocidade. Misturar andar/correr ou frente/lado não embaralha as pernas, e os passos (som) saem nas fases 0 e 0,5. Pesos suavizados a 7/s, inclinação no voo a 4/s, com balanço leve no ar.
+- **Armas** (GLB com `Idle_Gun_Pointing`, `Idle_Gun_Shoot`, `Run_Shoot` e `Gun_Shoot`; +23 KB gzip):
+  - modelos procedurais (blaster, rifle e canhão) presos no osso `WristR`, montados na pose de mira;
+  - armado, o astronauta sempre olha pra onde a câmera olha.
+- **Tiro a pé:** sai da boca da arma em direção ao primeiro ponto do raio do centro da tela (chão, prédio ou parede do salão).
+  - Blaster: tiro a tiro;
+  - rifle: rajada;
+  - canhão: lento, com explosão maior.
+- **Inventário:** **TAB** (mouse solto, pausa ignorada) com 4 slots (mãos livres, blaster, rifle, canhão); clique ou **1–4**. A arma atual aparece embaixo, no centro. No toque, o botão 🔫 troca.
+
+## Jogo: arsenal da nave e impacto nos asteroides (07/10/2026)
+- **Inventário por contexto:** o TAB mostra o arsenal de quem está jogando (`montarInventario`): a pé, as armas do astronauta; pilotando, as da nave. A arma atual aparece sempre embaixo. 1–4 escolhem no contexto atual.
+- **Armas da nave** (`NAVE_ARMAS`, `tiros.disparar(corpo, vel, escala, opções)`):
+  - lasers duplos (dano 1);
+  - metralhadora de plasma (alterna as asas, espalha um pouco, dano 0,45);
+  - **mísseis teleguiados**: pegam a rocha viva mais perto num cone de ~35° à frente (`alvoNaFrente`), viram e aceleram até ela, deixam rastro, dano 4 em área de 90 m;
+  - canhão de íons (bola lenta, dano 9 em área de 220 m).
+- **Asteroides com vida** (`hp ≈ tamanho/20`):
+  - cada acerto solta faísca no ponto do impacto, faz a rocha piscar clara, inchar 6% e levar um tranco de giro, com um "toc" de som;
+  - ao quebrar: explosão grande, 6–26 **destroços** (InstancedMesh de 260 pedaços) que saem girando e encolhem, estrondo e tremor de câmera (`abalo`), mais forte quanto maior e mais perto a rocha.
+- **Cinturão destrutível:** as 5000 rochas do cinturão guardam posição local, tamanho e vida, separadas em 360 setores de ângulo (`rochasPerto` só olha os setores perto do ponto, já descontando o giro do cinturão). Quebradas, voltam em 30 s.
+- **Separação dos tiros:** os tiros a pé levam `dados.pe` (testam chão/prédio/parede); os da nave levam `dano`/`area`/`alvo`.
+
+## Jogo: roda de armas, mira, primeira pessoa, arma em 3D e planetas mais cheios (07/10/2026)
+- **Roda de armas (`roda.js`, estilo GTA):**
+  - TAB segurado abre uma roda com as armas em fatias, cada uma com a **silhueta vetorial** da arma (a mesma forma do modelo 3D);
+  - no centro: nome, descrição e barras de dano, cadência e alcance;
+  - o mouse preso empurra um ponteiro virtual (`mover`); solto ou no toque, aponta direto;
+  - soltar o TAB equipa (um toque rápido deixa aberta, até clicar ou apertar TAB de novo);
+  - enquanto está aberta, o jogo roda a 25% (câmera lenta);
+  - pilotando mostra o arsenal da nave.
+- **Mira e tiro a pé:**
+  - armado, a câmera vai pro ombro direito (mais perto) e a mira vira 4 traços que abrem a cada tiro (`--abre`);
+  - clarão no cano da arma (sprite por arma), coice (a mira sobe um pouco) e a animação `Idle_Gun_Shoot` acelerada.
+- **Primeira pessoa (V, a pé):** câmera no capacete (near 0,08), corpo escondido, e a arma num modelo próprio na frente da tela (`vista1`), com balanço ao andar e coice. Os tiros saem da boca dessa arma.
+- **Arma atual em 3D** (canto inferior esquerdo, na fileira dos painéis):
+  - uma cena pequena desenhada por cima, num recorte da própria tela (`setScissor`/`setViewport`, sem outro contexto WebGL);
+  - a pé: o modelo da arma girando; na nave: o tipo de tiro (lasers, plasma, míssil, bola de íons).
+- **Planetas mais cheios (`estruturas.js`):**
+  - 7 **naves caídas** (clone do modelo da nave, escurecido, tombado, com cratera, fogo piscando e coluna de fumaça);
+  - 12 **ruínas** (torre quebrada, arco, colunata);
+  - **rios** nos planetas com ar, com leito cavado no terreno (`riosDe` + `criarAltura`) e água em shader correndo;
+  - ~90 **barris e caixas destrutíveis**: barril explode e explode os vizinhos; tiro da nave ou a pé; o canhão acerta em área;
+  - **chuva de meteoros** em parte dos planetas: com ar os meteoros queimam no céu, sem ar batem no chão com clarão, estrondo e tremor se estiver perto.
+  - As estruturas têm colisão a pé e soltam faísca no tiro.
+- **Custo:** os rios encarecem a altura do terreno, e montar a superfície no E passou de ~100 para ~210 ms. Dá pra otimizar com uma grade de distância aos rios.
+
+## Jogo online: contas, salas e PvP (07/10/2026)
+- **Servidor** (`party/index.js` + `wrangler.jsonc`): Cloudflare Workers + Durable Objects no plano gratuito, na conta do Lucas, em `https://stack-universe.chaconlucas.workers.dev`. Publicar: `npx wrangler deploy`.
+  - O PartyKit hospedado não aceita mais projetos novos (o `partykit.dev` bateu o limite de 10 mil domínios da Cloudflare); por isso usamos o PartyServer na própria conta.
+- **Contas** (Durable Object `Contas`, SQLite): `/api/registrar`, `/api/entrar`, `/api/eu`, `/api/sair`.
+  - A senha vira hash PBKDF2-SHA256 (100 mil voltas, sal por conta), com comparação em tempo constante e hash mesmo pra usuário inexistente.
+  - A sessão é um token aleatório guardado no navegador (`localStorage` `su-sessao`).
+  - Limite de 20 tentativas por minuto por IP; CORS só pro site, previews do Vercel e localhost.
+- **Salas** (`Sala`, PartyServer): uma por lugar (`espaco`, `planeta-<área>`), e só entra quem tem sessão válida (o nome vem da conta). O servidor repassa estado (~10/s) e tiros.
+  - **PvP:** cada jogador liga o seu (P ou ⚔); só quem ligou acerta e é acertado.
+  - O dano vem da tabela do servidor (por arma), com alcance e cadência conferidos; morte, renascer em 4 s e placar.
+- **Site:** "Pilotar" sem conta sobe até o terminal do topo e começa `criar-conta` (email, usuário, senha com •••, confirmação). Outros comandos: `entrar`, `conta`, `sair`, `pilotar`. `src/conta.js` é compartilhado entre o site e o jogo.
+- **Jogo** (`src/jogo/rede.js`):
+  - outros jogadores aparecem como astronauta animado (SkeletonUtils) ou nave, com nome em cima (vermelho e com barra de vida se o PvP estiver ligado), interpolados;
+  - os tiros deles aparecem só como efeito; o dano quem decide é o servidor;
+  - HUD: contador de jogadores, feed (entrou, saiu, abates), vida quando o PvP está ligado, tela de "você foi abatido" e placar no **TAB** (segurar).
+  - As armas agora são **1–4** e a roda abre no **I**; a caixa da arma mostra os slots.
+- **Testar sem mexer na produção:** `npx wrangler dev --port 8787` e abrir o site com `?servidor=local`. Os dados locais ficam em `.wrangler/`, que está no `.gitignore`.

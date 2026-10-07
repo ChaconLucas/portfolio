@@ -8,3 +8,6 @@ dist/
 
 # Ferramental do GSD e artefatos de sessão — não fazem parte do portfólio
 .claude/
+
+# dados locais do servidor (npx wrangler dev): contas de teste, nada de producao
+.wrangler/

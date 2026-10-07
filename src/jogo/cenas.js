@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { STACK } from './dados.js';
 import { TIPOS, corpoPredio, portaria, emblema, decorar } from './predios.js';
+import { criarEstruturas } from './estruturas.js';
 
 /**
  * As duas cenas do jogo:
@@ -440,6 +441,8 @@ export function criarEspaco(cena) {
   // cinturao de asteroides por fora do sistema (girando devagar)
   const matRocha = guarda(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .95, flatShading: true, transparent: true, fog: false }));
   const corRocha = (r, c) => c.setHSL(.7 + (r() - .5) * .12, .12 + r() * .15, .32 + r() * .25);
+  const SETORES = 360, setores = [], cintoLista = [];
+  const setorDe = (x, z) => ((Math.floor((Math.atan2(z / .55, x) + Math.PI) / (Math.PI * 2) * SETORES) % SETORES) + SETORES) % SETORES;
   const cinturao = (() => {
     const n = 5000, geo = geoRocha(1.7, guarda);
     const inst = new THREE.InstancedMesh(geo, matRocha, n); const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new THREE.Vector3(), p = new THREE.Vector3(), c = new THREE.Color();
@@ -449,6 +452,9 @@ export function criarEspaco(cena) {
       p.set(Math.cos(a) * R, (r() - .5) * 260 * r(), Math.sin(a) * R * .55);
       q.setFromEuler(e.set(r() * 6, r() * 6, r() * 6)); const k = 8 + Math.pow(r(), 3) * 70; s.set(k, k * (.6 + r() * .6), k * (.8 + r() * .4));
       inst.setMatrixAt(i, m.compose(p, q, s)); inst.setColorAt(i, corRocha(r, c));
+      // dados para os tiros: posicao local, tamanho, setor (angulo) e vida
+      const x = { cinto: true, i, local: p.clone(), q: q.clone(), s: s.clone(), k: k * 1.05, vivo: true, volta: 0, hp: k / 22, hpMax: k / 22, flash: 0, cor: c.clone(), c: new THREE.Vector3() };
+      const sec = setorDe(p.x, p.z); (setores[sec] ||= []).push(x); cintoLista.push(x);
     }
     cena.add(inst); return inst;
   })();
@@ -461,7 +467,7 @@ export function criarEspaco(cena) {
       const cx = Math.cos(a) * R, cz = Math.sin(a) * R * .55;
       for (let i = 0; i < 60; i++) {
         const k = 18 + Math.pow(r(), 2.2) * 150;
-        lista.push({ c: new THREE.Vector3(cx + (r() - .5) * esp * 2, (r() - .5) * esp * .7, cz + (r() - .5) * esp * 2), k, eixo: new THREE.Vector3(r() - .5, r() - .5, r() - .5).normalize(), w: (r() - .5) * .5, a: r() * 6, vivo: true, volta: 0, cor: corRocha(r, new THREE.Color()) });
+        lista.push({ c: new THREE.Vector3(cx + (r() - .5) * esp * 2, (r() - .5) * esp * .7, cz + (r() - .5) * esp * 2), k, eixo: new THREE.Vector3(r() - .5, r() - .5, r() - .5).normalize(), w: (r() - .5) * .5, a: r() * 6, vivo: true, volta: 0, hp: k / 20, hpMax: k / 20, flash: 0, cor: corRocha(r, new THREE.Color()) });
       }
     });
     const inst = new THREE.InstancedMesh(geoRocha(4.2, guarda), matRocha, lista.length);
@@ -469,6 +475,44 @@ export function criarEspaco(cena) {
     cena.add(inst);
     return { inst, lista };
   })();
+  // destrocos: pedacos de rocha que saem voando quando um asteroide quebra
+  const detritos = (() => {
+    const n = 260, inst = new THREE.InstancedMesh(geoRocha(7.7, guarda), matRocha, n), lista = [];
+    for (let i = 0; i < n; i++) { lista.push({ p: new THREE.Vector3(), v: new THREE.Vector3(), eixo: new THREE.Vector3(0, 1, 0), a: 0, w: 0, k: 0, vida: 0 }); inst.setMatrixAt(i, _m4.makeScale(0, 0, 0)); }
+    inst.frustumCulled = false; cena.add(inst);
+    return { inst, lista, prox: 0 };
+  })();
+  function soltarDetritos(c, k, cor) {
+    const n = Math.min(26, 6 + Math.round(k / 8));
+    for (let j = 0; j < n; j++) {
+      const d = detritos.lista[detritos.prox]; detritos.inst.setColorAt(detritos.prox, cor); detritos.prox = (detritos.prox + 1) % detritos.lista.length;
+      d.v.set(Math.random() - .5, Math.random() - .5, Math.random() - .5).normalize();
+      d.p.copy(c).addScaledVector(d.v, k * .4 * Math.random());
+      d.v.multiplyScalar((20 + Math.random() * 60) * (1 + k / 80));
+      d.eixo.set(Math.random() - .5, Math.random() - .5, Math.random() - .5).normalize(); d.w = (Math.random() - .5) * 6; d.a = 0;
+      d.k = k * (.08 + Math.random() * .2); d.vida = 2 + Math.random() * 2.5;
+    }
+    detritos.inst.instanceColor.needsUpdate = true;
+  }
+  const _cw = new THREE.Vector3();
+  // posicao no mundo de uma rocha do cinturao (o cinturao gira devagar)
+  const centroCinto = (x) => x.c.copy(x.local).applyAxisAngle(_eixoY, cinturao.rotation.y);
+  function rochasPerto(c, raio, cb) {
+    for (const x of rochas.lista) if (x.vivo && x.c.distanceToSquared(c) < (x.k + raio) ** 2) cb(x);
+    // cinturao: so os setores por perto (o ponto em coordenadas do cinturao)
+    _cw.copy(c).applyAxisAngle(_eixoY, -cinturao.rotation.y);
+    const R = Math.hypot(_cw.x, _cw.z / .55); if (Math.abs(R - 9.4 * ESC) > 900 + raio) return;
+    const s0 = setorDe(_cw.x, _cw.z), abre = Math.ceil((raio + 80) / (R * Math.PI * 2 / SETORES)) + 1;
+    for (let d = -abre; d <= abre; d++) {
+      const lista = setores[(s0 + d + SETORES) % SETORES]; if (!lista) continue;
+      for (const x of lista) if (x.vivo && x.local.distanceToSquared(_cw) < (x.k + raio) ** 2) { centroCinto(x); cb(x); }
+    }
+  }
+  function quebrar(x) {
+    x.vivo = false; x.volta = 30; x.hp = x.hpMax; x.flash = 0;
+    if (x.cinto) cinturao.setMatrixAt(x.i, _m4.makeScale(0, 0, 0)), cinturao.instanceMatrix.needsUpdate = true;
+    soltarDetritos(x.c, x.k, x.cor);
+  }
   // buracos negros no cenario (longe, fora do limite do voo)
   const buracos = [[-15500, 3200, -11000, 900], [17000, -4200, 7500, 600]].map(([x, y, z, r]) => {
     const b = buracoNegro(r, guarda); b.position.set(x, y, z); b.lookAt(0, 0, 0); b.rotateX(1.1); cena.add(b); return b;
@@ -533,8 +577,26 @@ export function criarEspaco(cena) {
     planetas, cena, rochas, buracos,
     mapaInfo: { cinturao: { raio: 9.4 * ESC, largura: 700 }, campos: [[2050, 3.8, 260], [8100, 1.0, 520], [8400, 3.4, 520], [8000, 5.4, 520]].map(([R, a, e]) => ({ x: Math.cos(a) * R, z: Math.sin(a) * R * .55, r: e * 1.2 })) },
     /** esfera (c, r) bate em alguma rocha viva? devolve a rocha */
-    rochaEm(c, r) { for (const x of rochas.lista) if (x.vivo && x.c.distanceToSquared(c) < (x.k + r) * (x.k + r)) return x; return null; },
-    quebrarRocha(x) { x.vivo = false; x.volta = 25; },
+    /** esfera (c, r) bate em alguma rocha viva (campos ou cinturao)? devolve a rocha */
+    rochaEm(c, r) { let achou = null; rochasPerto(c, r, (x) => { if (!achou) achou = x; }); return achou; },
+    /** dano numa rocha: pisca, leva um tranco e quebra (destrocos) quando a vida acaba. true = quebrou */
+    danificar(x, dano) {
+      x.hp -= dano; x.flash = 1;
+      if (!x.cinto) x.w += (Math.random() - .5) * .8 * dano / Math.max(1, x.hpMax);
+      if (x.hp <= 0) { quebrar(x); return true; }
+      return false;
+    },
+    /** dano em area (missil, canhao): devolve quantas quebraram */
+    danoArea(c, raio, dano) { let n = 0; const lista = []; rochasPerto(c, raio, (x) => lista.push(x)); for (const x of lista) if (this.danificar(x, dano * (1 - Math.min(1, x.c.distanceTo(c) / (raio + x.k)) * .6))) n++; return n; },
+    /** rocha viva mais perto da frente da nave (para o missil perseguir) */
+    alvoNaFrente(pos, dir, alcance = 3500) {
+      let melhor = null, nota = Infinity;
+      const ver = (x) => { _cw.subVectors(x.c, pos); const d = _cw.length(); if (d > alcance) return; const cos = _cw.dot(dir) / d; if (cos < .82) return; const n2 = d * (2 - cos); if (n2 < nota) { nota = n2; melhor = x; } };
+      for (const x of rochas.lista) if (x.vivo) ver(x);
+      _cw.copy(pos).addScaledVector(dir, 600);
+      rochasPerto(_cw, 700, ver);
+      return melhor;
+    },
     sol: { pos: sol.position, raio: RAIO_SOL },
     /** comeca a entrar (ou acabou de sair) de p: ele para de girar e ganha neblina */
     focar(p) {
@@ -610,12 +672,30 @@ export function criarEspaco(cena) {
       ceu.userData.tempo.value = t; buracos.forEach((b) => { b.userData.u.tempo.value = t; });
       {
         const m = _m4, q = _q4, s = _s4;
+        let cores = false;
         rochas.lista.forEach((x, i) => {
           if (x.volta > 0) { x.volta -= dt; if (x.volta <= 0) x.vivo = true; }
-          x.a += x.w * dt;
-          rochas.inst.setMatrixAt(i, m.compose(x.c, q.setFromAxisAngle(x.eixo, x.a), s.setScalar(x.vivo ? x.k : 0)));
+          x.a += x.w * dt; x.w *= Math.exp(-dt * .3);
+          // o tranco do tiro: incha um pouco e pisca claro
+          const inch = 1 + x.flash * .06;
+          rochas.inst.setMatrixAt(i, m.compose(x.c, q.setFromAxisAngle(x.eixo, x.a), s.setScalar(x.vivo ? x.k * inch : 0)));
+          if (x.flash > 0) { x.flash = Math.max(0, x.flash - dt * 5); rochas.inst.setColorAt(i, _cor.copy(x.cor).lerp(_branco, x.flash * .8)); cores = true; }
         });
-        rochas.inst.instanceMatrix.needsUpdate = true;
+        rochas.inst.instanceMatrix.needsUpdate = true; if (cores) rochas.inst.instanceColor.needsUpdate = true;
+        // cinturao: piscada e volta das que quebraram
+        let mudou = false, mudouCor = false;
+        for (const x of cintoLista) {
+          if (x.volta > 0) { x.volta -= dt; if (x.volta <= 0) { x.vivo = true; cinturao.setMatrixAt(x.i, m.compose(x.local, x.q, x.s)); mudou = true; } }
+          if (x.flash > 0) { x.flash = Math.max(0, x.flash - dt * 5); cinturao.setColorAt(x.i, _cor.copy(x.cor).lerp(_branco, x.flash * .8)); mudouCor = true; }
+        }
+        if (mudou) cinturao.instanceMatrix.needsUpdate = true; if (mudouCor) cinturao.instanceColor.needsUpdate = true;
+        // destrocos voando, girando e encolhendo
+        for (let i = 0; i < detritos.lista.length; i++) {
+          const d = detritos.lista[i]; if (d.vida <= 0) continue;
+          d.vida -= dt; d.p.addScaledVector(d.v, dt); d.a += d.w * dt;
+          detritos.inst.setMatrixAt(i, m.compose(d.p, q.setFromAxisAngle(d.eixo, d.a), s.setScalar(d.vida > 0 ? d.k * Math.min(1, d.vida / .8) : 0)));
+        }
+        detritos.inst.instanceMatrix.needsUpdate = true;
       }
       const c = camera.position, dobra = extra.dobra || 0;
       const v = extra.vel ? extra.vel.length() : 0;
@@ -644,6 +724,7 @@ export function criarEspaco(cena) {
     }
   };
 }
+const _branco = new THREE.Color(1, 1, 1), _eixoY = new THREE.Vector3(0, 1, 0);
 const _cor = new THREE.Color(), _vs = new THREE.Vector3(), _m4 = new THREE.Matrix4(), _q4 = new THREE.Quaternion(), _s4 = new THREE.Vector3();
 
 /* ============================================================ superficie == */
@@ -671,16 +752,59 @@ function locaisDe(key, n) {
   }
   return out;
 }
-function criarAltura(locais) {
+// rios (so com atmosfera): um ou dois, atravessando o mapa em curvas, longe
+// das pracas. O leito e cavado no terreno (criarAltura) e a agua vem de estruturas.js
+function riosDe(key, locais, ar) {
+  if (!ar) return [];
+  const r = rnd(key.length * 3301 + 9), zonas = [{ x: 0, z: 0 }, ...locais], out = [];
+  const n = 1 + (key.length % 2);
+  for (let k = 0; k < n; k++) {
+    const ang = r() * Math.PI * 2, pts = [];
+    let x = Math.cos(ang) * LIMITE_SUP * 1.05, z = Math.sin(ang) * LIMITE_SUP * 1.05, dir = ang + Math.PI + (r() - .5) * .6;
+    for (let i = 0; i < 160 && Math.abs(x) <= LIMITE_SUP * 1.1 && Math.abs(z) <= LIMITE_SUP * 1.1; i++) {
+      pts.push({ x, z });
+      dir += (r() - .5) * .35;
+      // desvia das pracas
+      for (const zn of zonas) { const dx = x - zn.x, dz = z - zn.z, d = Math.hypot(dx, dz); if (d < 260) { const fora = Math.atan2(dz, dx); dir += Math.atan2(Math.sin(fora - dir), Math.cos(fora - dir)) * .35; } }
+      x += Math.cos(dir) * 40; z += Math.sin(dir) * 40;
+      if (i > 8 && Math.hypot(x, z) > LIMITE_SUP * 1.12) break;
+    }
+    const largura = 14 + r() * 8;
+    out.push({
+      pontos: pts, largura,
+      dist(px, pz) {
+        let m = Infinity;
+        for (let i = 1; i < pts.length; i++) {
+          const a = pts[i - 1], b = pts[i];
+          if (Math.abs(px - a.x) > 260 && Math.abs(px - b.x) > 260) continue;
+          if (Math.abs(pz - a.z) > 260 && Math.abs(pz - b.z) > 260) continue;
+          const vx = b.x - a.x, vz = b.z - a.z, l2 = vx * vx + vz * vz;
+          const u = Math.max(0, Math.min(1, ((px - a.x) * vx + (pz - a.z) * vz) / l2));
+          const d = Math.hypot(px - a.x - vx * u, pz - a.z - vz * u); if (d < m) m = d;
+        }
+        return m;
+      }
+    });
+  }
+  return out;
+}
+function criarAltura(locais, rios = []) {
   const zonas = [{ x: 0, z: 0, r: RAIO_PRACA + 25 }, ...locais.map((l) => ({ x: l.x, z: l.z, r: RAIO_LOCAL }))];
   return function alturaChao(x, z) {
     // morros + montanhas "de crista" que crescem longe das pracas
     const h = Math.sin(x * .021) * Math.cos(z * .017) * 11 + Math.sin(x * .053 + z * .031) * 4 + Math.cos(z * .071 - x * .013) * 2.5;
     const crista = 1 - Math.abs(Math.sin(x * .0042 + Math.cos(z * .0031) * 1.7) * Math.cos(z * .0047 - x * .0012));
-    let longe = 1;
-    for (const zn of zonas) { const d = Math.hypot(x - zn.x, z - zn.z); longe = Math.min(longe, suaveC((d - zn.r) / 70)); }
+    let longe = 1, zona = null;
+    for (const zn of zonas) { const d = Math.hypot(x - zn.x, z - zn.z), k = suaveC((d - zn.r) / 70); if (k < longe) { longe = k; zona = zn; } }
     const montanha = Math.pow(crista, 3) * 120 * suaveC((Math.hypot(x, z) - 250) / 400);
-    return (h + montanha * longe) * longe - (x * x + z * z) / (2 * R_GLOBO);
+    // curva do globo: dentro de uma praca ela fica CONSTANTE (a do centro da
+    // praca). Longe do centro do mapa a curva inclinava a praca ~4 m de um
+    // lado ao outro e o predio (reto) afundava de um lado
+    const curva = (x * x + z * z) / (2 * R_GLOBO), curvaZona = zona ? (zona.x * zona.x + zona.z * zona.z) / (2 * R_GLOBO) : curva;
+    // leito dos rios: canal fundo e margens suaves
+    let leito = 0;
+    for (const rio of rios) { const d = rio.dist(x, z); if (d < rio.largura * 3) leito = Math.max(leito, 9 * (1 - suaveC(d / (rio.largura * 2.6)))); }
+    return (h + montanha * longe - leito) * longe - (curvaZona + (curva - curvaZona) * longe);
   };
 }
 
@@ -696,7 +820,8 @@ export function criarSuperficie(cena, planeta, opc = {}) {
   const qW2S = opc.qW2S || new THREE.Quaternion();
   const area = STACK[planeta.key] || { techs: [] };
   const locais = locaisDe(planeta.key, area.techs.length);
-  const alturaChao = criarAltura(locais);
+  const rios = riosDe(planeta.key, locais, ar);
+  const alturaChao = criarAltura(locais, rios);
   const livre = (x, z, folga = 0) => Math.hypot(x, z) > RAIO_PRACA + 15 + folga && locais.every((l) => Math.hypot(x - l.x, z - l.z) > RAIO_LOCAL + 10 + folga);
   const toque = typeof matchMedia !== 'undefined' && matchMedia('(pointer:coarse)').matches;
   const { ceu: ceuCor, chao: corChao } = coresPlaneta(planeta);
@@ -780,6 +905,8 @@ export function criarSuperficie(cena, planeta, opc = {}) {
   // decoracao com o tema da area (paineis, canos, discos de dados, barras...)
   const decor = decorar(planeta.key, cor, alturaChao, livre, guarda);
   if (decor.mesh) cena.add(decor.mesh);
+  // naves caidas, ruinas, rios, barris/caixas e chuva de meteoros
+  const estruturas = criarEstruturas(cena, { planeta, alturaChao, livre, guarda, modeloNave: opc.modeloNave, rios, limite: LIMITE_SUP });
 
   // plataforma de pouso
   const pad = new THREE.Group(); cena.add(pad);
@@ -916,7 +1043,7 @@ export function criarSuperficie(cena, planeta, opc = {}) {
   }
 
   return {
-    alturaChao, predios, nuvens, atmosfera: ar, corCeu: ceuCor, corChao, ceuAstros, limite: LIMITE_SUP, corNeon: corNeon.getStyle(), cena,
+    alturaChao, predios, nuvens, atmosfera: ar, corCeu: ceuCor, corChao, ceuAstros, limite: LIMITE_SUP, corNeon: corNeon.getStyle(), cena, estruturas,
     levantarPoeira(x, z, forca) {
       for (let i = 0; i < NP; i++) {
         if (vidaP[i] > 0 && Math.random() > forca) continue;
@@ -942,6 +1069,7 @@ export function criarSuperficie(cena, planeta, opc = {}) {
       }
       luzes.forEach((m, k) => m.color.setHex(((k + Math.floor(t * 8)) % 12) < 3 ? 0xffffff : 0xffb13b));
       animados.forEach((f) => f(t)); decor.animar(t);
+      if (camera) estruturas.atualizar(dt, t, camera, extra.efeitos);
       farol.material.opacity = .08 + Math.sin(t * 2) * .04;
       for (let i = 0; i < NP; i++) {
         if (vidaP[i] <= 0) { pp[i * 3 + 1] = -999; continue; }

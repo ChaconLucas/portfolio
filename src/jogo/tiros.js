@@ -8,7 +8,7 @@ import * as THREE from 'three';
  */
 export function criarTiros() {
   const grupo = new THREE.Group();
-  const N = 48;
+  const N = 96;
   const geo = new THREE.CylinderGeometry(.22, .22, 16, 6, 1, true); geo.rotateX(Math.PI / 2);
   const mat = new THREE.MeshBasicMaterial({ color: 0xff4fd8, transparent: true, opacity: .95, blending: THREE.AdditiveBlending, depthWrite: false });
   const nucleoMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .9, blending: THREE.AdditiveBlending, depthWrite: false });
@@ -16,7 +16,7 @@ export function criarTiros() {
   for (let i = 0; i < N; i++) {
     const m = new THREE.Mesh(geo, mat); m.visible = false; m.frustumCulled = false;
     const n = new THREE.Mesh(geo, nucleoMat); n.scale.set(.4, .4, 1.05); m.add(n);
-    grupo.add(m); lasers.push({ m, vel: new THREE.Vector3(), vida: 0 });
+    grupo.add(m); lasers.push({ m, vel: new THREE.Vector3(), vida: 0, dados: null });
   }
   let prox = 0;
 
@@ -34,21 +34,39 @@ export function criarTiros() {
   const claroes = [];
   for (let i = 0; i < 6; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: texClarao, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); s.visible = false; grupo.add(s); claroes.push({ s, vida: 0, tam: 1 }); }
   let pc = 0;
-  const _d = new THREE.Vector3();
+  const _d = new THREE.Vector3(), _e = new THREE.Vector3(), _f = new THREE.Vector3(), _z = new THREE.Vector3(0, 0, 1);
+  // cor por arma (um material por cor)
+  const mats = new Map([[0xff4fd8, mat]]);
+  const matDe = (cor) => { if (!mats.has(cor)) mats.set(cor, new THREE.MeshBasicMaterial({ color: cor, transparent: true, opacity: .95, blending: THREE.AdditiveBlending, depthWrite: false })); return mats.get(cor); };
 
   return {
     grupo,
-    /** origem: matrixWorld do corpo da nave; velNave: velocidade atual; escala: tamanho da nave */
-    disparar(corpo, velNave, escala = 1) {
+    /**
+     * Tiro da nave. corpo: o corpo da nave (matrixWorld); velNave; escala da nave;
+     * o = { cor, vel, esc (grossura), lados: [-1, 1] ou [lado], espalha (rad),
+     *       vida, dados: { dano, area, alvo (rocha a perseguir), arma } }
+     */
+    disparar(corpo, velNave, escala = 1, o = {}) {
       const fwd = _d.set(0, 0, 1).transformDirection(corpo.matrixWorld);
-      for (const lado of [-1, 1]) {
+      for (const lado of o.lados || [-1, 1]) {
         const l = lasers[prox]; prox = (prox + 1) % N;
         l.m.position.set(lado * 1.25, -.1, 1.2).applyMatrix4(corpo.matrixWorld);
         l.m.quaternion.setFromRotationMatrix(corpo.matrixWorld);
-        l.m.scale.setScalar(escala);
-        l.vel.copy(fwd).multiplyScalar(1100).add(velNave);
-        l.vida = 1.4; l.m.visible = true;
+        l.m.scale.set(escala * (o.esc || 1), escala * (o.esc || 1), escala * (o.comp || 1));
+        const dir = _e.copy(fwd);
+        if (o.espalha) { dir.x += (Math.random() - .5) * o.espalha; dir.y += (Math.random() - .5) * o.espalha; dir.z += (Math.random() - .5) * o.espalha; dir.normalize(); }
+        l.vel.copy(dir).multiplyScalar(o.vel || 1100).add(velNave);
+        l.vida = o.vida || 1.4; l.m.visible = true; l.m.material = matDe(o.cor || 0xff4fd8);
+        l.dados = o.dados ? { ...o.dados } : null;
       }
+    },
+    /** tiro de arma a pe: da boca (origem) na direcao dir; o = { cor, vel, escala, vida, dados } */
+    dispararArma(origem, dir, o = {}) {
+      const l = lasers[prox]; prox = (prox + 1) % N;
+      l.m.position.copy(origem); l.m.quaternion.setFromUnitVectors(_z, dir);
+      l.m.scale.setScalar(o.escala || .12); l.m.material = matDe(o.cor || 0xff4fd8);
+      l.vel.copy(dir).multiplyScalar(o.vel || 220);
+      l.vida = o.vida || 1.6; l.m.visible = true; l.dados = o.dados || null;
     },
     explodir(p, tam = 10, corBase = [1, .6, .3]) {
       const n = Math.min(90, 20 + tam * 2);
@@ -69,8 +87,19 @@ export function criarTiros() {
     atualizar(dt, testar) {
       for (const l of lasers) {
         if (l.vida <= 0) continue;
-        l.vida -= dt; l.m.position.addScaledVector(l.vel, dt);
-        if (l.vida <= 0 || (testar && testar(l.m.position))) { l.vida = 0; l.m.visible = false; }
+        l.vida -= dt;
+        // missil: persegue o alvo (vira a velocidade aos poucos e acelera)
+        const a = l.dados && l.dados.alvo;
+        if (a && a.vivo) {
+          const v = l.vel.length();
+          _f.subVectors(a.c, l.m.position).normalize().multiplyScalar(v);
+          l.vel.lerp(_f, 1 - Math.exp(-dt * 3.5)).setLength(Math.min(1600, v + 700 * dt));
+          l.m.quaternion.setFromUnitVectors(_z, _e.copy(l.vel).normalize());
+        }
+        l.m.position.addScaledVector(l.vel, dt);
+        // rastro de fumaca do missil
+        if (a) { const k = pf; pf = (pf + 1) % NF; pos[k * 3] = l.m.position.x; pos[k * 3 + 1] = l.m.position.y; pos[k * 3 + 2] = l.m.position.z; vel[k * 3] = vel[k * 3 + 1] = vel[k * 3 + 2] = 0; vida[k] = .5; cor[k * 3] = .9; cor[k * 3 + 1] = .6; cor[k * 3 + 2] = .4; }
+        if (l.vida <= 0 || (testar && testar(l.m.position, l.dados))) { l.vida = 0; l.m.visible = false; }
       }
       for (let k = 0; k < NF; k++) {
         if (vida[k] <= 0) { pos[k * 3 + 1] = -1e7; continue; }
@@ -87,6 +116,6 @@ export function criarTiros() {
         cl.s.scale.setScalar(cl.tam * (1.6 - k)); cl.s.material.opacity = k; if (cl.vida <= 0) cl.s.visible = false;
       }
     },
-    destruir() { geo.dispose(); mat.dispose(); nucleoMat.dispose(); gf.dispose(); faiscas.material.dispose(); texClarao.dispose(); claroes.forEach((x) => x.s.material.dispose()); }
+    destruir() { geo.dispose(); mats.forEach((m) => m.dispose()); nucleoMat.dispose(); gf.dispose(); faiscas.material.dispose(); texClarao.dispose(); claroes.forEach((x) => x.s.material.dispose()); }
   };
 }

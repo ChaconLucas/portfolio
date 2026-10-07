@@ -1,0 +1,18 @@
+{
+  // servidor do jogo (contas + salas do multiplayer), Cloudflare Workers +
+  // Durable Objects no plano gratuito. Publicar: npx wrangler deploy
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "stack-universe",
+  "main": "party/index.js",
+  "compatibility_date": "2025-09-01",
+  "durable_objects": {
+    "bindings": [
+      { "name": "Sala", "class_name": "Sala" },
+      { "name": "Contas", "class_name": "Contas" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Sala"] },
+    { "tag": "v2", "new_sqlite_classes": ["Contas"] }
+  ]
+}

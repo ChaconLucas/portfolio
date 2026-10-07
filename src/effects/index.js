@@ -90,7 +90,10 @@ import('./transicao-capitulos.js').then(({ montarTransicaoCapitulos }) => montar
 import('./avatar-ascii.js').then(({ montarAvatarAscii }) => montarAvatarAscii());
 
 // Jogo da nave: so carrega quando alguem clica em "Pilotar"
+// sem conta: o terminal do topo pede o cadastro (email, usuario, senha)
+import { sessao } from '../conta.js';
 document.getElementById('botaoPilotar')?.addEventListener('click', () => {
+  if (!sessao()) { dispatchEvent(new CustomEvent('pedir-conta')); return; }
   // a trava do mouse tem que ser pedida AQUI, no mesmo instante do clique: o
   // Safari recusa se vier depois de carregar o jogo (fim do gesto do usuario)
   const toque = navigator.maxTouchPoints > 0 && matchMedia('(pointer:coarse)').matches;

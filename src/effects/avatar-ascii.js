@@ -13,7 +13,13 @@
  *    os caracteres). Da para digitar: help, stack [area], projetos, contato,
  *    sobre, cv, clear, exit — com historico (setas) e Tab completando.
  * Com menos movimento: desenha uma vez, sem embaralhar.
+ *
+ * Conta do jogo (src/conta.js): criar-conta pergunta email, usuario e senha
+ * (a senha nao aparece), entrar faz login, conta mostra quem esta logado,
+ * sair desloga, pilotar abre o jogo. Clicar em "Pilotar" sem conta sobe ate
+ * aqui e ja comeca o cadastro (evento 'pedir-conta').
  */
+import { sessao, registrar, entrar, sair } from '../conta.js';
 
 // rampa curta: com a longa o rosto virava sopa de letras; esta le como ASCII classico
 const RAMPA = ' .:-=+*#%@';
@@ -101,7 +107,7 @@ const CONTATO = [
   ['github', 'github.com/ChaconLucas', 'https://github.com/ChaconLucas'],
   ['linkedin', 'in/lucas-chacon', 'https://www.linkedin.com/in/lucas-chacon-129414a7/']
 ];
-const COMANDOS = ['help', 'whoami', 'stack', 'projetos', 'contato', 'sobre', 'cv', 'clear', 'exit'];
+const COMANDOS = ['help', 'whoami', 'stack', 'projetos', 'contato', 'sobre', 'cv', 'criar-conta', 'entrar', 'conta', 'sair', 'pilotar', 'clear', 'exit'];
 
 export function montarAvatarAscii() {
   const botao = document.getElementById('brandHome');
@@ -254,6 +260,12 @@ export function montarAvatarAscii() {
             `  ${cmd('contato')}     email, github, linkedin`,
             `  ${cmd('sobre')}       resumo rápido`,
             `  ${cmd('cv')}          abre o currículo`,
+            ['jogo da nave:', 'at-dim'],
+            `  ${cmd('criar-conta')} cria sua conta (email, usuário, senha)`,
+            `  ${cmd('entrar')}      entra numa conta que já existe`,
+            `  ${cmd('conta')}       quem está logado`,
+            `  ${cmd('pilotar')}     abre o jogo`,
+            `  ${cmd('sair')}        sai da conta`,
             `  ${cmd('clear')}       limpa a tela`,
             `  ${cmd('exit')}        fecha o terminal`
           ]);
@@ -303,6 +315,23 @@ export function montarAvatarAscii() {
         case 'exit': case 'quit':
           fechar();
           break;
+        case 'criar-conta': case 'registrar': case 'cadastro': case 'signup':
+          iniciarFluxo('registrar'); break;
+        case 'entrar': case 'login':
+          iniciarFluxo('entrar'); break;
+        case 'conta': case 'account': {
+          const s = sessao();
+          escrever(s ? [[`logado como <b class="at-forte">${esc(s.usuario)}</b>`, ''], [`${cmd('pilotar')} · ${cmd('sair')}`, 'at-dica']] : [['nenhuma conta logada', 'at-dim'], [`${cmd('criar-conta')} ou ${cmd('entrar')}`, 'at-dica']]);
+          break;
+        }
+        case 'sair': case 'logout':
+          if (!sessao()) { escrever([['nenhuma conta logada', 'at-dim']]); break; }
+          sair().then(() => escrever([['você saiu da conta', 'at-dim']]));
+          break;
+        case 'pilotar': case 'jogar': case 'play':
+          if (!sessao()) { escrever([['para pilotar, crie uma conta primeiro', 'at-erro']]); iniciarFluxo('registrar'); break; }
+          escrever([['🚀 abrindo a nave…', 'at-dim']]); fechar(); document.getElementById('botaoPilotar')?.click();
+          break;
         case 'sudo':
           escrever([['lucas não está no arquivo sudoers. este incidente será reportado.', 'at-erro']]);
           break;
@@ -310,6 +339,50 @@ export function montarAvatarAscii() {
           escrever([[`comando não encontrado: ${esc(c)} — tente ${cmd('help')}`, 'at-erro']]);
       }
     }
+
+    /* ---- cadastro / login: perguntas em sequencia (a senha nao aparece) ---- */
+    const promptEl = term.querySelector('.at-linha .at-prompt');
+    const PROMPT = 'lucas@portfolio:~$';
+    let fluxo = null;
+    const ETAPAS = {
+      registrar: [['email', 'email:', 'text'], ['usuario', 'usuário (3-16, letras/números/_):', 'text'], ['senha', 'senha (mín. 6):', 'password'], ['senha2', 'repita a senha:', 'password']],
+      entrar: [['login', 'email ou usuário:', 'text'], ['senha', 'senha:', 'password']]
+    };
+    function perguntar() {
+      const [, rotulo, tipo] = ETAPAS[fluxo.tipo][fluxo.etapa];
+      promptEl.textContent = rotulo; input.type = tipo; input.value = '';
+      input.setAttribute('autocomplete', tipo === 'password' ? (fluxo.tipo === 'registrar' ? 'new-password' : 'current-password') : fluxo.etapa === 0 && fluxo.tipo === 'registrar' ? 'email' : 'username');
+      if (matchMedia('(hover: hover)').matches) input.focus({ preventScroll: true });
+    }
+    function encerrarFluxo() { fluxo = null; promptEl.textContent = PROMPT; input.type = 'text'; input.setAttribute('autocomplete', 'off'); }
+    function iniciarFluxo(tipo) {
+      if (sessao() && tipo === 'registrar') { escrever([[`você já está logado como <b class="at-forte">${esc(sessao().usuario)}</b>`, ''], [`${cmd('pilotar')} · ${cmd('sair')}`, 'at-dica']]); return; }
+      fluxo = { tipo, etapa: 0, dados: {} };
+      escrever([[tipo === 'registrar' ? 'criando sua conta do jogo · <span class="at-dim">Esc cancela · já tem conta? digite</span> ' + cmd('entrar') : 'entrar na sua conta · <span class="at-dim">Esc cancela</span>', 'at-dim']]).then(perguntar);
+    }
+    async function responderFluxo(v) {
+      const [campo, rotulo, tipo] = ETAPAS[fluxo.tipo][fluxo.etapa];
+      linha(`<span class="at-prompt">${esc(rotulo)}</span> ${tipo === 'password' ? '•'.repeat(Math.min(12, v.length)) : esc(v)}`, 'at-eco');
+      // atalho: no meio do cadastro, "entrar" troca para o login
+      if (fluxo.tipo === 'registrar' && fluxo.etapa === 0 && /^(entrar|login)$/i.test(v.trim())) { encerrarFluxo(); iniciarFluxo('entrar'); return; }
+      if (campo === 'senha2' && v !== fluxo.dados.senha) { escrever([['as senhas não batem, digite de novo', 'at-erro']]); fluxo.etapa = 2; perguntar(); return; }
+      fluxo.dados[campo] = campo === 'senha' || campo === 'senha2' ? v : v.trim();
+      fluxo.etapa++;
+      if (fluxo.etapa < ETAPAS[fluxo.tipo].length) { perguntar(); return; }
+      const f = fluxo; encerrarFluxo(); input.disabled = true;
+      linha(f.tipo === 'registrar' ? 'criando conta…' : 'entrando…', 'at-dim');
+      const r = f.tipo === 'registrar' ? await registrar(f.dados.email, f.dados.usuario, f.dados.senha) : await entrar(f.dados.login, f.dados.senha);
+      input.disabled = false;
+      if (r.erro) { escrever([[esc(r.erro), 'at-erro'], [`tente ${cmd(f.tipo === 'registrar' ? 'criar-conta' : 'entrar')} de novo`, 'at-dica']]); return; }
+      escrever([[`${f.tipo === 'registrar' ? 'conta criada ✓' : 'bem-vindo de volta ✓'} — logado como <b class="at-forte">${esc(r.usuario)}</b>`, ''], [`${cmd('pilotar')} para entrar no jogo`, 'at-dica']]);
+      input.focus({ preventScroll: true });
+    }
+    // "Pilotar" sem conta: sobe ate o topo, abre o terminal e comeca o cadastro
+    addEventListener('pedir-conta', () => {
+      scrollTo({ top: 0, behavior: menos ? 'auto' : 'smooth' });
+      const espera = () => { if (scrollY > 5) return setTimeout(espera, 80); jaAbriu = true; abrir(); linha('<span class="at-dim">🚀 para pilotar a nave e jogar online, crie uma conta grátis</span>'); iniciarFluxo('registrar'); };
+      setTimeout(espera, 120);
+    });
 
     // clicar num comando da saida roda ele; clicar num projeto rola ate la
     saida.addEventListener('click', (e) => {
@@ -322,6 +395,9 @@ export function montarAvatarAscii() {
     /* ---------------------------------------------------------- entrada -- */
     const historico = []; let pos = 0;
     input.addEventListener('keydown', (e) => {
+      if (fluxo && e.key === 'Escape') { e.preventDefault(); linha('cancelado', 'at-dim'); encerrarFluxo(); return; }
+      if (fluxo && e.key === 'Enter') { e.preventDefault(); const v = input.value; input.value = ''; responderFluxo(v); return; }
+      if (fluxo) return;
       if (e.key === 'Enter') {
         const v = input.value; input.value = '';
         if (v.trim()) { historico.push(v); pos = historico.length; }
@@ -394,6 +470,7 @@ export function montarAvatarAscii() {
     const sai = () => {
       clearTimeout(fechando);
       const folga = performance.now() - digitouEm < 3000 ? 2500 : 450;
+      if (fluxo) return;   // no meio do cadastro nao fecha sozinho
       fechando = setTimeout(fechar, folga);
     };
     if (temHover) {

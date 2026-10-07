@@ -191,7 +191,7 @@ html.cursor-proprio .jogo .jogo-pausa,html.cursor-proprio .jogo .jogo-pausa *{cu
 .jogo-mapa-bt:hover,.jogo-som:hover{background:rgba(124,77,255,.3)}
 html.cursor-proprio .jogo .jogo-mapa-bt,html.cursor-proprio .jogo .jogo-som{cursor:pointer!important}
 /* combustivel do jetpack (so a pe) */
-.jogo-comb{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);width:200px;padding:8px 12px;border-radius:10px;
+.jogo-comb{position:absolute;left:24px;bottom:112px;width:200px;padding:8px 12px;border-radius:10px;
   background:rgba(12,10,22,.7);border:1px solid rgba(255,255,255,.1);opacity:0;transition:opacity .25s;pointer-events:none}
 .jogo.a-pe .jogo-comb{opacity:1}
 .jogo-comb small{display:block;font-size:9px;letter-spacing:.2em;color:rgba(228,220,255,.5);margin-bottom:5px}
@@ -200,12 +200,159 @@ html.cursor-proprio .jogo .jogo-mapa-bt,html.cursor-proprio .jogo .jogo-som{curs
 .jogo-comb.vazio em{background:#ff5f57}
 /* mapa (M) */
 .jogo-mapa{position:absolute;inset:0;width:100%;height:100%;z-index:7;opacity:0;pointer-events:none;transition:opacity .2s;
-  background:radial-gradient(circle at 50% 50%,rgba(14,10,30,.94),rgba(5,4,11,.97))}
+  background:radial-gradient(circle at 50% 50%,rgba(14,10,30,.985),rgba(5,4,11,.995))}
 .jogo.mapa-on .jogo-mapa{opacity:1}
 .jogo.mapa-on .jogo-acao,.jogo.mapa-on .jogo-rotulos{opacity:0}
 /* toque: 3 fileiras de botoes */
 .jt-botoes{grid-template-columns:repeat(2,58px);gap:10px}
 .jt-botoes button{width:58px;height:58px}
 .jt-botoes [data-b=tiro]{color:#ff7ad9}
-.jogo.toque .jogo-comb{bottom:auto;top:110px;width:150px}
+.jogo.toque .jogo-comb{bottom:auto;top:110px;left:50%;transform:translateX(-50%);width:150px}
 .jogo.toque .jogo-mapa-bt{display:none}
+
+/* mapa interativo: o cursor aparece (arrastar, zoom, clicar para marcar) */
+.jogo.mapa-on .jogo-mapa{pointer-events:auto;cursor:crosshair!important;touch-action:none}
+html.cursor-proprio .jogo.mapa-on .jogo-mapa{cursor:crosshair!important}
+/* marcador do destino na tela */
+.jogo-destino{position:absolute;left:0;top:0;z-index:3;pointer-events:none;display:none;flex-direction:column;align-items:center;gap:2px;
+  margin:-14px 0 0 -14px;width:28px;--ang:0rad}
+.jogo-destino.on{display:flex}
+.jogo-destino i{width:28px;height:28px;border-radius:50%;border:2.5px solid #2bff8f;box-shadow:0 0 16px rgba(43,255,143,.6);position:relative;animation:destPulso 1.4s ease-in-out infinite}
+.jogo-destino i::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:#2bff8f}
+.jogo-destino.fora i{border-radius:0;border:none;box-shadow:none;width:0;height:0;border-left:16px solid #2bff8f;border-top:10px solid transparent;border-bottom:10px solid transparent;
+  transform:rotate(var(--ang));filter:drop-shadow(0 0 6px rgba(43,255,143,.8));animation:none}
+.jogo-destino.fora i::after{display:none}
+.jogo-destino b{font-size:11px;color:#2bff8f;white-space:nowrap;text-shadow:0 0 8px rgba(0,0,0,.9);letter-spacing:.06em}
+.jogo-destino span{font-size:10px;color:#fff;white-space:nowrap;text-shadow:0 0 8px rgba(0,0,0,.9)}
+@keyframes destPulso{50%{transform:scale(1.15)}}
+
+/* jetpack sem combustivel: a barra virou so um aviso de voo */
+.jogo-comb{display:none}
+
+/* arma na mao (a pe) e inventario (TAB) */
+.jogo-arma{position:absolute;left:50%;bottom:112px;transform:translateX(-50%);display:none;align-items:center;gap:10px;padding:8px 14px;border-radius:12px;
+  background:rgba(12,10,22,.72);border:1px solid rgba(255,255,255,.12);pointer-events:none}
+.jogo-arma{display:flex}
+.jogo.carregando .jogo-arma,.jogo.mapa-on .jogo-arma,.jogo.painel-on .jogo-arma{display:none}
+.jogo-arma i{font-style:normal;font-size:20px}
+.jogo-arma b{font-size:13px;color:#fff}
+.jogo-arma span{font-size:9px;letter-spacing:.14em;color:rgba(228,220,255,.45)}
+.jogo-inventario{position:absolute;inset:0;z-index:7;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+  background:rgba(5,4,11,.72);backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .15s}
+.jogo.inv-on .jogo-inventario{opacity:1;pointer-events:auto}
+.jogo-inventario h4{margin:0;font-size:14px;letter-spacing:.3em;color:#c7b4ff}
+.jogo-inventario h4 span{font-size:10px;letter-spacing:.12em;color:rgba(228,220,255,.5)}
+.ji-slots{display:grid;grid-template-columns:repeat(4,150px);gap:14px}
+.ji-slots button{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:20px 12px 16px;border-radius:16px;
+  font:inherit;color:#e4dcff;background:rgba(20,14,40,.75);border:1px solid rgba(169,139,255,.3);cursor:pointer!important;transition:transform .15s,border-color .15s,background .15s}
+.ji-slots button:hover{transform:translateY(-3px);border-color:rgba(199,180,255,.8)}
+.ji-slots button.on{border-color:#2bff8f;background:rgba(20,50,35,.75);box-shadow:0 0 30px rgba(43,255,143,.25)}
+.ji-slots kbd{position:absolute;left:10px;top:10px}
+.ji-slots i{font-style:normal;font-size:38px}
+.ji-slots b{font-size:13px;color:#fff}
+.ji-slots span{font-size:10px;color:rgba(228,220,255,.55);text-align:center}
+html.cursor-proprio .jogo.inv-on .jogo-inventario,html.cursor-proprio .jogo.inv-on .jogo-inventario *{cursor:pointer!important}
+.jogo.inv-on .jogo-inventario *{cursor:pointer}
+@media (max-width:700px){.ji-slots{grid-template-columns:repeat(2,140px)}}
+.jogo.toque .jogo-arma{bottom:auto;top:58px;left:14px;transform:none}
+
+/* roda de armas (TAB segurado) */
+.jogo-roda{position:absolute;inset:0;width:100%;height:100%;z-index:7;pointer-events:none;opacity:0;transition:opacity .12s;
+  background:radial-gradient(circle,rgba(5,4,11,.35),rgba(5,4,11,.75))}
+.jogo-roda.on{opacity:1;pointer-events:auto}
+.jogo.roda-on .jogo-roda{cursor:pointer!important}
+html.cursor-proprio .jogo.roda-on .jogo-roda{cursor:pointer!important}
+.jogo-inventario{display:none!important}
+/* mira de arma: quatro tracos que abrem a cada tiro */
+.jogo.mira-arma .jogo-mira{border:none;box-shadow:none;opacity:1}
+.jogo.mira-arma .jogo-mira::before{content:"";position:absolute;inset:0;
+  background:
+    linear-gradient(#fff,#fff) 50% calc(50% - var(--abre,6px) - 4px)/2px 8px no-repeat,
+    linear-gradient(#fff,#fff) 50% calc(50% + var(--abre,6px) + 4px)/2px 8px no-repeat,
+    linear-gradient(#fff,#fff) calc(50% - var(--abre,6px) - 4px) 50%/8px 2px no-repeat,
+    linear-gradient(#fff,#fff) calc(50% + var(--abre,6px) + 4px) 50%/8px 2px no-repeat;
+  filter:drop-shadow(0 0 2px rgba(0,0,0,.9))}
+.jogo.mira-arma .jogo-mira::after{width:3px;height:3px;margin:-1.5px 0 0 -1.5px;background:#2bff8f}
+.jogo.mira-arma .jogo-mira{width:60px;height:60px;margin:-30px 0 0 -30px}
+
+/* arma atual em 3D (canto inferior esquerdo, acima dos paineis) */
+.jogo-arma{left:24px!important;bottom:112px!important;transform:none!important;width:210px;height:132px;flex-direction:column;align-items:flex-start;justify-content:flex-end;gap:2px;
+  padding:10px 14px;background:linear-gradient(180deg,rgba(12,10,22,.05),rgba(12,10,22,.55))!important;border:1px solid rgba(169,139,255,.3)!important;overflow:hidden}
+.jogo-arma i{display:none}
+.jogo-arma .ja-3d{position:absolute;inset:0 0 34px 0;pointer-events:none}
+.jogo-arma b{position:relative;font-size:13px}
+.jogo-arma span{position:relative}
+.jogo.toque .jogo-arma{top:auto!important;bottom:auto!important;top:150px!important;left:14px!important;width:150px;height:96px}
+@media (orientation:portrait){.jogo.toque .jogo-arma{top:200px!important}}
+/* arma na mesma fileira dos paineis (canto inferior esquerdo) */
+.jogo-arma{bottom:24px!important;height:104px;width:190px}
+.jogo-arma .ja-3d{inset:0 0 30px 0}
+.jogo-painel{left:230px}
+.jogo-acao{bottom:150px}
+@media(max-width:900px){.jogo-arma{width:150px}.jogo-painel{left:186px}}
+/* aviso de acao: texto corrido (as teclas ficam na linha, nao uma por linha) */
+.jogo-acao{display:block!important;max-width:min(560px,calc(100vw - 40px))}
+.jogo-acao.on{display:block!important}
+.jogo-acao span{display:block;margin-top:4px}
+
+/* ---------------------------------------------------------- online / PvP */
+.jogo-pvp{font:800 11px/1 ui-monospace,Menlo,monospace;letter-spacing:.1em;color:#fff;padding:9px 12px;border-radius:999px;cursor:pointer!important;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18)}
+.jogo.pvp-on .jogo-pvp{background:rgba(255,80,80,.3);border-color:#ff6b6b;box-shadow:0 0 18px rgba(255,80,80,.45)}
+html.cursor-proprio .jogo .jogo-pvp{cursor:pointer!important}
+.jogo-online{position:absolute;left:50%;top:22px;transform:translateX(-50%);font-size:11px;color:rgba(228,220,255,.75);display:flex;align-items:center;gap:7px;
+  padding:6px 12px;border-radius:999px;background:rgba(12,10,22,.6);border:1px solid rgba(255,255,255,.08);pointer-events:none;white-space:nowrap}
+.jogo-online:empty{display:none}
+.jogo-online i{width:8px;height:8px;border-radius:50%;background:#2bff8f;box-shadow:0 0 8px #2bff8f}
+.jogo-online i.off{background:#8a8399;box-shadow:none}
+.jogo-online b{color:#fff}
+.jogo-feed{position:absolute;right:24px;top:74px;display:flex;flex-direction:column;align-items:flex-end;gap:5px;pointer-events:none}
+.jogo-feed div{font-size:11px;padding:5px 10px;border-radius:8px;background:rgba(12,10,22,.72);color:#e4dcff;transition:opacity .8s}
+.jogo-feed div.some{opacity:0}
+.jogo-feed b{color:#fff}.jogo-feed .ruim{color:#ff6b6b}
+.jogo-vida{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);display:none;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;
+  background:rgba(30,8,12,.72);border:1px solid rgba(255,107,107,.5)}
+.jogo.pvp-on .jogo-vida{display:flex}
+.jogo-vida small{font-size:9px;letter-spacing:.2em;color:#ffb3b3}
+.jogo-vida i{display:block;width:160px;height:7px;border-radius:7px;background:rgba(255,255,255,.12);overflow:hidden}
+.jogo-vida em{display:block;height:100%;background:linear-gradient(90deg,#2bff8f,#9dffcf);transform-origin:0 50%}
+.jogo-vida.baixa em{background:#ff5f57}
+.jogo-vida span{font-weight:800;color:#fff;min-width:26px}
+.jogo-placar{position:absolute;right:24px;top:200px;min-width:170px;pointer-events:none}
+.jogo-placar:empty{display:none}
+.jogo-placar h5{margin:0 0 6px;font-size:9px;letter-spacing:.24em;color:#ff9b9b}
+.jogo-placar div{display:flex;gap:8px;font-size:11px;padding:4px 10px;border-radius:7px;background:rgba(12,10,22,.7);margin-bottom:3px}
+.jogo-placar span{flex:1;color:#e4dcff}.jogo-placar b{color:#2bff8f}.jogo-placar i{font-style:normal;color:#ff6b6b}
+.jogo-morte{position:absolute;inset:0;z-index:6;display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  background:radial-gradient(circle,rgba(80,0,10,.35),rgba(40,0,6,.8));pointer-events:none}
+.jogo.morto .jogo-morte{display:flex}
+.jogo-morte b{font-size:24px;letter-spacing:.06em;color:#fff;text-shadow:0 0 20px rgba(255,60,60,.8)}
+.jogo-morte span{font-size:12px;color:rgba(255,220,220,.75)}
+.jogo-dano{position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(120% 90% at 50% 50%,transparent 45%,rgba(255,30,40,.55))}
+.jogo-dano.on{animation:jogoDano .45s ease-out}
+@keyframes jogoDano{from{opacity:1}to{opacity:0}}
+.jogo.toque .jogo-online{top:auto;bottom:8px;font-size:10px}
+.jogo.toque .jogo-pvp{padding:7px 9px;font-size:10px}
+
+/* slots 1-4 embaixo da arma 3D */
+.ja-slots{position:absolute;right:10px;top:8px;display:flex;gap:4px}
+.ja-slots i{display:grid;place-items:center;width:18px;height:18px;border-radius:5px;font-style:normal;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15)}
+.ja-slots i b{font-size:9px;color:rgba(228,220,255,.6)}
+.ja-slots i.on{background:var(--c);border-color:#fff;box-shadow:0 0 10px var(--c)}
+.ja-slots i.on b{color:#0b0714}
+/* placar (TAB segurado) */
+.jogo-tab{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:7;min-width:min(520px,calc(100vw - 32px));padding:18px 22px;border-radius:16px;
+  background:rgba(10,8,20,.92);border:1px solid rgba(169,139,255,.35);box-shadow:0 30px 80px rgba(0,0,0,.6);display:none}
+.jogo.tab-on .jogo-tab{display:block}
+.jogo-tab h4{margin:0 0 12px;font-size:13px;letter-spacing:.24em;color:#c7b4ff}
+.jogo-tab h4 span{font-size:10px;letter-spacing:.08em;color:rgba(228,220,255,.55)}
+.jogo-tab table{width:100%;border-collapse:collapse;font-size:12px}
+.jogo-tab th{text-align:left;font-size:9px;letter-spacing:.2em;color:rgba(228,220,255,.45);padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.08)}
+.jogo-tab td{padding:7px 8px;color:#e4dcff;border-bottom:1px solid rgba(255,255,255,.05)}
+.jogo-tab tr.eu td{color:#fff;font-weight:800;background:rgba(124,77,255,.12)}
+.jogo-tab .pvp{color:#ff6b6b}.jogo-tab .paz{color:rgba(228,220,255,.45)}
+.jogo-tab p{margin:12px 0 0;font-size:10px;color:rgba(228,220,255,.45)}
+/* contador de jogadores abaixo do titulo; vida acima da fileira de paineis */
+.jogo-online{top:62px}
+.jogo-vida{bottom:150px}
+.jogo-acao{bottom:200px}

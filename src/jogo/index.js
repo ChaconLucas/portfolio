@@ -9,6 +9,9 @@ import { criarTiros } from './tiros.js';
 import { desenharMapa } from './mapa.js';
 import { criarInterior, RAIO_SALA } from './interior.js';
 import { emblema } from './predios.js';
+import { criarRoda } from './roda.js';
+import { criarRede } from './rede.js';
+import { sessao, HOST_SALAS } from '../conta.js';
 
 /**
  * Jogo da nave pelo Stack Universe.
@@ -54,7 +57,7 @@ export async function abrirJogo() {
     <div class="jogo-nuvens"><i></i><i></i><i></i><i></i></div>
     <div class="jogo-topo">
       <div class="jogo-titulo"><b>STACK UNIVERSE</b><span>pilotando</span></div>
-      <div class="jogo-botoes-topo"><button class="jogo-mapa-bt" type="button" title="mapa (M)">🗺</button><button class="jogo-som" type="button" title="som (N)">🔊</button><button class="jogo-sair" type="button">ESC · SAIR</button></div>
+      <div class="jogo-botoes-topo"><button class="jogo-pvp" type="button" title="PvP (P)">⚔ PvP</button><button class="jogo-mapa-bt" type="button" title="mapa (M)">🗺</button><button class="jogo-som" type="button" title="som (N)">🔊</button><button class="jogo-sair" type="button">ESC · SAIR</button></div>
     </div>
     <div class="jogo-ajuda"></div>
     <div class="jogo-acao"></div>
@@ -67,6 +70,17 @@ export async function abrirJogo() {
     <canvas class="jogo-radar" width="300" height="300"></canvas>
     <div class="jogo-comb"><small>JETPACK</small><i><em></em></i></div>
     <canvas class="jogo-mapa"></canvas>
+    <div class="jogo-destino"><i></i><b></b><span></span></div>
+    <div class="jogo-arma"><i></i><b></b><span>1–4 trocam · I armas</span><div class="ja-3d"></div><div class="ja-slots"></div></div>
+    <div class="jogo-inventario"><h4>INVENTÁRIO · <span>TAB fecha · 1–4 ou clique</span></h4><div class="ji-slots"></div></div>
+    <canvas class="jogo-roda"></canvas>
+    <div class="jogo-online"></div>
+    <div class="jogo-feed"></div>
+    <div class="jogo-vida"><small>VIDA</small><i><em></em></i><span>100</span></div>
+    <div class="jogo-placar"></div>
+    <div class="jogo-tab"><h4>PLACAR · <span></span></h4><table><thead><tr><th>jogador</th><th>PvP</th><th>abates</th><th>mortes</th></tr></thead><tbody></tbody></table><p>segure TAB para ver · P liga/desliga o PvP</p></div>
+    <div class="jogo-morte"><b></b><span>renascendo…</span></div>
+    <div class="jogo-dano"></div>
     <div class="jogo-predio" aria-live="polite">
       <div class="jp-topo"><span class="jp-nivel"></span><span class="jp-area"></span></div>
       <h3 class="jp-nome"></h3>
@@ -86,6 +100,7 @@ export async function abrirJogo() {
         <button type="button" data-b="desce" aria-label="descer">▼</button>
         <button type="button" data-b="tiro" aria-label="atirar">✦</button>
         <button type="button" data-b="mapa" aria-label="mapa">🗺</button>
+        <button type="button" data-b="arma" aria-label="trocar arma">🔫</button>
       </div>
       <div class="jt-dica">arraste à esquerda para mover · à direita para olhar</div>
     </div>
@@ -107,7 +122,8 @@ export async function abrirJogo() {
   const AJUDA = {
     nave: `<span><kbd>W</kbd><kbd>S</kbd> acelerar / frear</span><span><kbd>A</kbd><kbd>D</kbd> para os lados</span>
       <span><kbd>Espaço</kbd><kbd>Ctrl</kbd> subir / descer</span><span><kbd>Shift</kbd>+<kbd>W</kbd> velocidade da luz</span><span><kbd>E</kbd> interagir</span><span><kbd>Mouse</kbd> visão / direção · rodinha = zoom</span>`,
-    pe: `<span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> andar</span><span><kbd>Shift</kbd> correr · <kbd>Espaço</kbd> pular</span>
+    pe: `<span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> andar</span><span><kbd>Shift</kbd> correr · <kbd>Espaço</kbd> pular · <kbd>C</kbd> rolar</span>
+      <span><kbd>Espaço</kbd> no ar = jetpack · <kbd>Espaço</kbd>/<kbd>Ctrl</kbd> sobe/desce · <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> voa</span>
       <span><kbd>E</kbd> entrar no prédio / embarcar</span><span><kbd>Mouse</kbd> câmera · rodinha = zoom</span>`
   };
   const ajuda = $('.jogo-ajuda'); ajuda.innerHTML = AJUDA.nave;
@@ -117,12 +133,13 @@ export async function abrirJogo() {
   // so aceita no gesto); daqui em diante, cliques no jogo pedem de novo
   const preso = () => !!document.pointerLockElement;
   // pausa = mouse solto no desktop (o menu "continuar / sair" esta na tela)
-  const pausado = () => !preso() && !semTrava && !painelAberto && !!s;
+  const pausado = () => !preso() && !semTrava && !painelAberto && !mapaAberto && !inventarioAberto && !!s;
   const travar = () => { if (preso() || semTrava) return; try { const r = document.documentElement.requestPointerLock?.(); r?.catch?.(() => {}); } catch (e) { /* */ } };
   // estado declarado antes de carregar: o teclado ja escuta durante o carregamento
-  let s = null, painelAberto = false, mapaAberto = false, tiros = null;
+  let miraAbre = 0, roda = { aberta: false }, rede = null;   // a roda de verdade e criada depois de carregar
+  let s = null, painelAberto = false, mapaAberto = false, inventarioAberto = false, tiros = null, armaIdx = 0, navArmaIdx = 0, abalo = 0;
   const som = criarSom();
-  const pe = { pos: new THREE.Vector3(), rumo: 0, vel: new THREE.Vector3(), velY: 0, noChao: true, comb: 1, rolando: 0 };
+  const pe = { pos: new THREE.Vector3(), rumo: 0, vel: new THREE.Vector3(), velY: 0, noChao: true, voando: false, rolando: 0 };
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, TOQUE ? 1.25 : 1.5));   // celular: menos pixels, mais quadros
@@ -198,6 +215,7 @@ export async function abrirJogo() {
     if (e.key === 'Escape') {
       if (e.repeat) return;
       if (mapaAberto) { alternarMapa(false); if (!document.pointerLockElement) return; }
+      if (inventarioAberto) { alternarInventario(false); return; }
       if (painelAberto) { fecharPainel(); return; }
       // 1o Esc: o navegador solta o mouse e o jogo pausa (menu continuar/sair).
       // Esc de novo, com o menu ja na tela, sai. Conforme o navegador, o Esc
@@ -211,12 +229,22 @@ export async function abrirJogo() {
     tecla.add(e.code);
     if (e.code === 'KeyE' && !e.repeat) interagir();
     if (e.code === 'KeyM' && !e.repeat) alternarMapa();
+    if (e.code === 'Tab') { e.preventDefault(); if (!e.repeat) mostrarTab(true); }
+    if (e.code === 'KeyI') { if (!e.repeat) { if (roda.aberta) fecharRoda(true); else abrirRoda(); } }
+    if (e.code === 'KeyV' && !e.repeat && s.aPe) alternarPrimeiraPessoa();
+    if (/^Digit[1-4]$/.test(e.code) && !e.repeat) escolherArma(+e.code.slice(5) - 1, s.aPe);
     if (e.code === 'KeyN' && !e.repeat) alternarSom();
+    if (e.code === 'KeyP' && !e.repeat) alternarPvp();
     if (e.code === 'KeyC' && !e.repeat && s.aPe && pe.noChao && !painelAberto) rolar();
-    if (e.code === 'Space' && !e.repeat && s.aPe && pe.noChao && !painelAberto) pular();
+    if (e.code === 'Space' && !e.repeat && s.aPe && !painelAberto) { if (pe.noChao) pular(); else ligarJetpack(); }
     if (e.code === 'Space') e.preventDefault();
   };
-  const cima = (e) => tecla.delete(e.code);
+  const cima = (e) => {
+    tecla.delete(e.code);
+    // TAB segurado e solto: equipa o que esta apontado (um toque rapido deixa a roda aberta)
+    if (e.code === 'Tab') mostrarTab(false);
+    if (e.code === 'KeyI' && roda.aberta && performance.now() - rodaDesde > 220) fecharRoda(true);
+  };
   addEventListener('keydown', baixo); addEventListener('keyup', cima);
   addEventListener('blur', () => tecla.clear());
   $('.jogo-sair').addEventListener('click', () => fechar());
@@ -232,8 +260,11 @@ export async function abrirJogo() {
   let mdx = 0, mdy = 0, zoom = 1, soltouEm = 0, ultX = null, ultY = null;
   // clique: com o mouse preso atira (segurar = rajada); solto, trava o mouse
   let atirando = false;
-  canvas.addEventListener('mousedown', (e) => { som.destravar(); if (e.button === 0 && (preso() || semTrava) && !TOQUE) atirando = true; });
-  addEventListener('mouseup', () => { atirando = false; });
+  // com o mouse preso o clique chega no <html> (o elemento travado), nao no
+  // canvas: por isso escuta no documento
+  const aoApertar = (e) => { som.destravar(); if (e.button === 0 && !TOQUE && (preso() || (semTrava && e.target === canvas)) && !inventarioAberto && !mapaAberto) atirando = true; };
+  const aoSoltar = () => { atirando = false; };
+  document.addEventListener('mousedown', aoApertar); addEventListener('mouseup', aoSoltar);
   canvas.addEventListener('click', travar);
   $('.jogo-pausa').addEventListener('click', (e) => { if (!e.target.closest('.jp-sair')) travar(); });
   $('.jp-sair').addEventListener('click', (e) => { e.stopPropagation(); fechar(); });
@@ -244,7 +275,8 @@ export async function abrirJogo() {
     if (dx === undefined) { dx = ultX === null ? 0 : e.clientX - ultX; dy = ultY === null ? 0 : e.clientY - ultY; }
     ultX = e.clientX; ultY = e.clientY;
     if (Math.abs(dx) > 300 || Math.abs(dy) > 300) return;
-    if (!painelAberto && (preso() || semTrava)) { mdx += dx; mdy += dy; }
+    if (roda.aberta) { if (preso()) roda.mover(dx, dy); else roda.apontar(e.clientX, e.clientY); return; }
+    if (!painelAberto && !mapaAberto && !inventarioAberto && (preso() || semTrava)) { mdx += dx; mdy += dy; }
   };
   const aoTravar = () => {
     raiz.classList.toggle('mouse-preso', preso());
@@ -297,11 +329,12 @@ export async function abrirJogo() {
         som.destravar();
         if (k === 'acao') { if (s) interagir(); return; }
         if (k === 'mapa') { alternarMapa(); return; }
+        if (k === 'arma') { if (s?.aPe) escolherArma((armaIdx + 1) % ARMAS.length, true); else escolherArma((navArmaIdx + 1) % NAVE_ARMAS.length, false); return; }
         if (k === 'tiro') { atirando = true; return; }
         tq[k] = 1;
-        if (k === 'sobe' && s && s.aPe && pe.noChao && !painelAberto) { pe.velY = 6.2; pe.noChao = false; }
+        if (k === 'sobe' && s && s.aPe && !painelAberto) { if (pe.noChao) pular(); else ligarJetpack(); }
       });
-      const fim = () => { b.classList.remove('on'); if (k === 'tiro') atirando = false; else if (k !== 'acao' && k !== 'mapa') tq[k] = 0; };
+      const fim = () => { b.classList.remove('on'); if (k === 'tiro') atirando = false; else if (k !== 'acao' && k !== 'mapa' && k !== 'arma') tq[k] = 0; };
       b.addEventListener('pointerup', fim); b.addEventListener('pointercancel', fim); b.addEventListener('pointerleave', fim);
     });
     // tocar no aviso de acao tambem interage
@@ -319,6 +352,12 @@ export async function abrirJogo() {
   catch (e) { console.warn('[jogo] modelos nao carregaram', e); $('.jogo-carregando').textContent = 'não deu para carregar o jogo'; return; }
   $('.jogo-carregando').remove(); raiz.classList.remove('carregando');
   tiros = criarTiros(); cena.add(tiros.grupo);
+  /* ---- online (precisa de conta): uma sala por lugar ---- */
+  const sess = sessao();
+  rede = sess ? criarRede({ token: sess.token, host: HOST_SALAS, modeloNave: nave.modelo, aoEvento: (tipo, m) => eventoRede(tipo, m) }) : null;
+  const salaAtual = () => (mundo.planetas ? 'espaco' : 'planeta-' + s.planeta.key);
+  queueMicrotask(() => rede?.entrar(salaAtual()));
+  queueMicrotask(() => cena.add(vista1));
   let cadencia = 0, dobraAnt = 0, jetAgora = 0;
 
   s = {
@@ -358,13 +397,15 @@ export async function abrirJogo() {
     sc.remove(falsa);
   }
   function trocarCena() {
+    destino = null;
     // redesenha o quadro anterior e copia a tela (no mesmo instante: o buffer da tela nao e preservado)
     const tam = renderer.getDrawingBufferSize(new THREE.Vector2());
     if (!fotoTex || fotoTex.image.width !== tam.x || fotoTex.image.height !== tam.y) { fotoTex?.dispose(); fotoTex = new THREE.FramebufferTexture(tam.x, tam.y); fotoMat.uniforms.tFoto.value = fotoTex; }
     renderer.render(cena, camera); renderer.copyFramebufferToTexture(fotoTex); dissolve = 1;
     mundo.destruir();
     cena = ent.cenaProx; mundo = ent.mundoProx; ent.cenaProx = ent.mundoProx = null;
-    cena.add(nave.raiz, nave.rastro, astro.raiz, astro.fumaca, tiros.grupo);
+    cena.add(nave.raiz, nave.rastro, astro.raiz, astro.fumaca, tiros.grupo, vista1);
+    queueMicrotask(() => rede?.entrar(salaAtual()));   // outro lugar = outra sala
   }
   const _mb = new THREE.Matrix4();
   const quatBase = (x, y, z, q) => q.setFromRotationMatrix(_mb.makeBasis(x, y, z));
@@ -454,8 +495,8 @@ export async function abrirJogo() {
     int.grupo.position.copy(BASE_INT); cena.add(int.grupo);
     s.dentro = { p, int, lixo: lixoInt };
     pe.pos.copy(BASE_INT).add(int.entrada); pe.vel.set(0, 0, 0); pe.velY = 0; pe.noChao = true; pe.rumo = Math.PI;
-    s.alvoRumo = Math.PI; s.alvoMira = -.12;
-    camPos.copy(pe.pos).add(_v.set(0, 2.6, 5.5));
+    s.alvoRumo = Math.PI; s.alvoMira = -.2;
+    camPos.copy(pe.pos).add(_v.set(0, 3, 4.2));
     fx.veu = 1; fx.veuCor = '#000'; som.porta();
     $('.jogo-titulo span').textContent = `dentro de ${p.tec.nome}`;
     if (!p.visto) {
@@ -493,12 +534,299 @@ export async function abrirJogo() {
     // solta o mouse para dar para clicar nos links dos projetos
     if (document.pointerLockElement) document.exitPointerLock();
   }
-  function pular() { pe.velY = 6.2; pe.noChao = false; }
+  // jetpack: so fica ligado ENQUANTO o Espaco estiver segurado, no ar. O pulo
+  // e normal (nao sai do chao ligado): segurando, liga quando o pulo chega no
+  // alto; soltando e apertando de novo no ar, liga na hora (ver andarAPe)
+  function pular() { pe.velY = 6.2; pe.noChao = false; pe.subidaDoPulo = true; }
+  function ligarJetpack() { pe.subidaDoPulo = false; }
   function rolar() { if (pe.rolando > 0) return; astro.gesto('Roll'); pe.rolando = .6; pe.vel.x += Math.sin(pe.rumo) * 7; pe.vel.z += Math.cos(pe.rumo) * 7; }
+
+  /* ---- armas e inventario (TAB) ----
+     A pe, o clique atira com a arma da mao, na direcao da mira (centro da
+     tela). TAB abre o inventario (mouse solto para clicar); 1–4 trocam direto. */
+  const ARMAS = [
+    { id: null, nome: 'Mãos livres', icone: '✋', desc: 'sem arma: anda e voa leve', st: [0, 0, 0] },
+    { id: 'blaster', nome: 'Blaster', icone: '🔫', desc: 'tiro a tiro, preciso', cor: 0xff4fd8, cad: .26, vel: 260, esc: .1, tom: 1, st: [.4, .4, .7] },
+    { id: 'rifle', nome: 'Rifle de plasma', icone: '⚡', desc: 'rajada rápida', cor: 0x4fd2ff, cad: .085, vel: 330, esc: .07, tom: 1.35, st: [.25, .95, .8] },
+    { id: 'canhao', nome: 'Canhão de íons', icone: '💥', desc: 'lento, explode na área', cor: 0xffa040, cad: .85, vel: 150, esc: .32, tom: .55, st: [1, .15, .45] }
+  ];
+  // arsenal da NAVE (o inventario mostra este quando se esta pilotando)
+  const NAVE_ARMAS = [
+    { id: 'laser', nome: 'Lasers duplos', icone: '🔴', desc: 'dois lasers rápidos, das asas', cor: 0xff4fd8, cad: .14, vel: 1100, esc: 1, dano: 1, tom: 1, st: [.4, .6, .9] },
+    { id: 'plasma', nome: 'Metralhadora de plasma', icone: '🔵', desc: 'rajada alternando as asas', cor: 0x4fd2ff, cad: .05, vel: 1300, esc: .7, dano: .45, tom: 1.5, alterna: true, espalha: .025, st: [.25, 1, .9] },
+    { id: 'missil', nome: 'Mísseis teleguiados', icone: '🚀', desc: 'perseguem o asteroide à frente', cor: 0xffb347, cad: .6, vel: 450, esc: 2.2, comp: .35, dano: 4, area: 90, tom: .7, guiado: true, vida: 4, st: [.7, .3, 1] },
+    { id: 'ions', nome: 'Canhão de íons', icone: '💥', desc: 'bola lenta, explosão em área', cor: 0xb06bff, cad: 1.1, vel: 520, esc: 5, comp: .25, dano: 9, area: 220, tom: .45, vida: 3, unico: true, st: [1, .12, .6] }
+  ];
+  const slots = $('.ji-slots'), armaUI = $('.jogo-arma'), tituloInv = $('.jogo-inventario h4');
+  let invAPe = null;
+  // o inventario mostra o arsenal de quem esta jogando: o astronauta ou a nave
+  function montarInventario() {
+    const aPe = !!s?.aPe; if (invAPe === aPe) return; invAPe = aPe;
+    const lista = aPe ? ARMAS : NAVE_ARMAS, atual = aPe ? armaIdx : navArmaIdx;
+    tituloInv.innerHTML = `${aPe ? 'INVENTÁRIO · ASTRONAUTA' : 'ARSENAL · NAVE'} · <span>TAB fecha · 1–4 ou clique</span>`;
+    slots.innerHTML = lista.map((a, i) => `<button type="button" data-i="${i}" class="${i === atual ? 'on' : ''}"><kbd>${i + 1}</kbd><i>${a.icone}</i><b>${a.nome}</b><span>${a.desc}</span></button>`).join('');
+  }
+  slots.addEventListener('click', (e) => { const b = e.target.closest('[data-i]'); if (b) { escolherArma(+b.dataset.i, !!s?.aPe); alternarInventario(false); } });
+  function mostrarArmaAtual() {
+    const lista = s?.aPe ? ARMAS : NAVE_ARMAS, atual = s?.aPe ? armaIdx : navArmaIdx, a = lista[atual];
+    armaUI.children[0].textContent = a.icone; armaUI.children[1].textContent = a.nome;
+    // os 4 slots (1–4) com o atual aceso
+    $('.ja-slots').innerHTML = lista.map((x, i) => `<i class="${i === atual ? 'on' : ''}" style="--c:#${(x.cor || 0x9a8fb5).toString(16).padStart(6, '0')}"><b>${i + 1}</b></i>`).join('');
+  }
+  function escolherArma(i, aPe = true) {
+    if (aPe) {
+      armaIdx = Math.max(0, Math.min(ARMAS.length - 1, i));
+      astro?.arma(ARMAS[armaIdx].id); raiz.classList.toggle('armado', !!ARMAS[armaIdx].id);
+    } else navArmaIdx = Math.max(0, Math.min(NAVE_ARMAS.length - 1, i));
+    invAPe = null; montarInventario(); mostrarArmaAtual();
+    som.bip(760, .06);
+  }
+  montarInventario(); mostrarArmaAtual();
+  let ladoTiro = 1;
+  function atirarNave() {
+    const a = NAVE_ARMAS[navArmaIdx];
+    nave.raiz.updateMatrixWorld();
+    let alvo = null;
+    if (a.guiado && mundo.planetas) { _v.set(0, 0, 1).transformDirection(nave.corpo.matrixWorld); alvo = mundo.alvoNaFrente(s.pos, _v); }
+    if (a.alterna) ladoTiro = -ladoTiro;
+    tiros.disparar(nave.corpo, s.vel, nave.raiz.scale.x, {
+      cor: a.cor, vel: a.vel, esc: a.esc, comp: a.comp, espalha: a.espalha, vida: a.vida,
+      lados: a.unico ? [0] : a.alterna ? [ladoTiro] : a.guiado ? [ladoTiro = -ladoTiro] : [-1, 1],
+      dados: { arma: a.id, dano: a.dano, area: a.area || 0, alvo }
+    });
+    som.tiro(a.tom); if (a.area) som.explosao(.12);
+    if (rede) { _v.set(0, 0, 1).transformDirection(nave.corpo.matrixWorld); rede.tiro(s.pos, _v, a.id); }
+  }
+  function alternarInventario(v = !inventarioAberto) {
+    if (v) montarInventario();
+    inventarioAberto = v; raiz.classList.toggle('inv-on', v);
+    if (v) { if (document.pointerLockElement) document.exitPointerLock(); atirando = false; } else travar();
+  }
+  /* roda de armas (TAB): mostra o arsenal de quem joga; enquanto aberta o
+     tempo corre devagar (camera lenta) e o mouse escolhe a fatia */
+  const rodaCv = $('.jogo-roda'); roda = criarRoda(rodaCv);
+  let rodaDesde = 0;
+  function abrirRoda() {
+    if (!s || painelAberto || mapaAberto || !(s.aPe || s.modo === 'espaco' || s.modo === 'superficie')) return;
+    roda.abrir(s.aPe ? ARMAS : NAVE_ARMAS, s.aPe ? armaIdx : navArmaIdx); rodaDesde = performance.now(); atirando = false;
+    raiz.classList.add('roda-on'); som.bip(620, .05);
+  }
+  function fecharRoda(equipar) { const i = roda.fechar(); raiz.classList.remove('roda-on'); if (equipar) escolherArma(i, !!s.aPe); }
+  rodaCv.addEventListener('pointermove', (e) => { if (!preso()) roda.apontar(e.clientX, e.clientY); });
+  rodaCv.addEventListener('click', (e) => { roda.apontar(e.clientX, e.clientY); fecharRoda(true); });
+
+  /* primeira pessoa (V, a pe): camera no capacete, o corpo some e a arma
+     aparece na frente da tela (um modelo so para a visao) */
+  const vista1 = new THREE.Group(); vista1.visible = false;
+  const vmModelos = {}; let vmChute = 0;
+  function alternarPrimeiraPessoa(v = !s.fp) {
+    s.fp = v; raiz.classList.toggle('fp', v); som.bip(v ? 880 : 600, .05);
+    camera.near = v ? .08 : .4; camera.updateProjectionMatrix();
+  }
+  function atualizarVista1(dt) {
+    const id = ARMAS[armaIdx].id, on = !!(s.fp && s.aPe && id);
+    vista1.visible = on; if (!on) return;
+    if (!vmModelos[id]) { vmModelos[id] = astro.modeloArma(id); vmModelos[id].scale.setScalar(.85); vista1.add(vmModelos[id]); }
+    for (const k in vmModelos) vmModelos[k].visible = k === id;
+    vmChute *= Math.exp(-dt * 14);
+    const bal = Math.hypot(pe.vel.x, pe.vel.z) * (pe.noChao ? 1 : 0), t = tTotal;
+    _v.set(.24 + Math.sin(t * 5) * .004 * bal, -.23 + Math.abs(Math.cos(t * 5)) * .006 * bal + vmChute * .03, -.55 + vmChute * .09).applyQuaternion(camera.quaternion);
+    vista1.position.copy(camera.position).add(_v);
+    vista1.quaternion.copy(camera.quaternion).multiply(_qGiro);
+  }
+  const _qGiro = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+
+  // a mira: o primeiro ponto (chao, predio ou parede) no raio do centro da tela
+  const _mira = new THREE.Vector3(), _dirC = new THREE.Vector3(), _bc = new THREE.Vector3();
+  function pontoDaMira(out) {
+    camera.getWorldDirection(_dirC); out.copy(camera.position);
+    for (let d = 0; d < 400; d += 1.5) {
+      out.addScaledVector(_dirC, 1.5);
+      if (d < 4) continue;
+      if (s.dentro) { if (Math.hypot(out.x - BASE_INT.x, out.z - BASE_INT.z) > RAIO_SALA - .3 || out.y < BASE_INT.y || out.y > BASE_INT.y + 9) return out; }
+      else if (out.y < mundo.alturaChao(out.x, out.z)) return out;
+    }
+    return out;
+  }
+  function atirarAPe() {
+    const a = ARMAS[armaIdx]; if (!a.id) return;
+    if (s.fp && vmModelos[a.id]) { vista1.updateMatrixWorld(true); vmModelos[a.id].userData.boca.getWorldPosition(_bc); const fl = vmModelos[a.id].userData.clarao; fl.material.opacity = 1; setTimeout(() => { fl.material.opacity = 0; }, 50); vmChute = 1; }
+    else astro.boca(_bc);
+    pontoDaMira(_mira); miraAbre = Math.min(1, miraAbre + (a.id === 'rifle' ? .25 : .6));
+    mdy -= a.id === 'canhao' ? 26 : a.id === 'blaster' ? 9 : 4;   // coice: a mira sobe um pouco
+    const dir = _dirC.subVectors(_mira, _bc).normalize();
+    tiros.dispararArma(_bc, dir, { cor: a.cor, vel: a.vel, escala: a.esc, vida: 2, dados: { arma: a.id, pe: true } });
+    rede?.tiro(_bc, dir, a.id);
+    astro.atirou(); som.tiro(a.tom);
+    if (a.id === 'canhao') som.explosao(.15);
+  }
+
+  /* ---- placar no TAB (segurar) ---- */
+  const tabUI = $('.jogo-tab'), stats = new Map();   // id -> { abates, mortes }
+  function mostrarTab(v) {
+    raiz.classList.toggle('tab-on', v); if (!v) return;
+    const linhas = [];
+    const eu = rede ? rede.meuId : null, st = (id) => stats.get(id) || { abates: 0, mortes: 0 };
+    linhas.push({ nome: (sess?.usuario || 'você') + ' (você)', pvp: meuPvp, ...st(eu), eu: true });
+    if (rede) for (const r of rede.remotos.values()) linhas.push({ nome: r.nome, pvp: r.pvp, ...st(r.id) });
+    linhas.sort((a, b) => b.abates - a.abates || a.mortes - b.mortes);
+    tabUI.querySelector('h4 span').textContent = rede ? `${linhas.length} na sala ${rede.sala}` : 'offline (sem conta)';
+    tabUI.querySelector('tbody').innerHTML = linhas.map((x) => `<tr class="${x.eu ? 'eu' : ''}"><td>${x.nome}</td><td>${x.pvp ? '<span class="pvp">⚔ ligado</span>' : '<span class="paz">desligado</span>'}</td><td>${x.abates}</td><td>${x.mortes}</td></tr>`).join('');
+  }
+
+  /* ---- PvP e eventos do online ---- */
+  let meuPvp = false, minhaVida = 100, morto = false;
+  const onlineUI = $('.jogo-online'), feedUI = $('.jogo-feed'), vidaUI = $('.jogo-vida'), placarUI = $('.jogo-placar'), morteUI = $('.jogo-morte'), danoUI = $('.jogo-dano');
+  if (!sessao()) onlineUI.innerHTML = '<i class="off"></i>offline · crie uma conta no terminal do site para jogar online';
+  $('.jogo-pvp').addEventListener('click', () => alternarPvp());
+  function alternarPvp(v = !meuPvp) {
+    if (!rede) { mostrarConquista('<b>PvP precisa de conta</b><span>crie no terminal do site (criar-conta)</span>'); return; }
+    meuPvp = v; rede.pvp(v); raiz.classList.toggle('pvp-on', v); som.bip(v ? 300 : 600, .12);
+    mostrarConquista(v ? '<b>⚔ PvP ligado</b><span>você pode acertar e ser acertado por quem também ligou</span>' : '<b>PvP desligado</b><span>ninguém te acerta (e você não acerta ninguém)</span>');
+  }
+  function noFeed(html) {
+    const el = document.createElement('div'); el.innerHTML = html; feedUI.prepend(el);
+    while (feedUI.children.length > 5) feedUI.lastChild.remove();
+    setTimeout(() => el.classList.add('some'), 6000); setTimeout(() => el.remove(), 7000);
+  }
+  const NOME_ARMA = { blaster: 'blaster', rifle: 'rifle', canhao: 'canhão', laser: 'lasers', plasma: 'plasma', missil: 'míssil', ions: 'íons' };
+  function eventoRede(tipo, m) {
+    if (tipo === 'entrou') noFeed(`<b>${m.nome}</b> entrou aqui`);
+    else if (tipo === 'saiu') noFeed(`<b>${m.nome}</b> saiu`);
+    else if (tipo === 'erro') noFeed(`<span class="ruim">${m.msg}</span>`);
+    else if (tipo === 'tiro') {
+      const a = ARMAS.find((x) => x.id === m.arma) || NAVE_ARMAS.find((x) => x.id === m.arma); if (!a || !m.o || !m.d) return;
+      _v.fromArray(m.o); _m.fromArray(m.d).normalize();
+      const nave = !ARMAS.some((x) => x.id === m.arma);
+      tiros.dispararArma(_v, _m, { cor: a.cor, vel: nave ? a.vel : a.vel, escala: nave ? .9 * (a.esc || 1) : a.esc, vida: nave ? 2.5 : 2, dados: { remoto: true } });
+      if (_v.distanceTo(camera.position) < 600) som.tiro((a.tom || 1) * .9);
+    } else if (tipo === 'pvp' && m.eu) { meuPvp = m.on; raiz.classList.toggle('pvp-on', m.on); }
+    else if (tipo === 'vida' && m.eu) {
+      const tomou = m.vida < minhaVida; minhaVida = m.vida;
+      if (tomou) { danoUI.classList.remove('on'); void danoUI.offsetWidth; danoUI.classList.add('on'); abalo = Math.max(abalo, .35); som.bip(180, .08); }
+    } else if (tipo === 'morte') {
+      noFeed(`<b>${m.porNome}</b> <span class="ruim">⚔ ${NOME_ARMA[m.arma] || ''}</span> <b>${m.nome}</b>`);
+      if (m.fuiEu) { som.conquista(); mostrarConquista(`<b>⚔ você abateu ${m.nome}</b><span>+1 no placar</span>`); }
+      if (m.eu) { morto = true; minhaVida = 0; morteUI.querySelector('b').textContent = `você foi abatido por ${m.porNome}`; raiz.classList.add('morto'); som.explosao(1); abalo = 1.2; }
+    } else if (tipo === 'renasceu' && m.eu) {
+      morto = false; minhaVida = 100; raiz.classList.remove('morto');
+      // renasce num lugar seguro: a plataforma do planeta ou o ponto de partida do espaco
+      if (mundo.planetas) { s.pos.set(-3090, 1340, 5970); s.vel.set(0, 0, 0); }
+      else if (s.aPe) { pe.pos.set(0, mundo.alturaChao(0, 14) + .5, 14); pe.vel.set(0, 0, 0); pe.velY = 0; if (s.dentro) sairDoPredio(); }
+      else { s.pos.set(0, mundo.alturaChao(0, 0) + 40, 0); s.vel.set(0, 0, 0); }
+    } else if (tipo === 'placar') {
+      const lista = m.lista.filter((x) => x.pvp || x.abates || x.mortes).sort((a, b) => b.abates - a.abates).slice(0, 6);
+      m.lista.forEach((x) => stats.set(x.id, { abates: x.abates, mortes: x.mortes }));
+      if (raiz.classList.contains('tab-on')) mostrarTab(true);
+      placarUI.innerHTML = '';   // o placar fica no TAB
+    }
+  }
 
   /* ---- mapa (M) ---- */
   const mapaCv = $('.jogo-mapa'), mapaCtx = mapaCv.getContext('2d');
-  function alternarMapa(v = !mapaAberto) { mapaAberto = v; raiz.classList.toggle('mapa-on', v); som.bip(v ? 700 : 520, .06); }
+  /* O mapa e interativo: arrastar move, rodinha/pinca da zoom, clique num
+     ponto (planeta, local, nave, plataforma) ou em qualquer lugar marca o
+     DESTINO, que aparece na tela com a distancia. Com o mapa aberto o mouse
+     fica solto (e o jogo nao pausa). */
+  let vista = { zoom: 1, ox: 0, oz: 0 }, vistaDe = null, mapaInfo = null, destino = null;
+  const toquesMapa = new Map(); let arrastoMapa = null;
+  const limiteMapa = () => (mundo.planetas ? LIMITE_ESPACO : mundo.limite);
+  const escMapa = () => Math.min(innerWidth, innerHeight) * .44 / limiteMapa() * vista.zoom;
+  function alternarMapa(v = !mapaAberto) {
+    mapaAberto = v; raiz.classList.toggle('mapa-on', v); som.bip(v ? 700 : 520, .06);
+    if (v) {
+      if (document.pointerLockElement) document.exitPointerLock();
+      // cada mundo lembra a vista; na superficie comeca centrado em voce
+      const onde = mundo.planetas ? 'espaco' : s.planeta?.key;
+      if (vistaDe !== onde) {
+        vistaDe = onde;
+        const eu = s.aPe ? pe.pos : s.pos;
+        vista = mundo.planetas ? { zoom: 1, ox: 0, oz: 0 } : { zoom: 1.3, ox: eu.x, oz: eu.z };
+      }
+    } else { toquesMapa.clear(); arrastoMapa = null; travar(); }
+  }
+  mapaCv.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); try { mapaCv.setPointerCapture(e.pointerId); } catch (er) { /* */ }
+    toquesMapa.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (toquesMapa.size === 1) arrastoMapa = { moveu: 0, pinca: false };
+    else if (arrastoMapa) arrastoMapa.pinca = true;
+  });
+  mapaCv.addEventListener('pointermove', (e) => {
+    const ant = toquesMapa.get(e.pointerId); if (!ant) return;
+    const dx = e.clientX - ant.x, dy = e.clientY - ant.y;
+    if (toquesMapa.size === 2) {
+      // pinca: zoom pela mudanca de distancia entre os dois dedos
+      const [a, b] = [...toquesMapa.values()], antes = Math.hypot(a.x - b.x, a.y - b.y);
+      toquesMapa.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const [c, d] = [...toquesMapa.values()], depois = Math.hypot(c.x - d.x, c.y - d.y);
+      if (antes > 10) vista.zoom = Math.max(.5, Math.min(14, vista.zoom * depois / antes));
+      return;
+    }
+    toquesMapa.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const esc = escMapa(); vista.ox -= dx / esc; vista.oz -= dy / esc;
+    if (arrastoMapa) arrastoMapa.moveu += Math.abs(dx) + Math.abs(dy);
+  });
+  const soltarMapa = (e) => {
+    if (!toquesMapa.has(e.pointerId)) return;
+    toquesMapa.delete(e.pointerId);
+    if (toquesMapa.size === 0 && arrastoMapa && !arrastoMapa.pinca && arrastoMapa.moveu < 7) clicarMapa(e.clientX, e.clientY);
+    if (toquesMapa.size === 0) arrastoMapa = null;
+  };
+  mapaCv.addEventListener('pointerup', soltarMapa); mapaCv.addEventListener('pointercancel', soltarMapa);
+  mapaCv.addEventListener('wheel', (e) => {
+    e.preventDefault(); if (!mapaInfo) return;
+    // zoom em volta do cursor (o ponto embaixo dele fica parado)
+    const w = mapaInfo.paraMundo(e.clientX, e.clientY);
+    vista.zoom = Math.max(.5, Math.min(14, vista.zoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15)));
+    const esc = escMapa();
+    vista.ox = w.x - (e.clientX - innerWidth / 2) / esc; vista.oz = w.z - (e.clientY - innerHeight / 2 - 10) / esc;
+  }, { passive: false });
+  function clicarMapa(sx, sy) {
+    if (!mapaInfo) return;
+    let melhor = null, dm = 24;
+    for (const a of mapaInfo.alvos) { const d = Math.hypot(a.sx - sx, a.sy - sy) - (a.raio || 0); if (d < dm) { dm = d; melhor = a; } }
+    // clicar de novo no destino atual desmarca
+    if (destino && melhor && destino.nome === melhor.nome) { destino = null; som.bip(420, .08); return; }
+    const sup = !mundo.planetas;
+    if (melhor) {
+      let pos, raioChegada = sup ? 18 : 300;
+      let sup0 = 0;
+      if (melhor.tipo === 'planeta') { const p = mundo.planetas.find((x) => x.key === melhor.key); pos = p.pos; raioChegada = p.raio * 2.1; sup0 = p.raio; }
+      else if (melhor.tipo === 'predio') { const p = mundo.predios.find((x) => x.tec.nome === melhor.nome); pos = p.porta.clone(); pos.y += 3; raioChegada = 12; }
+      else if (melhor.tipo === 'nave') { pos = s.pos; raioChegada = 7; }
+      else if (melhor.tipo === 'sol') { pos = mundo.sol.pos; raioChegada = mundo.sol.raio * 1.6; }
+      else if (melhor.tipo === 'buraco') { const b = mundo.buracos.find((x) => Math.hypot(x.position.x - melhor.x, x.position.z - melhor.z) < 1); pos = b.position; raioChegada = 0; }
+      else { pos = new THREE.Vector3(melhor.x, sup ? mundo.alturaChao(melhor.x, melhor.z) + 3 : 0, melhor.z); raioChegada = melhor.tipo === 'campo' ? 700 : 20; }
+      destino = { nome: melhor.nome, pos, raioChegada, sup0 };
+    } else {
+      const w = mapaInfo.paraMundo(sx, sy), L = limiteMapa();
+      const x = Math.max(-L, Math.min(L, w.x)), z = Math.max(-L, Math.min(L, w.z));
+      destino = { nome: 'ponto marcado', pos: new THREE.Vector3(x, sup ? mundo.alturaChao(x, z) + 3 : 0, z), raioChegada: sup ? 15 : 250 };
+    }
+    som.bip(980, .1);
+  }
+  // marcador do destino na tela (com seta na borda quando fica fora da visao)
+  const destUI = $('.jogo-destino'), _dp = new THREE.Vector3();
+  function atualizarDestino() {
+    const mostrar = destino && !mapaAberto && !s.dentro && (s.modo === 'espaco' || s.modo === 'superficie');
+    destUI.classList.toggle('on', !!mostrar); if (!mostrar) return;
+    const eu = s.aPe ? pe.pos : s.pos, dist = Math.max(0, eu.distanceTo(destino.pos) - (destino.sup0 || 0));
+    if (destino.raioChegada && dist + (destino.sup0 || 0) < destino.raioChegada) { mostrarConquista(`<b>◎ chegou: ${destino.nome}</b><span>destino alcançado</span>`); som.bip(1180, .15); destino = null; destUI.classList.remove('on'); return; }
+    _dp.copy(destino.pos).project(camera);
+    const atras = _dp.z > 1; let x = _dp.x, y = _dp.y; if (atras) { x = -x; y = -y; }
+    const W = innerWidth, H = innerHeight, m = 46;
+    let sx = (x * .5 + .5) * W, sy = (-y * .5 + .5) * H;
+    const fora = atras || sx < m || sx > W - m || sy < m || sy > H - m;
+    if (fora) {
+      const dx = sx - W / 2, dy = sy - H / 2, k = Math.min((W / 2 - m) / Math.max(1e-3, Math.abs(dx)), (H / 2 - m) / Math.max(1e-3, Math.abs(dy)));
+      sx = W / 2 + dx * k; sy = H / 2 + dy * k;
+      destUI.style.setProperty('--ang', Math.atan2(dy, dx) + 'rad');
+    }
+    destUI.classList.toggle('fora', fora);
+    destUI.style.transform = `translate(${sx.toFixed(0)}px,${sy.toFixed(0)}px)`;
+    destUI.children[1].textContent = destino.nome;
+    destUI.children[2].textContent = dist > 1000 ? (dist / 1000).toFixed(1) + ' km' : Math.round(dist) + ' m';
+  }
   function desenharMapaAgora() {
     const pr = Math.min(2, devicePixelRatio || 1), W = innerWidth, H = innerHeight;
     if (mapaCv.width !== Math.round(W * pr) || mapaCv.height !== Math.round(H * pr)) { mapaCv.width = Math.round(W * pr); mapaCv.height = Math.round(H * pr); }
@@ -508,21 +836,23 @@ export async function abrirJogo() {
       let completos = 0;
       const planetas = mundo.planetas.map((p) => {
         const n = vistos[p.key]?.size || 0, tot = STACK[p.key]?.techs.length || 0; if (tot && n === tot) completos++;
-        return { x: p.orig.x, z: p.orig.z, r: p.raio, nome: p.nome, cor: p.cor, n, tot, completo: tot > 0 && n === tot, orbita: Math.hypot(p.orig.x, p.orig.z / .55) };
+        return { key: p.key, x: p.orig.x, z: p.orig.z, r: p.raio, nome: p.nome, cor: p.cor, n, tot, completo: tot > 0 && n === tot, orbita: Math.hypot(p.orig.x, p.orig.z / .55) };
       });
-      desenharMapa(mapaCtx, W, H, {
+      mapaInfo = desenharMapa(mapaCtx, W, H, {
+        vista, destino: destino && { x: destino.pos.x, z: destino.pos.z, nome: destino.nome },
         modo: 'espaco', limite: LIMITE_ESPACO, planetas, sol: { r: mundo.sol.raio }, cinturao: mundo.mapaInfo.cinturao, campos: mundo.mapaInfo.campos,
         buracos: mundo.buracos.map((b) => ({ x: b.position.x, z: b.position.z })), nave: { x: ver.x, z: ver.z, rumo: s.rumo },
-        titulo: 'MAPA · STACK UNIVERSE', legenda: `${completos}/9 planetas completos · M fecha · aperte E perto de um planeta para entrar`
-      });
+        titulo: 'MAPA · STACK UNIVERSE', legenda: `${completos}/9 planetas completos · aperte E perto de um planeta para entrar`
+      }, tTotal);
     } else {
       const n = vistos[s.planeta.key]?.size || 0;
-      desenharMapa(mapaCtx, W, H, {
+      mapaInfo = desenharMapa(mapaCtx, W, H, {
+        vista, destino: destino && { x: destino.pos.x, z: destino.pos.z, nome: destino.nome },
         modo: 'sup', limite: mundo.limite, cor: mundo.corNeon,
         predios: mundo.predios.map((p) => ({ x: p.pos.x, z: p.pos.z, nome: p.tec.nome, visto: p.visto })),
         nave: { x: s.pos.x, z: s.pos.z, rumo: s.rumo }, pe: s.aPe && !s.dentro ? { x: pe.pos.x, z: pe.pos.z, rumo: pe.rumo } : null,
-        titulo: `MAPA · ${s.planeta.nome.toUpperCase()}`, legenda: `${n}/${mundo.predios.length} tecnologias visitadas · os feixes de luz marcam cada local · M fecha`
-      });
+        titulo: `MAPA · ${s.planeta.nome.toUpperCase()}`, legenda: `${n}/${mundo.predios.length} tecnologias visitadas · os feixes de luz marcam cada local`
+      }, tTotal);
     }
   }
   function fecharPainel() { painelAberto = false; painel.classList.remove('on'); raiz.classList.remove('painel-on'); travar(); }
@@ -572,7 +902,7 @@ export async function abrirJogo() {
     e.rot = {}; mundo.planetas.forEach((x) => { e.rot[x.key] = [x.corpo.rotation.y, x.nuvens ? x.nuvens.rotation.y : 0]; });
     const astros = mundo.planetas.filter((x) => x !== p).map((x) => ({ d: x, i: x.i, orig: x.orig.clone(), rotCorpo: e.rot[x.key][0], rotNuvens: e.rot[x.key][1] }));
     e.cenaProx = new THREE.Scene();
-    e.mundoProx = criarSuperficie(e.cenaProx, p, { qW2S: e.qW2S, rotCorpo: e.rot[p.key][0], rotNuvens: e.rot[p.key][1], astros });
+    e.mundoProx = criarSuperficie(e.cenaProx, p, { qW2S: e.qW2S, rotCorpo: e.rot[p.key][0], rotNuvens: e.rot[p.key][1], astros, modeloNave: nave.modelo });
     if (vistos[p.key]) e.mundoProx.predios.forEach((pr) => { if (vistos[p.key].has(pr.tec.nome)) pr.marcarVisto(); });
     prepararCena(e.cenaProx);
   }
@@ -686,7 +1016,7 @@ export async function abrirJogo() {
     const dt = Math.min(.05, relogio.getDelta());
     // pausado (mouse solto, menu na tela): o jogo para; so redesenha
     if (pausado()) { renderer.render(cena, camera); return; }
-    passo(dt);
+    passo(roda.aberta ? dt * .25 : dt);
   }
 
   function voarNave(dt, c, naSuperficie) {
@@ -849,7 +1179,10 @@ export async function abrirJogo() {
     // tiros (clique / botao): na nave voando, no espaco ou na superficie
     cadencia -= dt;
     const podeAtirar = !s.aPe && !painelAberto && !mapaAberto && (s.modo === 'espaco' || (s.modo === 'superficie' && !s.pousado));
-    if (atirando && podeAtirar && cadencia <= 0) { cadencia = .14; nave.raiz.updateMatrixWorld(); tiros.disparar(nave.corpo, s.vel, nave.raiz.scale.x); som.tiro(); }
+    if (atirando && podeAtirar && !inventarioAberto && !morto && cadencia <= 0) { cadencia = NAVE_ARMAS[navArmaIdx].cad; atirarNave(); }
+    if (invAPe !== !!s.aPe) { montarInventario(); mostrarArmaAtual(); }
+    if (atirando && s.aPe && !morto && ARMAS[armaIdx].id && !painelAberto && !mapaAberto && !inventarioAberto && cadencia <= 0) { cadencia = ARMAS[armaIdx].cad; atirarAPe(); }
+    raiz.classList.toggle('a-pe-ui', !!s.aPe);
     tiros.atualizar(dt, acertou);
 
     // mira (mouse e setas)
@@ -870,10 +1203,18 @@ export async function abrirJogo() {
       camPos.copy(ent.off).applyQuaternion(ent.qC).add(s.pos);
       camOlha.set(0, 0, -40).applyQuaternion(ent.qC).add(camPos);
       camRel.subVectors(camPos, s.pos); olhaRel.subVectors(camOlha, s.pos);
+    } else if (s.aPe && s.fp) {
+      // primeira pessoa: camera no capacete
+      _m.copy(pe.pos); _m.y += 1.62;
+      camPos.copy(_m).addScaledVector(_v.set(Math.sin(s.alvoRumo), 0, Math.cos(s.alvoRumo)), .12);
+      _m.copy(camPos).add(FRENTE);
     } else if (s.aPe) {
-      // terceira pessoa a pe: atras e acima do astronauta
-      const R = 6.5 * zoom, el = Math.max(-.15, Math.min(1, .22 - s.alvoMira));
-      _m.copy(pe.pos); _m.y += 1.6;
+      // terceira pessoa a pe: atras e acima do astronauta (armado: por cima do ombro direito)
+      // dentro do salao a camera fica mais perto e mais alta (cabe a sala)
+      const armado = !!ARMAS[armaIdx].id;
+      const R = (s.dentro ? 4.6 : armado ? 4.3 : 6.5) * zoom, el = Math.max(s.dentro ? .2 : -.15, Math.min(1, (armado ? .12 : .22) - s.alvoMira));
+      _m.copy(pe.pos); _m.y += armado ? 1.7 : 1.6;
+      if (armado) { const om = .75; _m.x -= Math.cos(s.alvoRumo) * om; _m.z += Math.sin(s.alvoRumo) * om; }
       _v.set(_m.x - Math.sin(s.alvoRumo) * Math.cos(el) * R, _m.y + Math.sin(el) * R, _m.z - Math.cos(s.alvoRumo) * Math.cos(el) * R);
       if (s.dentro) {
         // dentro do salao: a camera nao atravessa parede nem teto
@@ -882,7 +1223,7 @@ export async function abrirJogo() {
         _v.y = Math.max(BASE_INT.y + .6, Math.min(BASE_INT.y + 8.3, _v.y));
       } else { const chaoCam = mundo.alturaChao(_v.x, _v.z) + .5; if (_v.y < chaoCam) _v.y = chaoCam; }
       camPos.lerp(_v, 1 - Math.exp(-dt * 10));
-      _m.x += Math.sin(s.alvoRumo) * 1.5; _m.z += Math.cos(s.alvoRumo) * 1.5;
+      if (armado) _m.addScaledVector(FRENTE, 12); else { _m.x += Math.sin(s.alvoRumo) * 1.5; _m.z += Math.cos(s.alvoRumo) * 1.5; }
     } else if (s.pousado) {
       const R = 22 * zoom, el = Math.max(.05, .25 - s.alvoMira);
       _v.set(s.pos.x - Math.sin(s.alvoRumo) * Math.cos(el) * R, s.pos.y + 3 + Math.sin(el) * R, s.pos.z - Math.cos(s.alvoRumo) * Math.cos(el) * R);
@@ -902,8 +1243,15 @@ export async function abrirJogo() {
     if (cinema) { /* ja posicionada */ }
     else if (s.aPe || s.pousado) camOlha.lerp(_m, 1 - Math.exp(-dt * 14)); else camOlha.copy(_m);   // em voo ja vem suavizado (relativo)
     camera.position.copy(camPos);
+    abalo *= Math.exp(-dt * 3.5); tremor += abalo * 1.4;
     if (tremor) camera.position.add(_v.set(Math.random() - .5, Math.random() - .5, Math.random() - .5).multiplyScalar(tremor * .45));
+    if (s.aPe && s.fp) camOlha.copy(_m);
     if (cinema) camera.quaternion.copy(ent.qC); else camera.lookAt(camOlha);
+    astro.raiz.visible = !!s.aPe && !s.fp;
+    if (s.aPe) atualizarVista1(dt); else vista1.visible = false;
+    // mira de arma (a pe, armado): abre a cada tiro e fecha sozinha
+    miraAbre *= Math.exp(-dt * 6);
+    raiz.classList.toggle('mira-arma', !!(s.aPe && ARMAS[armaIdx].id)); raiz.style.setProperty('--abre', (6 + miraAbre * 14).toFixed(1) + 'px');
     const fov = s.aPe ? 60 : 62 + Math.min(1, veloc / 150) * 10 + s.dobra * 14 + (s.modo === 'entrando' ? tremor * 8 + (ent.gas || 0) * 10 : 0);
     if (Math.abs(camera.fov - fov) > .05) { camera.fov += (fov - camera.fov) * .1; camera.updateProjectionMatrix(); }
 
@@ -918,15 +1266,24 @@ export async function abrirJogo() {
 
     // superficie: ceu/neblina pela camera, e os outros planetas onde estao de verdade
     const naSup = !mundo.planetas;
-    mundo.atualizar(dt, t, camera, naSup ? { verdadeiro: verdadeiroDe(camera.position, ent.ver), W2S: ent.W2S, m: 2 } : { vel: s.vel, dobra: s.dobra });
+    mundo.atualizar(dt, t, camera, naSup ? { verdadeiro: verdadeiroDe(camera.position, ent.ver), W2S: ent.W2S, m: 2, efeitos: { impacto: (q) => { const d = q.distanceTo(camera.position); if (d < 1500) { som.explosao(Math.max(.1, .6 - d / 2500)); abalo = Math.max(abalo, Math.max(0, .5 - d / 2500)); } } } } : { vel: s.vel, dobra: s.dobra });
     atualizarHUD(veloc);
     som.atualizar({
       empuxo: s.aPe || s.pousado ? 0 : empuxo, vel: s.aPe ? 0 : veloc, jet: jetAgora, ligado: !s.pousado,
       ronco: Math.min(1, fx.calor * .8 + (cinema ? (ent.gas || 0) : 0) + s.dobra * .5 + tremor * .3)
     });
     raiz.classList.toggle('a-pe', !!s.aPe);
-    if (s.aPe) { combUI.style.transform = `scaleX(${pe.comb.toFixed(3)})`; combUI.parentElement.parentElement.classList.toggle('vazio', pe.comb < .15); }
+    if (rede) {
+      rede.estado({ p: s.aPe ? pe.pos : s.pos, r: s.aPe ? pe.rumo : s.rumo, modo: cinema || morto ? 'cinema' : s.aPe ? 'pe' : 'nave', arma: s.aPe ? ARMAS[armaIdx].id : NAVE_ARMAS[navArmaIdx].id, esc: s.aPe ? 1 : +nave.raiz.scale.x.toFixed(2) });
+      rede.atualizar(dt, cena);
+      const n = rede.remotos.size + 1;
+      onlineUI.innerHTML = `<i></i>${n} ${n === 1 ? 'jogador' : 'jogadores'} aqui · <b>${sess.usuario}</b>`;
+    }
+    raiz.classList.toggle('voando', !!(s.aPe && pe.voando));
     if (mapaAberto) desenharMapaAgora();
+    if (meuPvp) { vidaUI.querySelector('em').style.transform = `scaleX(${(minhaVida / 100).toFixed(3)})`; vidaUI.querySelector('span').textContent = Math.round(minhaVida); vidaUI.classList.toggle('baixa', minhaVida <= 35); }
+    if (roda.aberta) roda.desenhar(dt * 4);   // (dt ja vem em camera lenta)
+    atualizarDestino();
     desenharRadar();
     // exposicao: a do site no espaco (1.24), a normal na superficie
     const expo = mundo.planetas ? (cinema ? 1.24 - .24 * (ent.kLuz || 0) : 1.24) : 1;
@@ -942,6 +1299,58 @@ export async function abrirJogo() {
       renderer.autoClear = false; renderer.render(fotoCena, posCam); renderer.autoClear = true;
       dissolve = Math.max(0, dissolve - dt / .9);
     }
+    desenharArma3D(dt, cinema);
+  }
+
+  /* Arma atual em 3D no canto (girando): uma cena pequena desenhada por cima,
+     num recorte da propria tela (scissor), sem outro contexto WebGL. A pe:
+     o modelo da arma; na nave: o tipo de tiro (lasers, plasma, missil, ions). */
+  const mini = { cena: new THREE.Scene(), cam: new THREE.PerspectiveCamera(30, 1, .05, 50), atual: null, objs: {}, el: null };
+  mini.cena.add(new THREE.AmbientLight(0xb8a8ff, 1.2));
+  { const l = new THREE.DirectionalLight(0xffffff, 2.4); l.position.set(2, 3, 4); mini.cena.add(l); const l2 = new THREE.DirectionalLight(0x6fc8ff, 1.2); l2.position.set(-3, -1, -2); mini.cena.add(l2); }
+  mini.cam.position.set(0, .15, 1.35); mini.cam.lookAt(0, 0, 0);
+  function miniObjeto(chave) {
+    if (mini.objs[chave]) return mini.objs[chave];
+    const g = new THREE.Group(), add = (geo, cor, x = 0, y = 0, z = 0, basico = false) => { const m = new THREE.Mesh(geo, basico ? new THREE.MeshBasicMaterial({ color: cor }) : new THREE.MeshStandardMaterial({ color: cor, metalness: .6, roughness: .35 })); m.position.set(x, y, z); g.add(m); return m; };
+    if (chave.startsWith('pe:')) {
+      const id = chave.slice(3);
+      if (id !== 'null') { const a = astro.modeloArma(id); a.visible = true; a.scale.setScalar(id === 'rifle' ? 1.7 : id === 'canhao' ? 1.9 : 2.6); const c = new THREE.Box3().setFromObject(a).getCenter(new THREE.Vector3()); a.position.sub(c); g.add(a); }
+      else { add(new THREE.SphereGeometry(.2, 20, 14), 0xd8c9b0); [-.12, -.04, .04, .12].forEach((x) => add(new THREE.CapsuleGeometry(.035, .16, 4, 8), 0xd8c9b0, x, .22, 0)); }
+      g.rotation.y = Math.PI / 2;
+    } else {
+      const id = chave.slice(5);
+      if (id === 'laser' || id === 'plasma') {
+        const cor = id === 'laser' ? 0xff4fd8 : 0x4fd2ff;
+        [-.18, .18].forEach((x) => { const b = add(new THREE.CylinderGeometry(.03, .03, .8, 10), cor, x, 0, 0, true); b.rotation.x = Math.PI / 2; const n = add(new THREE.CylinderGeometry(.012, .012, .82, 8), 0xffffff, x, 0, 0, true); n.rotation.x = Math.PI / 2; });
+        if (id === 'plasma') [-.18, .18].forEach((x) => [-.3, 0, .3].forEach((z) => add(new THREE.SphereGeometry(.05, 10, 8), 0x9fe8ff, x, 0, z, true)));
+      } else if (id === 'missil') {
+        const corpo = add(new THREE.CylinderGeometry(.06, .06, .6, 14), 0xdcd6ea); corpo.rotation.x = Math.PI / 2;
+        const ponta = add(new THREE.ConeGeometry(.06, .16, 14), 0xffb347, 0, 0, .38); ponta.rotation.x = Math.PI / 2;
+        for (let k = 0; k < 4; k++) { const a = add(new THREE.BoxGeometry(.015, .14, .12), 0xff6a3d, 0, 0, -.24); a.rotation.z = k * Math.PI / 2; a.position.set(Math.cos(k * Math.PI / 2) * .07, Math.sin(k * Math.PI / 2) * .07, -.24); }
+        add(new THREE.SphereGeometry(.05, 10, 8), 0xffd080, 0, 0, -.33, true);
+      } else {
+        add(new THREE.SphereGeometry(.2, 24, 18), 0xb06bff, 0, 0, 0, true);
+        const anel = add(new THREE.TorusGeometry(.3, .02, 8, 40), 0xe6d0ff, 0, 0, 0, true); anel.rotation.x = 1.1;
+      }
+      g.rotation.y = Math.PI / 2;
+    }
+    g.visible = false; mini.cena.add(g); mini.objs[chave] = g;
+    return g;
+  }
+  const _ret = new THREE.Vector4();
+  function desenharArma3D(dt, cinema) {
+    if (!s || cinema || mapaAberto || painelAberto || roda.aberta) return;
+    mini.el ||= $('.ja-3d'); const r = mini.el.getBoundingClientRect(); if (!r.width) return;
+    const chave = s.aPe ? 'pe:' + ARMAS[armaIdx].id : 'nave:' + NAVE_ARMAS[navArmaIdx].id;
+    if (mini.atual !== chave) { if (mini.atual) mini.objs[mini.atual].visible = false; miniObjeto(chave).visible = true; mini.atual = chave; }
+    const o = mini.objs[chave]; o.rotation.y += dt * .9; o.rotation.x = Math.sin(tTotal * .8) * .15;
+    mini.cam.aspect = r.width / r.height; mini.cam.updateProjectionMatrix();
+    renderer.getViewport(_ret);
+    renderer.autoClear = false; renderer.setScissorTest(true);
+    renderer.setScissor(r.left, innerHeight - r.bottom, r.width, r.height); renderer.setViewport(r.left, innerHeight - r.bottom, r.width, r.height);
+    const corAnt = renderer.getClearColor(new THREE.Color()); renderer.setClearColor(0x0d0a1a); renderer.clear(true, true, false); renderer.setClearColor(corAnt);
+    renderer.render(mini.cena, mini.cam);
+    renderer.setScissorTest(false); renderer.setViewport(_ret); renderer.autoClear = true;
   }
 
   /* ------------------------------------------------------------------ a pe -- */
@@ -957,15 +1366,31 @@ export async function abrirJogo() {
     else {
       _v.set(fx2 * (c.acelera - c.freia) + fz * c.lado, 0, fz * (c.acelera - c.freia) - fx2 * c.lado);
       const correndo = ok('ShiftLeft', 'ShiftRight') || tq.turbo > 0;
-      const segura = ok('Space') || tq.sobe > 0;
-      const ligaJet = !pe.noChao && segura && pe.comb > 0 && pe.rolando <= 0;
-      const vmax = ligaJet ? (correndo ? 14 : 7.5) : (correndo ? 6.8 : 3.4);
-      // analogico: joystick pela metade anda mais devagar
-      if (_v.lengthSq() > 0) { const f = Math.min(1, _v.length()); _v.normalize().multiplyScalar(vmax * f); }
-      if (pe.rolando <= 0) pe.vel.lerp(_v, 1 - Math.exp(-dt * (pe.noChao ? 10 : ligaJet ? 4 : 1.2)));
-      if (ligaJet) { pe.velY = Math.min(dentro ? 3 : 9, pe.velY + 28 * dt); pe.comb = Math.max(0, pe.comb - dt * .26); jet = 1; }
+      const sobe = ok('Space') || tq.sobe > 0, desce = ok('ControlLeft', 'ControlRight', 'KeyC', 'KeyF') || tq.desce > 0;
+      // a subida do pulo acaba no alto (ou soltando o Espaco)
+      if (pe.subidaDoPulo && (pe.velY < 1.2 || !sobe)) pe.subidaDoPulo = false;
+      pe.voando = !pe.noChao && sobe && !pe.subidaDoPulo && pe.rolando <= 0;
+      if (pe.voando) {
+        // voo: empuxo nas 4 direcoes com inercia (acelera e desliza) e para cima
+        const vmax = correndo ? 30 : 16, acel = correndo ? 34 : 22;
+        if (_v.lengthSq() > 0) { const f = Math.min(1, _v.length()); _v.normalize().multiplyScalar(f); }
+        pe.vel.addScaledVector(_v, acel * dt);
+        pe.vel.multiplyScalar(Math.exp(-dt * (_v.lengthSq() > 0 ? .6 : 1.6)));
+        const h = Math.hypot(pe.vel.x, pe.vel.z); if (h > vmax) { pe.vel.x *= vmax / h; pe.vel.z *= vmax / h; }
+        const alvoY = desce ? 0 : (dentro ? 3 : 7);       // Espaco + Ctrl = so voa reto
+        pe.velY += (alvoY - pe.velY) * (1 - Math.exp(-dt * 3));
+        jet = 1;
+      } else if (!pe.noChao) {
+        // no ar sem jetpack: cai com gravidade e mantem o embalo do voo
+        if (_v.lengthSq() > 0) { const f = Math.min(1, _v.length()); _v.normalize().multiplyScalar(f); }
+        pe.vel.addScaledVector(_v, 5 * dt); pe.vel.multiplyScalar(Math.exp(-dt * .25));
+      } else {
+        const vmax = correndo ? 6.8 : 3.4;
+        // analogico: joystick pela metade anda mais devagar
+        if (_v.lengthSq() > 0) { const f = Math.min(1, _v.length()); _v.normalize().multiplyScalar(vmax * f); }
+        if (pe.rolando <= 0) pe.vel.lerp(_v, 1 - Math.exp(-dt * (pe.noChao ? 10 : 1.2)));
+      }
     }
-    if (pe.noChao) pe.comb = Math.min(1, pe.comb + dt * .45);
     if (pe.rolando > 0) { pe.rolando -= dt; pe.vel.multiplyScalar(Math.exp(-dt * 2)); }
     pe.pos.x += pe.vel.x * dt; pe.pos.z += pe.vel.z * dt;
     let chao, teto;
@@ -984,6 +1409,11 @@ export async function abrirJogo() {
         _v.set(pe.pos.x - p.pos.x, 0, pe.pos.z - p.pos.z); const d = _v.length();
         if (d < p.raio && pe.pos.y < p.pos.y + 12) { _v.multiplyScalar(p.raio / Math.max(d, .001)); pe.pos.x = p.pos.x + _v.x; pe.pos.z = p.pos.z + _v.z; }
       }
+      if (mundo.estruturas) for (const c of mundo.estruturas.colisores) {
+        if (pe.pos.y > c.h) continue;
+        const dx = pe.pos.x - c.x, dz = pe.pos.z - c.z, d = Math.hypot(dx, dz);
+        if (d < c.r) { pe.pos.x = c.x + dx * c.r / Math.max(d, .001); pe.pos.z = c.z + dz * c.r / Math.max(d, .001); }
+      }
       _v.set(pe.pos.x - s.pos.x, 0, pe.pos.z - s.pos.z); { const d = _v.length(), r = 4.3; if (d < r && pe.pos.y < s.pos.y + 2) { _v.multiplyScalar(r / Math.max(d, .001)); pe.pos.x = s.pos.x + _v.x; pe.pos.z = s.pos.z + _v.z; } }
       pe.pos.x = Math.max(-mundo.limite, Math.min(mundo.limite, pe.pos.x)); pe.pos.z = Math.max(-mundo.limite, Math.min(mundo.limite, pe.pos.z));
       chao = mundo.alturaChao(pe.pos.x, pe.pos.z); teto = chao + 160;
@@ -991,16 +1421,18 @@ export async function abrirJogo() {
     // gravidade, pulo e pouso (no chao, acompanha a descida do morro sem "voar")
     if (pe.noChao && pe.velY <= 0 && !jet && pe.pos.y - chao < .7) { pe.pos.y = chao; pe.velY = 0; }
     else {
-      pe.velY -= 16 * dt; pe.pos.y += pe.velY * dt; pe.noChao = false;
+      if (!pe.voando) pe.velY -= 16 * dt;     // voando, quem manda na vertical e o jetpack
+      pe.pos.y += pe.velY * dt; pe.noChao = false;
       if (pe.pos.y > teto) { pe.pos.y = teto; pe.velY = Math.min(0, pe.velY); }
       if (pe.pos.y <= chao) {
         if (pe.velY < -7) { som.pouso(); if (!dentro) mundo.levantarPoeira(pe.pos.x, pe.pos.z, .25); }
-        pe.pos.y = chao; pe.velY = 0; pe.noChao = true;
+        pe.pos.y = chao; pe.velY = 0; pe.noChao = true; pe.voando = false;
+        pe.vel.multiplyScalar(.4);             // pousa freando
       }
     }
     // olha para onde a camera olha (andando ou voando); parado, fica como esta
     const v = Math.hypot(pe.vel.x, pe.vel.z);
-    if ((v > .3 || jet) && pe.rolando <= 0) pe.rumo += Math.atan2(Math.sin(s.alvoRumo - pe.rumo), Math.cos(s.alvoRumo - pe.rumo)) * (1 - Math.exp(-dt * 10));
+    if ((v > .3 || jet || ARMAS[armaIdx].id || s.fp) && pe.rolando <= 0) pe.rumo += Math.atan2(Math.sin(s.alvoRumo - pe.rumo), Math.cos(s.alvoRumo - pe.rumo)) * (1 - Math.exp(-dt * 10));
     astro.raiz.position.copy(pe.pos); astro.raiz.rotation.y = pe.rumo;
     // velocidade local para as animacoes (frente / lado esquerdo)
     const sr = Math.sin(pe.rumo), cr = Math.cos(pe.rumo);
@@ -1010,16 +1442,56 @@ export async function abrirJogo() {
   }
 
   // um laser bateu em algo? (rocha quebra; planeta, sol, chao e predios soltam faisca)
-  function acertou(p) {
+  function acertou(p, dados) {
+    // tiro de outro jogador: so o efeito (o dano quem decide e o servidor)
+    if (dados && dados.remoto) {
+      if (mundo.planetas ? !!mundo.rochaEm(p, 2) : p.y < mundo.alturaChao(p.x, p.z)) { tiros.explodir(p, 2.5, [1, .7, .5]); return true; }
+      return false;
+    }
+    // meu tiro em outro jogador (os dois com PvP ligado)
+    if (rede && meuPvp && dados) {
+      const alvo = rede.remotoEm(p);
+      if (alvo && alvo.pvp) { rede.acerto(alvo.id, dados.arma); tiros.explodir(p, 3, [1, .3, .3]); som.bip(1400, .04); return true; }
+    }
+    const canhao = dados && dados.pe && dados.arma === 'canhao';
+    const bateu = (tam, cor) => { tiros.explodir(p, canhao ? 7 : tam, canhao ? [1, .6, .25] : cor); if (canhao) som.explosao(.5); return true; };
+    if (s.dentro) {
+      if (Math.hypot(p.x - BASE_INT.x, p.z - BASE_INT.z) > RAIO_SALA - .3 || p.y < BASE_INT.y || p.y > BASE_INT.y + 9) return bateu(1.2, [.8, .6, 1]);
+      return false;
+    }
+    const quebrouAlgo = (tipo, pos) => { som.explosao(tipo === 'barril' ? .7 : .25); if (tipo === 'barril') abalo = Math.max(abalo, Math.max(0, .8 - pos.distanceTo(camera.position) / 60)); };
+    const explodirEf = (q, tam, cor) => tiros.explodir(q, tam, cor);
+    if (dados && dados.pe) {
+      if (mundo.estruturas && mundo.estruturas.testarTiro(p, canhao ? 4 : dados.arma === 'rifle' ? .5 : 1, canhao ? 8 : 0, explodirEf, quebrouAlgo)) { if (canhao) bateu(7); return true; }
+      if (p.y < mundo.alturaChao(p.x, p.z)) return bateu(1.5, [.9, .7, 1]);
+      for (const pr of mundo.predios) if (Math.hypot(p.x - pr.pos.x, p.z - pr.pos.z) < 6 && p.y < pr.pos.y + 14) return bateu(1.5, [.6, .8, 1]);
+      if (Math.hypot(p.x - s.pos.x, p.z - s.pos.z) < 3 && Math.abs(p.y - s.pos.y) < 2) return bateu(1.5, [.7, .9, 1]);
+      return false;
+    }
     if (mundo.planetas) {
       if (s.modo !== 'espaco') return false;
-      const x = mundo.rochaEm(p, 2);
-      if (x) { mundo.quebrarRocha(x); tiros.explodir(x.c, x.k * .55); som.explosao(Math.min(1, .35 + x.k / 140)); return true; }
+      const area = dados?.area || 0, dano = dados?.dano || 1;
+      const x = mundo.rochaEm(p, 2 + (area ? 4 : 0));
+      if (x) {
+        // impacto: faisca no ponto do tiro, a rocha pisca e leva o tranco
+        tiros.explodir(p, area ? area * .25 : 3.5, area ? [1, .55, .3] : [1, .85, .6]);
+        if (area) {
+          const n = mundo.danoArea(p, area, dano);
+          abalo = Math.max(abalo, Math.min(1.2, .5 + n * .2)); som.explosao(.6 + Math.min(.4, n * .1));
+        } else if (mundo.danificar(x, dano)) {
+          // quebrou: explosao grande, destrocos e tremor (mais forte quanto maior e mais perto)
+          tiros.explodir(x.c, x.k * .55);
+          const perto = Math.max(.15, 1 - s.pos.distanceTo(x.c) / 1500);
+          abalo = Math.max(abalo, Math.min(1, x.k / 90) * perto); som.explosao(Math.min(1, .35 + x.k / 140));
+        } else som.bip(220 + Math.random() * 60, .04);
+        return true;
+      }
       for (const pl of mundo.planetas) if (p.distanceToSquared(pl.pos) < pl.raio * pl.raio) { tiros.explodir(p, 8, [.8, .6, 1]); return true; }
       if (p.distanceToSquared(mundo.sol.pos) < mundo.sol.raio * mundo.sol.raio) return true;
       return false;
     }
-    if (p.y < mundo.alturaChao(p.x, p.z)) { tiros.explodir(p, 4, [.9, .7, 1]); return true; }
+    if (mundo.estruturas && mundo.estruturas.testarTiro(p, dados?.dano || 1, dados?.area ? Math.min(40, dados.area * .25) : 0, explodirEf, quebrouAlgo)) return true;
+    if (p.y < mundo.alturaChao(p.x, p.z)) { tiros.explodir(p, dados?.area ? 12 : 4, [.9, .7, 1]); if (dados?.area) { mundo.estruturas?.testarTiro(p, dados.dano, 25, explodirEf, quebrouAlgo); som.explosao(.5); } return true; }
     for (const pr of mundo.predios) if (Math.hypot(p.x - pr.pos.x, p.z - pr.pos.z) < 6 && p.y < pr.pos.y + 14) { tiros.explodir(p, 3, [.6, .8, 1]); return true; }
     return false;
   }
@@ -1035,8 +1507,8 @@ export async function abrirJogo() {
   }
   function atualizarHUD(veloc) {
     elVel.textContent = Math.round(veloc * 3.6) + ' km/h';
-    barraVel.style.transform = `scaleX(${Math.min(1, veloc / (s.aPe ? 7 : s.modo === 'espaco' ? 3700 : 150)).toFixed(3)})`;
-    elVelRot.textContent = s.aPe ? 'A PÉ' : s.dobra > .3 ? '⚡ VELOCIDADE DA LUZ' : 'VELOCIDADE';
+    barraVel.style.transform = `scaleX(${Math.min(1, veloc / (s.aPe ? (pe.voando ? 30 : 7) : s.modo === 'espaco' ? 3700 : 150)).toFixed(3)})`;
+    elVelRot.textContent = s.aPe ? (pe.voando ? '🚀 JETPACK' : 'A PÉ') : s.dobra > .3 ? '⚡ VELOCIDADE DA LUZ' : 'VELOCIDADE';
     predioPerto = null; navePerto = false;
     if (s.modo === 'espaco') {
       let melhor = null, dm = Infinity;
@@ -1064,7 +1536,7 @@ export async function abrirJogo() {
         elAlvoRot.textContent = area.titulo.toUpperCase(); elAlvo.textContent = `${n}/${mundo.predios.length}`; elDist.textContent = 'tecnologias visitadas';
         let dmin = 3.4;
         for (const p of mundo.predios) { const d = Math.hypot(pe.pos.x - p.porta.x, pe.pos.z - p.porta.z); if (d < dmin) { dmin = d; predioPerto = p; } }
-        navePerto = Math.hypot(pe.pos.x - s.pos.x, pe.pos.z - s.pos.z) < 7.5;
+        navePerto = Math.hypot(pe.pos.x - s.pos.x, pe.pos.z - s.pos.z) < 7.5 && Math.abs(pe.pos.y - s.pos.y) < 5;
         if (painelAberto) mostrarAcao('');
         else if (predioPerto) mostrarAcao(`<kbd>E</kbd> entrar em <b>${predioPerto.tec.nome}</b>`);
         else if (navePerto) mostrarAcao('<kbd>E</kbd> embarcar na nave');
@@ -1073,7 +1545,7 @@ export async function abrirJogo() {
         const h = Math.max(0, s.pos.y - mundo.alturaChao(s.pos.x, s.pos.z) - 1.6);
         elAlvoRot.textContent = 'ALTITUDE'; elAlvo.textContent = Math.round(h) + ' m'; elDist.textContent = `${area.titulo} · ${n}/${mundo.predios.length} visitadas`;
         if (s.pousado) mostrarAcao(`<b>Pousado em ${s.planeta.nome}</b><span><kbd>E</kbd> sair da nave e explorar · <kbd>Espaço</kbd> decolar</span>`);
-        else mostrarAcao(podePousar() ? '<kbd>E</kbd> pousar' : (h > 300 ? 'subindo… <kbd>Espaço</kbd> sai do planeta' : 'siga os feixes de luz: cada um é uma tecnologia · <kbd>M</kbd> mapa · pouse perto e desça'));
+        else mostrarAcao(podePousar() ? '<kbd>E</kbd> pousar' : (h > 300 ? 'subindo… <kbd>Espaço</kbd> sai do planeta' : 'siga os feixes de luz (cada um é uma tecnologia) · <kbd>M</kbd> mapa'));
       }
     } else {
       if (s.modo === 'entrando' || s.modo === 'saindo') { elAlvoRot.textContent = 'ALTITUDE'; elAlvo.textContent = Math.round(Math.max(0, ent.alt)).toLocaleString('pt-BR') + ' m'; elDist.textContent = `${s.modo === 'saindo' ? 'saindo de' : 'entrando em'} ${s.planeta.nome}`; }
@@ -1117,16 +1589,18 @@ export async function abrirJogo() {
   requestAnimationFrame(quadro);
   // modo de teste (?debugjogo): avanca a simulacao sem depender do rAF
   if (/debugjogo/.test(location.search)) { semTrava = true; raiz.classList.add('sem-trava'); }   // teste: sem convite de clique
-  if (/debugjogo/.test(location.search)) window.__jogo = { s, pe, tecla, mouse: (x, y) => { mdx += x; mdy += y; }, passo: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) passo(dt); }, interagir, get alvo() { return alvoPerto; }, get mundo() { return mundo; }, get predioPerto() { return predioPerto; } };
+  if (/debugjogo/.test(location.search)) window.__jogo = { s, pe, tecla, mouse: (x, y) => { mdx += x; mdy += y; }, passo: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) passo(dt); }, interagir, get alvo() { return alvoPerto; }, get mundo() { return mundo; }, get predioPerto() { return predioPerto; }, get mapaInfo() { return mapaInfo; }, get destino() { return destino; } };
 
   function fechar() {
     rodando = false;
     removeEventListener('keydown', baixo); removeEventListener('keyup', cima); removeEventListener('resize', medir);
     removeEventListener('mousemove', aoMover); document.removeEventListener('pointerlockchange', aoTravar);
+    document.removeEventListener('mousedown', aoApertar); removeEventListener('mouseup', aoSoltar);
     if (document.pointerLockElement) document.exitPointerLock();
     if (document.fullscreenElement) document.exitFullscreen?.()?.catch?.(() => {});
     tecla.clear(); clearTimeout(conquistaT);
     if (s?.dentro) { s.dentro.int.destruir(); s.dentro.lixo.forEach((o) => o.dispose && o.dispose()); }
+    rede?.fechar();
     nave?.destruir(); astro?.destruir(); mundo.destruir(); ent.mundoProx?.destruir(); tiros?.destruir(); som.fechar();
     rt.dispose(); posMat.dispose(); fotoTex?.dispose(); fotoMat.dispose(); removeEventListener('resize', medirPos);
     renderer.dispose(); renderer.forceContextLoss();
