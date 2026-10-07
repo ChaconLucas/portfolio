@@ -781,3 +781,20 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - na nave, zoom de ~45%;
   - o mouse fica mais fino e a mira fecha e acende verde;
   - o menu do botão direito fica bloqueado durante o jogo.
+
+## Chat de voz, admin completo e "Pilotar" travando depois de publicar (07/10/2026)
+- **"Pilotar" travava para quem estava com o site aberto antes de uma publicação nova.**
+  - Os arquivos antigos (com hash no nome) somem da Vercel e o import do jogo dava 404.
+  - Agora o `vite:preloadError` recarrega a página sozinho (no máximo uma vez a cada 20 s) e o import do jogo recarrega se falhar.
+- **Chat de voz** (`src/jogo/voz.js`):
+  - uma sala `voz` única no servidor só apresenta os jogadores (WebRTC: oferta, resposta, candidatos) e avisa quem fala; o áudio vai direto entre os navegadores (STUN da Cloudflare e do Google, sem TURN);
+  - **T** segurado fala por proximidade: o volume cai com a distância, até 90 m a pé ou na superfície e 1500 m no espaço, e só vale na mesma sala;
+  - **Y** segurado fala no rádio: todo mundo online ouve no volume cheio;
+  - o microfone só é pedido na primeira fala. Se for bloqueado, aparece um aviso e a pessoa volta a ficar calada;
+  - o HUD mostra quem fala, na cor do jogador.
+  - Em redes muito fechadas pode não conectar sem um servidor TURN.
+- **Admin:**
+  - o comando `admin` no terminal fica escondido (para quem não é admin, responde "comando não encontrado") e abre o painel na mesma aba;
+  - no painel: histórico de cada conta (tabela `historico`: conta criada, login, senha errada, entrou ou saiu de cada lugar com o tempo, PvP, abates, ban), últimos eventos, **banir** (com motivo) ou **desbanir**, e **excluir** (confirmando o nome);
+  - banir e excluir derrubam a pessoa das salas e da voz na hora (`getServerByName(...).expulsar`, código 4003);
+  - um admin não pode ser banido nem excluído.

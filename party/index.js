@@ -1,4 +1,4 @@
-import { Server, routePartykitRequest } from 'partyserver';
+import { Server, routePartykitRequest, getServerByName } from 'partyserver';
 import { DurableObject } from 'cloudflare:workers';
 
 /**
@@ -10,8 +10,10 @@ import { DurableObject } from 'cloudflare:workers';
  *    (SHA-256, 100 mil voltas) com um sal aleatorio por conta. A sessao e um
  *    token aleatorio que o site guarda no navegador.
  *    Rotas: POST /api/registrar, POST /api/entrar, GET /api/eu, POST /api/sair
- *    e GET /api/admin (so para os emails do segredo ADMINS: contas, quem esta
- *    online e onde, abates/mortes). O segredo e configurado com
+ *    e as rotas de admin (so para os emails do segredo ADMINS): GET /api/admin
+ *    (contas, quem esta online e onde, abates/mortes, ultimos eventos),
+ *    GET /api/admin/historico?usuario=, POST /api/admin/banir e
+ *    POST /api/admin/excluir (tambem derrubam a pessoa das salas na hora). O segredo e configurado com
  *    `npx wrangler secret put ADMINS` (emails separados por virgula).
  *
  *  - Sala (PartyServer): uma por lugar ("espaco", "planeta-frontend"...). So
@@ -51,10 +53,16 @@ export class Contas extends DurableObject {
     this.sql.exec(`CREATE TABLE IF NOT EXISTS sessoes (token TEXT PRIMARY KEY, usuario TEXT, criado INTEGER)`);
     // colunas novas (contas antigas ganham com valor padrao)
     const cols = new Set(this.sql.exec('PRAGMA table_info(usuarios)').toArray().map((c) => c.name));
-    for (const [c, tipo] of [['ultimo', 'INTEGER DEFAULT 0'], ['acessos', 'INTEGER DEFAULT 0'], ['abates', 'INTEGER DEFAULT 0'], ['mortes', 'INTEGER DEFAULT 0']]) if (!cols.has(c)) this.sql.exec(`ALTER TABLE usuarios ADD COLUMN ${c} ${tipo}`);
+    for (const [c, tipo] of [['ultimo', 'INTEGER DEFAULT 0'], ['acessos', 'INTEGER DEFAULT 0'], ['abates', 'INTEGER DEFAULT 0'], ['mortes', 'INTEGER DEFAULT 0'], ['banido', 'INTEGER DEFAULT 0'], ['motivo', "TEXT DEFAULT ''"]]) if (!cols.has(c)) this.sql.exec(`ALTER TABLE usuarios ADD COLUMN ${c} ${tipo}`);
     // quem esta online agora (cada sala avisa quem entra e sai)
     this.sql.exec(`CREATE TABLE IF NOT EXISTS online (id TEXT PRIMARY KEY, usuario TEXT, sala TEXT, pvp INTEGER DEFAULT 0, desde INTEGER)`);
+    // historico de cada conta (criou, entrou, salas, PvP, abates, ban...)
+    this.sql.exec(`CREATE TABLE IF NOT EXISTS historico (n INTEGER PRIMARY KEY AUTOINCREMENT, usuario TEXT, tipo TEXT, info TEXT, quando INTEGER)`);
+    this.sql.exec('CREATE INDEX IF NOT EXISTS historico_usuario ON historico (usuario, quando)');
     this.tentativas = new Map();   // ip -> { n, desde } (limite de tentativas)
+  }
+  registrarEvento(usuario, tipo, info = '') {
+    this.sql.exec('INSERT INTO historico (usuario, tipo, info, quando) VALUES (?, ?, ?, ?)', String(usuario || '').toLowerCase(), tipo, String(info).slice(0, 200), Date.now());
   }
   limitar(ip) {
     const agora = Date.now(), t = this.tentativas.get(ip) || { n: 0, desde: agora };
@@ -73,6 +81,7 @@ export class Contas extends DurableObject {
     const sal = b64(crypto.getRandomValues(new Uint8Array(16)));
     this.sql.exec('INSERT INTO usuarios (usuario, nome, email, hash, sal, criado, ultimo, acessos) VALUES (?, ?, ?, ?, ?, ?, ?, 1)', usuario, nome, email, await hashSenha(senha, sal), sal, Date.now(), Date.now());
     const token = novoToken(); this.sql.exec('INSERT INTO sessoes VALUES (?, ?, ?)', token, usuario, Date.now());
+    this.registrarEvento(usuario, 'conta criada', email);
     return { token, usuario: nome };
   }
   async entrar(login, senha, ip) {
@@ -81,41 +90,76 @@ export class Contas extends DurableObject {
     const u = this.sql.exec('SELECT * FROM usuarios WHERE usuario = ? OR email = ?', login, login).toArray()[0];
     // mesmo sem conta, calcula um hash (o tempo de resposta nao denuncia quem existe)
     const h = await hashSenha(String(senha || ''), u ? u.sal : 'AAAAAAAAAAAAAAAAAAAAAA==');
-    if (!u || !iguais(h, u.hash)) return { erro: 'usuário ou senha incorretos' };
+    if (!u || !iguais(h, u.hash)) { if (u) this.registrarEvento(u.usuario, 'senha errada', ip); return { erro: 'usuário ou senha incorretos' }; }
+    if (u.banido) { this.registrarEvento(u.usuario, 'tentou entrar banido', ip); return { erro: 'conta banida' + (u.motivo ? ': ' + u.motivo : '') }; }
     const token = novoToken(); this.sql.exec('INSERT INTO sessoes VALUES (?, ?, ?)', token, u.usuario, Date.now());
     this.sql.exec('UPDATE usuarios SET ultimo = ?, acessos = acessos + 1 WHERE usuario = ?', Date.now(), u.usuario);
+    this.registrarEvento(u.usuario, 'login', ip);
     return { token, usuario: u.nome };
   }
   validar(token) {
     if (!token) return null;
-    const s = this.sql.exec('SELECT u.nome FROM sessoes s JOIN usuarios u ON u.usuario = s.usuario WHERE s.token = ?', String(token)).toArray()[0];
+    const s = this.sql.exec('SELECT u.nome FROM sessoes s JOIN usuarios u ON u.usuario = s.usuario WHERE s.token = ? AND u.banido = 0', String(token)).toArray()[0];
     return s ? s.nome : null;
   }
   /** dados da sessao com o email (para saber se e admin) */
   quem(token) {
     if (!token) return null;
-    return this.sql.exec('SELECT u.nome, u.email FROM sessoes s JOIN usuarios u ON u.usuario = s.usuario WHERE s.token = ?', String(token)).toArray()[0] || null;
+    return this.sql.exec('SELECT u.nome, u.email FROM sessoes s JOIN usuarios u ON u.usuario = s.usuario WHERE s.token = ? AND u.banido = 0', String(token)).toArray()[0] || null;
   }
   // presenca: as salas avisam quem entra/sai e quem liga o PvP
   presenca(id, nome, sala, on, pvp = false) {
-    if (on) this.sql.exec('INSERT OR REPLACE INTO online (id, usuario, sala, pvp, desde) VALUES (?, ?, ?, ?, ?)', id, nome, sala, pvp ? 1 : 0, Date.now());
-    else this.sql.exec('DELETE FROM online WHERE id = ?', id);
+    const antes = this.sql.exec('SELECT usuario, sala, pvp, desde FROM online WHERE id = ?', id).toArray()[0];
+    if (on) {
+      this.sql.exec('INSERT OR REPLACE INTO online (id, usuario, sala, pvp, desde) VALUES (?, ?, ?, ?, ?)', id, nome, sala, pvp ? 1 : 0, antes ? antes.desde : Date.now());
+      if (!antes) this.registrarEvento(nome, 'entrou', sala);
+      else if (!!antes.pvp !== !!pvp) this.registrarEvento(nome, pvp ? 'ligou o PvP' : 'desligou o PvP', sala);
+    } else {
+      this.sql.exec('DELETE FROM online WHERE id = ?', id);
+      if (antes) this.registrarEvento(antes.usuario, 'saiu', `${antes.sala} · ${Math.round((Date.now() - antes.desde) / 60000)} min`);
+    }
     if (on) this.sql.exec('UPDATE usuarios SET ultimo = ? WHERE lower(nome) = lower(?)', Date.now(), nome);
   }
   abate(por, morto) {
     this.sql.exec('UPDATE usuarios SET abates = abates + 1 WHERE lower(nome) = lower(?)', por);
     this.sql.exec('UPDATE usuarios SET mortes = mortes + 1 WHERE lower(nome) = lower(?)', morto);
+    this.registrarEvento(por, 'abateu', morto); this.registrarEvento(morto, 'foi abatido', 'por ' + por);
   }
   /** painel do admin: contas e quem esta online (sem senha/hash, claro) */
   painel() {
     // limpa presencas velhas (sala que caiu sem avisar): mais de 6 h
     this.sql.exec('DELETE FROM online WHERE desde < ?', Date.now() - 6 * 3600e3);
     return {
-      contas: this.sql.exec('SELECT nome, email, criado, ultimo, acessos, abates, mortes FROM usuarios ORDER BY criado DESC').toArray(),
+      contas: this.sql.exec('SELECT usuario, nome, email, criado, ultimo, acessos, abates, mortes, banido, motivo FROM usuarios ORDER BY criado DESC').toArray(),
+      eventos: this.sql.exec('SELECT usuario, tipo, info, quando FROM historico ORDER BY n DESC LIMIT 60').toArray(),
       online: this.sql.exec('SELECT usuario, sala, pvp, desde FROM online ORDER BY sala, usuario').toArray(),
       sessoes: this.sql.exec('SELECT COUNT(*) AS n FROM sessoes').one().n
     };
   }
+  historico(usuario) {
+    return { eventos: this.sql.exec('SELECT tipo, info, quando FROM historico WHERE usuario = ? ORDER BY n DESC LIMIT 300', String(usuario || '').toLowerCase()).toArray() };
+  }
+  /** banir/desbanir: banido nao entra e as sessoes caem. Devolve as salas onde esta (para derrubar) */
+  banir(usuario, banir, motivo, por) {
+    usuario = String(usuario || '').toLowerCase();
+    const u = this.sql.exec('SELECT nome, email FROM usuarios WHERE usuario = ?', usuario).toArray()[0]; if (!u) return { erro: 'conta não encontrada' };
+    this.sql.exec('UPDATE usuarios SET banido = ?, motivo = ? WHERE usuario = ?', banir ? 1 : 0, banir ? String(motivo || '').slice(0, 120) : '', usuario);
+    if (banir) this.sql.exec('DELETE FROM sessoes WHERE usuario = ?', usuario);
+    this.registrarEvento(usuario, banir ? 'banido' : 'desbanido', (motivo ? motivo + ' · ' : '') + 'por ' + por);
+    return { ok: true, nome: u.nome, email: u.email, salas: this.salasDe(u.nome) };
+  }
+  /** apaga a conta (e as sessoes); o historico fica, marcado */
+  excluir(usuario, por) {
+    usuario = String(usuario || '').toLowerCase();
+    const u = this.sql.exec('SELECT nome, email FROM usuarios WHERE usuario = ?', usuario).toArray()[0]; if (!u) return { erro: 'conta não encontrada' };
+    const salas = this.salasDe(u.nome);
+    this.sql.exec('DELETE FROM sessoes WHERE usuario = ?', usuario);
+    this.sql.exec('DELETE FROM usuarios WHERE usuario = ?', usuario);
+    this.registrarEvento(usuario, 'conta excluída', 'por ' + por);
+    return { ok: true, nome: u.nome, email: u.email, salas };
+  }
+  emailDe(usuario) { const u = this.sql.exec('SELECT email FROM usuarios WHERE usuario = ?', String(usuario || '').toLowerCase()).toArray()[0]; return u ? u.email : null; }
+  salasDe(nome) { return [...new Set(this.sql.exec('SELECT sala FROM online WHERE lower(usuario) = lower(?)', nome).toArray().map((x) => x.sala)), 'voz']; }
   sair(token) { this.sql.exec('DELETE FROM sessoes WHERE token = ?', String(token || '')); return { ok: true }; }
 }
 
@@ -132,6 +176,7 @@ export class Sala extends Server {
     const token = new URL(ctx.request.url).searchParams.get('token');
     const eu = await contas(this.env).quem(token), nome = eu && eu.nome;
     if (!nome) { conn.send(JSON.stringify({ t: 'erro', msg: 'faça login para jogar online' })); conn.close(4001, 'login'); return; }
+    if (this.name === 'voz') return this.vozEntrou(conn, eu);
     const j = { id: conn.id, nome, admin: ehAdmin(this.env, eu.email), p: [0, 0, 0], r: 0, modo: 'espaco', arma: null, pvp: false, vida: 100, vivo: true, abates: 0, mortes: 0, ultTiro: 0 };
     this.jogadores.set(conn.id, j);
     contas(this.env).presenca(conn.id, nome, this.name, true).catch(() => {});
@@ -139,7 +184,25 @@ export class Sala extends Server {
     this.broadcast(JSON.stringify({ t: 'entrou', ...publico(j) }), [conn.id]);
   }
 
+  /* sala "voz": uma so para todo mundo. O servidor so apresenta os jogadores
+     (WebRTC: oferta, resposta, candidatos) e avisa quem esta falando; o audio
+     vai direto de navegador para navegador. */
+  voz = new Map();   // id -> { nome, admin }
+  vozEntrou(conn, eu) {
+    const v = { id: conn.id, nome: eu.nome, admin: ehAdmin(this.env, eu.email) };
+    conn.send(JSON.stringify({ t: 'voz-oi', id: conn.id, lista: [...this.voz.values()] }));
+    this.voz.set(conn.id, v);
+    this.broadcast(JSON.stringify({ t: 'voz-entrou', ...v }), [conn.id]);
+  }
+  vozMensagem(conn, msg) {
+    if (!this.voz.has(conn.id) || msg.length > 16000) return;
+    let m; try { m = JSON.parse(msg); } catch { return; }
+    if (m.t === 'rtc') { const c = this.getConnection(String(m.para)); if (c && this.voz.has(c.id)) c.send(JSON.stringify({ t: 'rtc', de: conn.id, d: m.d })); }
+    else if (m.t === 'falando') this.broadcast(JSON.stringify({ t: 'falando', id: conn.id, modo: m.modo === 'geral' || m.modo === 'perto' ? m.modo : null }), [conn.id]);
+  }
+
   onMessage(conn, msg) {
+    if (this.name === 'voz') return this.vozMensagem(conn, msg);
     const j = this.jogadores.get(conn.id); if (!j) return;
     let m; try { m = JSON.parse(msg); } catch { return; }
     if (m.t === 'estado') {
@@ -169,9 +232,19 @@ export class Sala extends Server {
     }
   }
 
+  /** o admin baniu/excluiu: derruba as conexoes dessa pessoa aqui */
+  expulsar(nome, motivo) {
+    const alvo = String(nome || '').toLowerCase();
+    for (const conn of this.getConnections()) {
+      const j = this.jogadores.get(conn.id) || this.voz.get(conn.id);
+      if (j && j.nome.toLowerCase() === alvo) { conn.send(JSON.stringify({ t: 'erro', msg: motivo })); conn.close(4003, 'banido'); }
+    }
+  }
+
   placar() { this.broadcast(JSON.stringify({ t: 'placar', lista: [...this.jogadores.values()].map((x) => ({ id: x.id, nome: x.nome, abates: x.abates, mortes: x.mortes, pvp: x.pvp })) })); }
 
   onClose(conn) {
+    if (this.name === 'voz') { if (this.voz.delete(conn.id)) this.broadcast(JSON.stringify({ t: 'voz-saiu', id: conn.id })); return; }
     if (!this.jogadores.delete(conn.id)) return;
     contas(this.env).presenca(conn.id, '', this.name, false).catch(() => {});
     this.broadcast(JSON.stringify({ t: 'saiu', id: conn.id }));
@@ -194,10 +267,23 @@ export default {
       if (url.pathname === '/api/registrar' && req.method === 'POST') r = await c.registrar(corpo.email, corpo.usuario, corpo.senha, ip);
       else if (url.pathname === '/api/entrar' && req.method === 'POST') r = await c.entrar(corpo.login, corpo.senha, ip);
       else if (url.pathname === '/api/eu') { const q = await c.quem(token); r = q ? { usuario: q.nome, admin: ehAdmin(env, q.email) } : { erro: 'sessão inválida' }; }
-      else if (url.pathname === '/api/admin') {
+      else if (url.pathname.startsWith('/api/admin')) {
         const q = await c.quem(token);
         if (!q || !ehAdmin(env, q.email)) return json(req, { erro: 'acesso negado' }, 403);
-        r = await c.painel();
+        if (url.pathname === '/api/admin') r = await c.painel();
+        else if (url.pathname === '/api/admin/historico') r = await c.historico(url.searchParams.get('usuario'));
+        else if ((url.pathname === '/api/admin/banir' || url.pathname === '/api/admin/excluir') && req.method === 'POST') {
+          // nao deixa banir/excluir um admin (nem a si mesmo)
+          if (ehAdmin(env, await c.emailDe(corpo.usuario))) return json(req, { erro: 'não dá para banir ou excluir um admin' }, 400);
+          const banir = url.pathname.endsWith('banir');
+          r = banir ? await c.banir(corpo.usuario, corpo.banir !== false, corpo.motivo, q.nome) : await c.excluir(corpo.usuario, q.nome);
+          // derruba das salas na hora
+          if (r.ok && (!banir || corpo.banir !== false)) {
+            const msg = banir ? 'sua conta foi banida' : 'sua conta foi excluída';
+            await Promise.all(r.salas.map(async (s) => { try { await (await getServerByName(env.Sala, s)).expulsar(r.nome, msg); } catch (e) { /* sala vazia */ } }));
+          }
+          if (r.ok) r = { ok: true };
+        } else return json(req, { erro: 'rota não encontrada' }, 404);
       }
       else if (url.pathname === '/api/sair' && req.method === 'POST') r = await c.sair(token);
       else return json(req, { erro: 'rota não encontrada' }, 404);

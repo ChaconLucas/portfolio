@@ -328,14 +328,17 @@ export function montarAvatarAscii() {
           if (!sessao()) { escrever([['nenhuma conta logada', 'at-dim']]); break; }
           sair().then(() => escrever([['você saiu da conta', 'at-dim']]));
           break;
-        case 'admin': case 'adm':
-          if (!sessao()) { escrever([['faça login primeiro: ' + cmd('entrar'), 'at-erro']]); break; }
-          escrever([['conferindo permissão…', 'at-dim']]);
+        case 'admin': case 'adm': {
+          // comando escondido: para quem nao e admin, responde como se nao existisse
+          const naoExiste = () => escrever([[`comando não encontrado: ${esc(c)} — tente ${cmd('help')}`, 'at-erro']]);
+          if (!sessao()) { naoExiste(); break; }
           souAdmin().then((ok) => {
-            if (!ok) { escrever([['acesso negado: esta conta não é admin', 'at-erro']]); return; }
-            escrever([['abrindo o painel de admin…', 'at-dim']]); window.open('/admin.html', '_blank', 'noopener');
+            if (!ok) { naoExiste(); return; }
+            // mesma aba (abrir aba nova depois da resposta do servidor o navegador bloqueia)
+            escrever([['🔐 acesso de admin liberado — abrindo o painel…', 'at-dim']]); setTimeout(() => location.assign('/admin.html'), 600);
           });
           break;
+        }
         case 'pilotar': case 'jogar': case 'play':
           if (!sessao()) { escrever([['para pilotar, crie uma conta primeiro', 'at-erro']]); iniciarFluxo('registrar'); break; }
           escrever([['🚀 abrindo a nave…', 'at-dim']]); fechar(); document.getElementById('botaoPilotar')?.click();

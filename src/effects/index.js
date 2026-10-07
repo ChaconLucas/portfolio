@@ -1,5 +1,17 @@
 import './efeitos.css';
 
+/* Site aberto antes de uma publicacao nova: os arquivos antigos (com hash no
+   nome) somem da Vercel e o import do jogo/efeitos da 404 — "Pilotar" travava.
+   O Vite avisa com vite:preloadError; a pagina recarrega sozinha (no maximo
+   uma vez a cada 20 s, para nunca entrar em loop). */
+addEventListener('vite:preloadError', (e) => {
+  e.preventDefault();
+  let ultima = 0; try { ultima = +sessionStorage.getItem('recarregou-versao') || 0; } catch (x) { /* */ }
+  if (Date.now() - ultima < 20000) return;
+  try { sessionStorage.setItem('recarregou-versao', String(Date.now())); } catch (x) { /* */ }
+  location.reload();
+});
+
 /* Efeitos novos ficam aqui, fora do index.html. Cada um e carregado so quando
    faz sentido: o buraco negro quando o Contato esta chegando, o cursor so com
    mouse de verdade e sem pedido de menos movimento. */
@@ -100,5 +112,5 @@ document.getElementById('botaoPilotar')?.addEventListener('click', () => {
   // celular: tela cheia (onde der: Android sim, iPhone nao) em vez de travar o mouse
   if (toque) { try { const r = document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }); r?.catch?.(() => {}); } catch (e) { /* */ } }
   else try { const r = document.documentElement.requestPointerLock?.(); r?.catch?.(() => {}); } catch (e) { /* sem trava */ }
-  import('../jogo/index.js').then(({ abrirJogo }) => abrirJogo());
+  import('../jogo/index.js').then(({ abrirJogo }) => abrirJogo()).catch(() => location.reload());   // versao velha do site: recarrega
 });

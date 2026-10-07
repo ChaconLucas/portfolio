@@ -11,6 +11,7 @@ import { criarInterior, RAIO_SALA } from './interior.js';
 import { emblema } from './predios.js';
 import { criarRoda, desenharSilhueta } from './roda.js';
 import { criarRede } from './rede.js';
+import { criarVoz } from './voz.js';
 import { sessao, HOST_SALAS } from '../conta.js';
 
 /**
@@ -77,6 +78,7 @@ export async function abrirJogo() {
     <canvas class="jogo-roda"></canvas>
     <div class="jogo-online"></div>
     <div class="jogo-feed"></div>
+    <div class="jogo-voz"></div>
     <div class="jogo-vida"><small>VIDA</small><i><em></em></i><span>100</span></div>
     <div class="jogo-placar"></div>
     <div class="jogo-tab"><h4>PLACAR · <span></span></h4><table><thead><tr><th>jogador</th><th>PvP</th><th>abates</th><th>mortes</th></tr></thead><tbody></tbody></table><p>segure TAB para ver · P liga/desliga o PvP</p></div>
@@ -123,8 +125,8 @@ export async function abrirJogo() {
 
   const AJUDA = {
     nave: `<span><kbd>W</kbd><kbd>S</kbd> acelerar / frear</span><span><kbd>A</kbd><kbd>D</kbd> para os lados</span>
-      <span><kbd>Espaço</kbd><kbd>Ctrl</kbd> subir / descer</span><span><kbd>Shift</kbd>+<kbd>W</kbd> velocidade da luz</span><span><kbd>E</kbd> interagir</span><span><kbd>Mouse</kbd> visão / direção · rodinha = zoom</span><span><kbd>Botão dir.</kbd> mirar (zoom)</span>`,
-    pe: `<span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> andar</span><span><kbd>Shift</kbd> correr · <kbd>Espaço</kbd> pular · <kbd>C</kbd> rolar</span><span><kbd>Botão dir.</kbd> mirar</span>
+      <span><kbd>Espaço</kbd><kbd>Ctrl</kbd> subir / descer</span><span><kbd>Shift</kbd>+<kbd>W</kbd> velocidade da luz</span><span><kbd>E</kbd> interagir</span><span><kbd>Mouse</kbd> visão / direção · rodinha = zoom</span><span><kbd>Botão dir.</kbd> mirar (zoom)</span><span><kbd>T</kbd> voz perto · <kbd>Y</kbd> rádio</span>`,
+    pe: `<span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> andar</span><span><kbd>Shift</kbd> correr · <kbd>Espaço</kbd> pular · <kbd>C</kbd> rolar</span><span><kbd>Botão dir.</kbd> mirar</span><span><kbd>T</kbd> voz perto · <kbd>Y</kbd> rádio</span>
       <span><kbd>Espaço</kbd> no ar = jetpack · <kbd>Espaço</kbd>/<kbd>Ctrl</kbd> sobe/desce · <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> voa</span>
       <span><kbd>E</kbd> entrar no prédio / embarcar</span><span><kbd>Mouse</kbd> câmera · rodinha = zoom</span>`
   };
@@ -237,6 +239,8 @@ export async function abrirJogo() {
     if (/^Digit[1-4]$/.test(e.code) && !e.repeat) escolherArma(+e.code.slice(5) - 1, s.aPe);
     if (e.code === 'KeyN' && !e.repeat) alternarSom();
     if (e.code === 'KeyP' && !e.repeat) alternarPvp();
+    // voz: T segurado fala para quem esta perto; Y segurado fala no radio (todos)
+    if ((e.code === 'KeyT' || e.code === 'KeyY') && !e.repeat) falarVoz(e.code === 'KeyY' ? 'geral' : 'perto');
     if (e.code === 'KeyC' && !e.repeat && s.aPe && pe.noChao && !painelAberto) rolar();
     if (e.code === 'Space' && !e.repeat && s.aPe && !painelAberto) { if (pe.noChao) pular(); else ligarJetpack(); }
     if (e.code === 'Space') e.preventDefault();
@@ -245,10 +249,11 @@ export async function abrirJogo() {
     tecla.delete(e.code);
     // TAB segurado e solto: equipa o que esta apontado (um toque rapido deixa a roda aberta)
     if (e.code === 'Tab') mostrarTab(false);
+    if ((e.code === 'KeyT' && voz?.falando === 'perto') || (e.code === 'KeyY' && voz?.falando === 'geral')) voz.falar(null);
     if (e.code === 'KeyI' && roda.aberta && performance.now() - rodaDesde > 220) fecharRoda(true);
   };
   addEventListener('keydown', baixo); addEventListener('keyup', cima);
-  addEventListener('blur', () => tecla.clear());
+  addEventListener('blur', () => { tecla.clear(); voz?.falar(null); });
   $('.jogo-sair').addEventListener('click', () => fechar());
   $('.jogo-som').addEventListener('click', () => alternarSom());
   $('.jogo-mapa-bt').addEventListener('click', () => alternarMapa());
@@ -261,6 +266,7 @@ export async function abrirJogo() {
      deixar. Rodinha = zoom. */
   let mdx = 0, mdy = 0, zoom = 1, soltouEm = 0, ultX = null, ultY = null;
   // clique: com o mouse preso atira (segurar = rajada); solto, trava o mouse
+  let voz = null, vozSuja = true, vozT = 0;
   let atirando = false, mirandoBt = false, mirarK = 0;   // mirarK: 0..1 suave
   // com o mouse preso o clique chega no <html> (o elemento travado), nao no
   // canvas: por isso escuta no documento
@@ -369,6 +375,7 @@ export async function abrirJogo() {
   let souAdm = false;
   const minhaCor = () => corCss(matizDe(sess?.usuario), souAdm);
   if (sess) nave.pintar({ matiz: matizDe(sess.usuario) });
+  voz = sess ? criarVoz({ token: sess.token, host: HOST_SALAS, aoMudar: () => { vozSuja = true; }, aoErro: (msg) => mostrarConquista(`<b>🎙 sem microfone</b><span>${msg}</span>`) }) : null;
   rede = sess ? criarRede({ token: sess.token, host: HOST_SALAS, modeloNave: nave.modeloBase, aoEvento: (tipo, m) => eventoRede(tipo, m) }) : null;
   const salaAtual = () => (mundo.planetas ? 'espaco' : 'planeta-' + s.planeta.key);
   queueMicrotask(() => rede?.entrar(salaAtual()));
@@ -711,6 +718,27 @@ export async function abrirJogo() {
     rede?.tiro(_bc, dir, a.id);
     astro.atirou(); som.tiro(a.tom);
     if (a.id === 'canhao') som.explosao(.15);
+  }
+
+  /* ---- chat de voz (T perto, Y radio) ---- */
+  function falarVoz(modo) {
+    if (!voz) { mostrarConquista('<b>🎙 voz precisa de conta</b><span>crie no terminal do site (criar-conta)</span>'); return; }
+    voz.falar(modo);
+  }
+  // volume de quem fala "perto": cheio colado, some no limite (so na mesma sala)
+  function volumeVoz(nome) {
+    if (!rede) return 0;
+    let r = null; for (const x of rede.remotos.values()) if (x.nome === nome) { r = x; break; }
+    if (!r || !r.obj) return 0;
+    const alc = s.modo === 'espaco' ? 1500 : 90, d = r.pos.distanceTo(s.aPe ? pe.pos : s.pos);
+    const k = Math.max(0, 1 - d / alc); return k * k;
+  }
+  const vozUI = $('.jogo-voz');
+  function desenharVoz() {
+    const eu = voz.falando, linhas = [];
+    if (eu) linhas.push(`<div class="eu ${eu}">${eu === 'geral' ? '📻 você no rádio (todos ouvem)' : '🎙 você falando (quem está perto)'}</div>`);
+    for (const f of voz.falantes(volumeVoz)) linhas.push(`<div class="${f.modo}${f.ouve ? '' : ' longe'}"><i style="background:${corCss(matizDe(f.nome), f.admin)}"></i><b style="color:${corCss(matizDe(f.nome), f.admin)}">${f.admin ? '👑 ' : ''}${f.nome}</b> ${f.modo === 'geral' ? '📻' : f.ouve ? '🎙' : '🎙 longe'}</div>`);
+    vozUI.innerHTML = linhas.join('');
   }
 
   /* ---- placar no TAB (segurar) ---- */
@@ -1353,6 +1381,10 @@ export async function abrirJogo() {
     if (rede) {
       rede.estado({ p: s.aPe ? pe.pos : s.pos, r: s.aPe ? pe.rumo : s.rumo, modo: cinema || morto ? 'cinema' : s.aPe ? 'pe' : 'nave', arma: s.aPe ? ARMAS[armaIdx].id : NAVE_ARMAS[navArmaIdx].id, esc: s.aPe ? 1 : +nave.raiz.scale.x.toFixed(2) });
       rede.atualizar(dt, cena);
+      if (voz) {
+        voz.atualizar(volumeVoz);
+        vozT -= dt; if (vozSuja || vozT <= 0) { vozSuja = false; vozT = .3; desenharVoz(); }
+      }
       const n = rede.remotos.size + 1;
       onlineUI.innerHTML = `<i></i>${n} ${n === 1 ? 'jogador' : 'jogadores'} aqui`;
     }
@@ -1674,7 +1706,7 @@ export async function abrirJogo() {
   requestAnimationFrame(quadro);
   // modo de teste (?debugjogo): avanca a simulacao sem depender do rAF
   if (/debugjogo/.test(location.search)) { semTrava = true; raiz.classList.add('sem-trava'); }   // teste: sem convite de clique
-  if (/debugjogo/.test(location.search)) window.__jogo = { s, pe, tecla, mouse: (x, y) => { mdx += x; mdy += y; }, passo: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) passo(dt); }, interagir, get alvo() { return alvoPerto; }, get mundo() { return mundo; }, get predioPerto() { return predioPerto; }, get mapaInfo() { return mapaInfo; }, get destino() { return destino; }, get tiros() { return tiros; }, camera, get nave() { return nave; } };
+  if (/debugjogo/.test(location.search)) window.__jogo = { s, pe, tecla, mouse: (x, y) => { mdx += x; mdy += y; }, passo: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) passo(dt); }, interagir, get alvo() { return alvoPerto; }, get mundo() { return mundo; }, get predioPerto() { return predioPerto; }, get mapaInfo() { return mapaInfo; }, get destino() { return destino; }, get tiros() { return tiros; }, camera, get nave() { return nave; }, get voz() { return voz; }, get rede() { return rede; } };
 
   function fechar() {
     rodando = false;
@@ -1685,7 +1717,7 @@ export async function abrirJogo() {
     if (document.fullscreenElement) document.exitFullscreen?.()?.catch?.(() => {});
     tecla.clear(); clearTimeout(conquistaT);
     if (s?.dentro) { s.dentro.int.destruir(); s.dentro.lixo.forEach((o) => o.dispose && o.dispose()); }
-    rede?.fechar();
+    rede?.fechar(); voz?.fechar();
     nave?.destruir(); astro?.destruir(); mundo.destruir(); ent.mundoProx?.destruir(); tiros?.destruir(); som.fechar();
     rt.dispose(); posMat.dispose(); fotoTex?.dispose(); fotoMat.dispose(); removeEventListener('resize', medirPos);
     renderer.dispose(); renderer.forceContextLoss();

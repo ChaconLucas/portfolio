@@ -30,6 +30,18 @@
   .aviso { background: var(--cartao); border: 1px solid var(--borda); border-radius: 12px; padding: 24px; }
   .erro { color: var(--vermelho); }
   input[type=search] { width: 100%; max-width: 360px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--borda); background: var(--cartao); color: var(--texto); font: inherit; margin-bottom: 16px; }
+  .acoes { display: flex; gap: 6px; flex-wrap: wrap; }
+  .acoes button { padding: 3px 8px; font-size: 11px; }
+  button.perigo { border-color: rgba(255,107,107,.45); color: var(--vermelho); }
+  tr.ban td { opacity: .6; } tr.ban td:last-child { opacity: 1; }
+  .tag { font-size: 10px; padding: 1px 6px; border-radius: 6px; background: rgba(255,107,107,.15); color: var(--vermelho); margin-left: 6px; }
+  .ev-tipo { color: var(--roxo); } .ev-ruim { color: var(--vermelho); }
+  dialog { background: var(--cartao); color: var(--texto); border: 1px solid var(--borda); border-radius: 14px; padding: 0; width: min(720px, calc(100vw - 32px)); max-height: 80vh; }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  dialog header { padding: 14px 18px; border-bottom: 1px solid var(--borda); margin: 0; }
+  dialog .corpo { padding: 8px 18px 18px; overflow: auto; max-height: calc(80vh - 60px); }
+  .msg { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--cartao); border: 1px solid var(--borda); border-radius: 10px; padding: 10px 16px; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  .msg.on { opacity: 1; }
   button { font: inherit; color: var(--texto); background: rgba(255,255,255,.06); border: 1px solid var(--borda); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
 </style>
 </head>
@@ -42,6 +54,8 @@
   <input type="search" id="busca" placeholder="buscar conta por usuário ou email" hidden>
   <div id="conteudo"><div class="aviso">carregando…</div></div>
 </main>
+<dialog id="hist"><header><h1 id="histTitulo" style="font-size:14px">HISTÓRICO</h1><button type="button" id="histFechar">fechar</button></header><div class="corpo" id="histCorpo"></div></dialog>
+<div class="msg" id="msg"></div>
 <script>
   // Painel so para admin: a sessao e a do site (localStorage 'su-sessao', criada
   // no terminal) e o servidor so responde se o email da conta estiver no
@@ -54,9 +68,43 @@
   let sessao = null; try { sessao = JSON.parse(localStorage.getItem('su-sessao')); } catch (e) {}
   const conteudo = document.getElementById('conteudo');
   document.getElementById('quem').textContent = sessao ? 'logado como ' + sessao.usuario : 'sem login';
+  const voce = (sessao?.usuario || '').toLowerCase();
   let filtro = '', ultimo = null;
   const busca = document.getElementById('busca');
   busca.addEventListener('input', () => { filtro = busca.value.toLowerCase(); if (ultimo) desenhar(ultimo); });
+  const api = async (rota, corpo) => {
+    try { return await (await fetch(SERVIDOR + rota, { method: corpo ? 'POST' : 'GET', headers: { Authorization: 'Bearer ' + sessao.token, ...(corpo ? { 'Content-Type': 'application/json' } : {}) }, body: corpo ? JSON.stringify(corpo) : undefined })).json(); }
+    catch (e) { return { erro: 'sem conexão com o servidor' }; }
+  };
+  const msg = (t) => { const m = document.getElementById('msg'); m.textContent = t; m.classList.add('on'); clearTimeout(msg.t); msg.t = setTimeout(() => m.classList.remove('on'), 2600); };
+  const ruins = /banido|excluída|senha errada|tentou/;
+  const linhaEvento = (e, comConta) => `<tr><td>${data(e.quando)}</td>${comConta ? `<td>${esc(e.usuario)}</td>` : ''}<td class="${ruins.test(e.tipo) ? 'ev-ruim' : 'ev-tipo'}">${esc(e.tipo)}</td><td>${esc(sala(e.info))}</td></tr>`;
+  async function historico(usuario, nome) {
+    const d = document.getElementById('hist'); document.getElementById('histTitulo').textContent = 'HISTÓRICO · ' + nome;
+    const corpo = document.getElementById('histCorpo'); corpo.innerHTML = '<p class="vazio">carregando…</p>'; d.showModal();
+    const r = await api('/api/admin/historico?usuario=' + encodeURIComponent(usuario));
+    corpo.innerHTML = r.erro ? `<p class="erro">${esc(r.erro)}</p>` : r.eventos.length
+      ? `<table><thead><tr><th>quando</th><th>o quê</th><th>detalhe</th></tr></thead><tbody>${r.eventos.map((e) => linhaEvento(e)).join('')}</tbody></table>`
+      : '<p class="vazio">nada registrado ainda (o histórico começou a ser gravado agora)</p>';
+  }
+  document.getElementById('histFechar').addEventListener('click', () => document.getElementById('hist').close());
+  // acoes de cada conta (a tabela e redesenhada, entao o clique e pego no container)
+  conteudo.addEventListener('click', async (e) => {
+    const b = e.target.closest('button[data-acao]'); if (!b) return;
+    const u = b.dataset.u, nome = b.dataset.nome;
+    if (b.dataset.acao === 'hist') return historico(u, nome);
+    if (b.dataset.acao === 'banir') {
+      const motivo = prompt(`Banir ${nome}? Motivo (opcional):`, ''); if (motivo === null) return;
+      const r = await api('/api/admin/banir', { usuario: u, banir: true, motivo }); msg(r.erro || `${nome} foi banido`);
+    } else if (b.dataset.acao === 'desbanir') {
+      if (!confirm(`Desbanir ${nome}?`)) return;
+      const r = await api('/api/admin/banir', { usuario: u, banir: false }); msg(r.erro || `${nome} foi desbanido`);
+    } else if (b.dataset.acao === 'excluir') {
+      if (prompt(`Excluir a conta ${nome} para sempre? Digite o usuário para confirmar:`) !== nome) { msg('exclusão cancelada'); return; }
+      const r = await api('/api/admin/excluir', { usuario: u }); msg(r.erro || `conta ${nome} excluída`);
+    }
+    carregar();
+  });
   async function carregar() {
     if (!sessao || !sessao.token) { conteudo.innerHTML = '<div class="aviso">faça login com a conta de admin no terminal do <a href="/">site</a> (digite <b>entrar</b>) e volte aqui.</div>'; return; }
     let r;
@@ -79,12 +127,16 @@
       <h2>ONLINE AGORA</h2>
       <div class="tabela">${r.online.length ? `<table><thead><tr><th>jogador</th><th>onde</th><th>PvP</th><th>há</th></tr></thead><tbody>${r.online.map((o) => `<tr><td><span class="ponto"></span>${esc(o.usuario)}</td><td>${esc(sala(o.sala))}</td><td>${o.pvp ? '<span class="pvp">⚔ ligado</span>' : 'desligado'}</td><td>${ha(o.desde)}</td></tr>`).join('')}</tbody></table>` : '<div class="vazio">ninguém jogando agora</div>'}</div>
       <h2>CONTAS (${r.contas.length}${filtro ? ` · ${contas.length} na busca` : ''})</h2>
-      <div class="tabela"><table><thead><tr><th>usuário</th><th>email</th><th>criada em</th><th>último acesso</th><th>logins</th><th>abates</th><th>mortes</th></tr></thead><tbody>
-        ${contas.map((c) => `<tr><td>${esc(c.nome)}</td><td>${esc(c.email)}</td><td>${data(c.criado)}</td><td>${ha(c.ultimo)}</td><td>${c.acessos || 0}</td><td>${c.abates || 0}</td><td>${c.mortes || 0}</td></tr>`).join('') || '<tr><td colspan="7" class="vazio">nenhuma conta</td></tr>'}
-      </tbody></table></div>`;
+      <div class="tabela"><table><thead><tr><th>usuário</th><th>email</th><th>criada em</th><th>último acesso</th><th>logins</th><th>abates</th><th>mortes</th><th>ações</th></tr></thead><tbody>
+        ${contas.map((c) => { const u = esc(c.usuario), n = esc(c.nome), eu = c.usuario === voce;
+          return `<tr class="${c.banido ? 'ban' : ''}"><td>${n}${c.banido ? `<span class="tag" title="${esc(c.motivo)}">banido</span>` : ''}${eu ? ' <span class="quem">(você)</span>' : ''}</td><td>${esc(c.email)}</td><td>${data(c.criado)}</td><td>${ha(c.ultimo)}</td><td>${c.acessos || 0}</td><td>${c.abates || 0}</td><td>${c.mortes || 0}</td>
+          <td><div class="acoes"><button type="button" data-acao="hist" data-u="${u}" data-nome="${n}">histórico</button>${eu ? '' : `${c.banido ? `<button type="button" data-acao="desbanir" data-u="${u}" data-nome="${n}">desbanir</button>` : `<button type="button" class="perigo" data-acao="banir" data-u="${u}" data-nome="${n}">banir</button>`}<button type="button" class="perigo" data-acao="excluir" data-u="${u}" data-nome="${n}">excluir</button>`}</div></td></tr>`; }).join('') || '<tr><td colspan="8" class="vazio">nenhuma conta</td></tr>'}
+      </tbody></table></div>
+      <h2>ÚLTIMOS EVENTOS</h2>
+      <div class="tabela">${(r.eventos || []).length ? `<table><thead><tr><th>quando</th><th>conta</th><th>o quê</th><th>detalhe</th></tr></thead><tbody>${r.eventos.map((e) => linhaEvento(e, true)).join('')}</tbody></table>` : '<div class="vazio">nada registrado ainda</div>'}</div>`;
   }
   document.getElementById('recarregar').addEventListener('click', carregar);
-  carregar(); setInterval(carregar, 10000);
+  carregar(); setInterval(() => { if (!document.getElementById('hist').open) carregar(); }, 10000);
 </script>
 </body>
 </html>

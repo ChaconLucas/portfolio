@@ -29,7 +29,7 @@ export function criarRede({ token, host, modeloNave, aoEvento }) {
     if (sock) { sock.onmessage = null; sock.close(); }
     sock = new PartySocket({ host, party: 'sala', room: sala, query: { token } });
     sock.onmessage = (ev) => { let m; try { m = JSON.parse(ev.data); } catch (e) { return; } receber(m); };
-    sock.onclose = (e) => { if (e.code === 4001) { aoEvento('erro', { msg: 'faça login de novo para jogar online' }); sock.close(); } };
+    sock.onclose = (e) => { if (e.code === 4001 || e.code === 4003) { aoEvento('erro', { msg: e.code === 4003 ? 'você foi removido do online pelo admin' : 'faça login de novo para jogar online' }); sock.close(); } };
   }
 
   function receber(m) {
