@@ -838,3 +838,15 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - Pausa com a aba escondida ou com o jogo aberto.
   - O Stack Universe (criado no `index.html`) entra pela fila `window.__qualidadeFila`.
 - **Testado** com um PC lento simulado (35 ms de CPU por quadro): a resolução caiu de 1044 para 689 px e voltou a 1044 em ~35 s depois de tirar a carga.
+
+## Site: conta logada no topo (07/10/2026)
+- **No avatar da marca (canto de cima):**
+  - bolinha verde (logado) ou vermelha (sem conta);
+  - coroa 👑 se a conta for admin (conferido no servidor e guardado na aba em `su-admin`);
+  - ficam numa moldura por fora do círculo do avatar, que corta o que passa da borda.
+- **Dentro do terminal:**
+  - na barra, à direita: "● usuário" (ou "sem conta");
+  - ao abrir, uma linha "conta: usuário · pilotar · admin · sair" ou "sem conta · criar-conta ou entrar", com os comandos clicáveis;
+  - `conta` e `help` mostram `admin` só para admin.
+- Atualiza na hora ao entrar ou sair (`conta.js` dispara `conta-mudou`). `matizDe` e `corCss` (cor do jogador) foram para `conta.js`; `nave.js` reexporta.
+- O "Pilotar" sem conta continua abrindo o terminal no cadastro (`pedir-conta`; com `{ modo: 'entrar' }` abre no login).

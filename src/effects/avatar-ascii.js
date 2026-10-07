@@ -123,6 +123,13 @@ export function montarAvatarAscii() {
   mini.innerHTML = '<canvas></canvas>';
   if (antigo) antigo.replaceWith(mini); else botao.prepend(mini);
   const cMini = mini.querySelector('canvas');
+  // conta: bolinha no avatar (verde logado, vermelha sem conta) e coroa se admin
+  const badge = document.createElement('i'); badge.className = 'conta-badge';
+  const coroa = document.createElement('em'); coroa.className = 'conta-coroa'; coroa.textContent = '👑'; coroa.hidden = true;
+  // por fora do circulo do avatar (ele corta o que passa da borda)
+  const moldura = document.createElement('span'); moldura.className = 'brand-ascii-moldura';
+  mini.replaceWith(moldura); moldura.append(mini, badge, coroa);
+  let admin = false; try { admin = sessionStorage.getItem('su-admin') === '1'; } catch (e) { /* */ }
 
   // terminal
   const term = document.createElement('div');
@@ -130,7 +137,7 @@ export function montarAvatarAscii() {
   term.setAttribute('role', 'dialog');
   term.setAttribute('aria-label', 'Terminal do Lucas');
   term.innerHTML = `
-    <div class="at-barra"><button class="at-fechar" aria-label="Fechar terminal"></button><i></i><i></i><span>lucas@portfolio: ~</span></div>
+    <div class="at-barra"><button class="at-fechar" aria-label="Fechar terminal"></button><i></i><i></i><span>lucas@portfolio: ~</span><b class="at-conta"></b></div>
     <div class="at-saida" aria-live="polite"></div>
     <label class="at-linha"><span class="at-prompt">lucas@portfolio:~$</span><input class="at-input" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="Comando"></label>`;
   document.body.appendChild(term);
@@ -244,6 +251,28 @@ export function montarAvatarAscii() {
     const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     const cmd = (c) => `<button class="at-cmd" data-cmd="${esc(c)}">${esc(c)}</button>`;
 
+    /* ---- conta: bolinha no avatar, status na barra e linha ao abrir ---- */
+    const barraConta = term.querySelector('.at-conta');
+    function marcarConta() {
+      const s = sessao();
+      badge.classList.toggle('on', !!s); coroa.hidden = !(s && admin);
+      botao.title = s ? `logado como ${s.usuario}${admin ? ' (admin)' : ''}` : 'sem conta: passe o mouse e digite entrar';
+      barraConta.className = 'at-conta' + (s ? ' on' : '');
+      barraConta.innerHTML = s ? `<em></em>${admin ? '👑 ' : ''}${esc(s.usuario)}` : '<em></em>sem conta';
+    }
+    function linhaConta() {
+      const s = sessao();
+      linha(s ? `<span class="at-dim">conta:</span> <b class="at-forte">${esc(s.usuario)}</b>${admin ? ' 👑' : ''} <span class="at-dim">·</span> ${cmd('pilotar')} ${admin ? cmd('admin') + ' ' : ''}${cmd('sair')}`
+        : `<span class="at-dim">sem conta ·</span> ${cmd('criar-conta')} <span class="at-dim">ou</span> ${cmd('entrar')} <span class="at-dim">para jogar online</span>`);
+    }
+    // o servidor diz se e admin (guardado na aba)
+    async function conferirAdmin() {
+      const a = sessao() ? await souAdmin() : false;
+      if (a !== admin) { admin = a; try { sessionStorage.setItem('su-admin', a ? '1' : '0'); } catch (e) { /* */ } marcarConta(); }
+    }
+    addEventListener('conta-mudou', () => { admin = false; marcarConta(); conferirAdmin(); });
+    marcarConta(); conferirAdmin();
+
     function executar(bruto) {
       const texto = bruto.trim();
       linha(`<span class="at-prompt">lucas@portfolio:~$</span> ${esc(texto)}`, 'at-eco');
@@ -266,6 +295,7 @@ export function montarAvatarAscii() {
             `  ${cmd('conta')}       quem está logado`,
             `  ${cmd('pilotar')}     abre o jogo`,
             `  ${cmd('sair')}        sai da conta`,
+            ...(admin ? [`  ${cmd('admin')}       painel de admin (só você vê este)`] : []),
             `  ${cmd('clear')}       limpa a tela`,
             `  ${cmd('exit')}        fecha o terminal`
           ]);
@@ -321,7 +351,7 @@ export function montarAvatarAscii() {
           iniciarFluxo('entrar'); break;
         case 'conta': case 'account': {
           const s = sessao();
-          escrever(s ? [[`logado como <b class="at-forte">${esc(s.usuario)}</b>`, ''], [`${cmd('pilotar')} · ${cmd('sair')}`, 'at-dica']] : [['nenhuma conta logada', 'at-dim'], [`${cmd('criar-conta')} ou ${cmd('entrar')}`, 'at-dica']]);
+          escrever(s ? [[`logado como <b class="at-forte">${esc(s.usuario)}</b>${admin ? ' 👑 admin' : ''}`, ''], [`${cmd('pilotar')} · ${admin ? cmd('admin') + ' · ' : ''}${cmd('sair')}`, 'at-dica']] : [['nenhuma conta logada', 'at-dim'], [`${cmd('criar-conta')} ou ${cmd('entrar')}`, 'at-dica']]);
           break;
         }
         case 'sair': case 'logout':
@@ -389,9 +419,11 @@ export function montarAvatarAscii() {
       input.focus({ preventScroll: true });
     }
     // "Pilotar" sem conta: sobe ate o topo, abre o terminal e comeca o cadastro
-    addEventListener('pedir-conta', () => {
+    // pedir-conta: { modo: 'entrar' } vem do botao Entrar do topo; sem modo, do Pilotar sem conta
+    addEventListener('pedir-conta', (e) => {
+      const modo = e.detail?.modo === 'entrar' ? 'entrar' : 'registrar';
       scrollTo({ top: 0, behavior: menos ? 'auto' : 'smooth' });
-      const espera = () => { if (scrollY > 5) return setTimeout(espera, 80); jaAbriu = true; abrir(); linha('<span class="at-dim">🚀 para pilotar a nave e jogar online, crie uma conta grátis</span>'); iniciarFluxo('registrar'); };
+      const espera = () => { if (scrollY > 5) return setTimeout(espera, 80); jaAbriu = true; abrir(); if (modo === 'registrar') linha('<span class="at-dim">🚀 para pilotar a nave e jogar online, crie uma conta grátis</span>'); iniciarFluxo(modo); };
       setTimeout(espera, 120);
     });
 
@@ -458,6 +490,7 @@ export function montarAvatarAscii() {
       if (!jaAbriu) {
         jaAbriu = true;
         linha('<span class="at-dim">Last login: agora, no portfólio · digite help</span>');
+        linhaConta();
         setTimeout(() => digitar('whoami'), 350);
       }
       if (matchMedia('(hover: hover)').matches) setTimeout(() => input.focus({ preventScroll: true }), 50);

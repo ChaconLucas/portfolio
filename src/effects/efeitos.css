@@ -512,3 +512,18 @@
    celular tambem (o jogo tem controles de toque), menor e no canto */
 #introOrbit:not(.is-interactive) .pilotar{opacity:0;pointer-events:none}
 @media (hover:none),(pointer:coarse){.pilotar{right:14px;bottom:18px;padding:10px 13px;font-size:9px}}
+
+
+/* conta na marca do topo: bolinha verde (logado) ou vermelha (sem conta) no
+   avatar, e coroa se a conta for admin. O resto da conta fica no terminal. */
+.brand-ascii-moldura{position:relative;display:inline-flex;flex:none}
+.conta-badge{position:absolute;right:-2px;bottom:-2px;width:10px;height:10px;border-radius:50%;background:#ff5f57;
+  box-shadow:0 0 0 2px var(--bg,#07060d),0 0 8px rgba(255,95,87,.7);pointer-events:none;transition:background .3s,box-shadow .3s}
+.conta-badge.on{background:#2bff8f;box-shadow:0 0 0 2px var(--bg,#07060d),0 0 8px rgba(43,255,143,.75)}
+.conta-coroa{position:absolute;top:-9px;left:50%;transform:translateX(-50%) rotate(-12deg);font-size:12px;line-height:1;pointer-events:none;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.8));font-style:normal}
+.conta-coroa[hidden]{display:none}
+/* status da conta na barra do terminal */
+.at-conta{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:11px;opacity:.85;white-space:nowrap;max-width:45%;overflow:hidden;text-overflow:ellipsis}
+.at-conta em{width:7px;height:7px;border-radius:50%;background:#ff5f57;flex:none}
+.at-conta.on em{background:#2bff8f;box-shadow:0 0 6px #2bff8f}

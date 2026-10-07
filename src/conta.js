@@ -16,8 +16,10 @@ const CHAVE = 'su-sessao';
 export function sessao() {
   try { const s = JSON.parse(localStorage.getItem(CHAVE)); return s && s.token ? s : null; } catch (e) { return null; }
 }
-function guardar(s) { try { localStorage.setItem(CHAVE, JSON.stringify(s)); } catch (e) { /* sem armazenamento: vale so nesta aba */ } window.__sessao = s; }
-function limpar() { try { localStorage.removeItem(CHAVE); } catch (e) { /* */ } window.__sessao = null; }
+// conta-mudou: o topo do site (e quem mais quiser) atualiza na hora
+const avisar = () => dispatchEvent(new CustomEvent('conta-mudou'));
+function guardar(s) { try { localStorage.setItem(CHAVE, JSON.stringify(s)); } catch (e) { /* sem armazenamento: vale so nesta aba */ } window.__sessao = s; avisar(); }
+function limpar() { try { localStorage.removeItem(CHAVE); sessionStorage.removeItem('su-admin'); } catch (e) { /* */ } window.__sessao = null; avisar(); }
 
 async function chamar(rota, corpo, token) {
   try {
@@ -59,3 +61,15 @@ export async function souAdmin() {
   const r = await chamar('/api/eu', null, s.token);
   return !!r.admin;
 }
+
+/* ---- cor de cada jogador ----
+   matiz (0–360) tirado do nome: sempre a mesma cor para o mesmo jogador */
+export function matizDe(nome) {
+  let h = 2166136261;
+  for (const ch of String(nome || '')) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); }
+  // pula o roxo e o rosa (250–345): sao so da nave do admin
+  const m = (h >>> 0) % 265;
+  return m < 250 ? m : m + 95;
+}
+/** cor CSS do jogador (rotulo, placar, HUD) */
+export const corCss = (matiz, admin) => admin ? '#ff6bd6' : `hsl(${matiz} 90% 68%)`;

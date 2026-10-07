@@ -168,17 +168,8 @@ export async function criarNave(cena) {
   };
 }
 
-/* ---- cor de cada jogador ----
-   matiz (0–360) tirado do nome: sempre a mesma cor para o mesmo jogador */
-export function matizDe(nome) {
-  let h = 2166136261;
-  for (const ch of String(nome || '')) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); }
-  // pula o roxo e o rosa (250–345): sao so da nave do admin
-  const m = (h >>> 0) % 265;
-  return m < 250 ? m : m + 95;
-}
-/** cor CSS do jogador (rotulo, placar, HUD) */
-export const corCss = (matiz, admin) => admin ? '#ff6bd6' : `hsl(${matiz} 90% 68%)`;
+/* cor de cada jogador: vive em conta.js (o site tambem usa) */
+export { matizDe, corCss } from '../conta.js';
 
 /**
  * Pinta um modelo da nave sem perder os detalhes da textura: no shader a cor
