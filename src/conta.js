@@ -52,3 +52,10 @@ export async function sair() {
   const s = sessao(); if (s) await chamar('/api/sair', {}, s.token);
   limpar();
 }
+
+/** a conta logada e admin? (o servidor decide pelo email) */
+export async function souAdmin() {
+  const s = sessao(); if (!s) return false;
+  const r = await chamar('/api/eu', null, s.token);
+  return !!r.admin;
+}

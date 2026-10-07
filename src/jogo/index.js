@@ -91,6 +91,7 @@ export async function abrirJogo() {
       <div class="jp-pe"><span class="jp-teclas"><kbd>E</kbd> ou <kbd>Esc</kbd> sair do prédio</span><button type="button" class="jp-fechar">✕ sair do prédio</button></div>
     </div>
     <div class="jogo-conquista"></div>
+    <div class="jogo-bemvindo"><small></small><b></b><span></span></div>
     <div class="jogo-toque">
       <div class="jt-area"></div>
       <div class="jt-joy"><i></i></div>
@@ -283,7 +284,8 @@ export async function abrirJogo() {
     raiz.classList.toggle('mouse-preso', preso());
     if (!preso()) soltouEm = performance.now();
   };
-  const aoRodar = (e) => { e.preventDefault(); zoom = Math.max(.6, Math.min(2.2, zoom * (1 + Math.sign(e.deltaY) * .1))); };
+  // rodinha: para cima aproxima a camera, para baixo afasta
+  const aoRodar = (e) => { e.preventDefault(); zoom = Math.max(.6, Math.min(2.2, zoom * (1 - Math.sign(e.deltaY) * .1))); };
   addEventListener('mousemove', aoMover);
   document.addEventListener('pointerlockchange', aoTravar);
   aoTravar();   // a trava pode ter vindo do clique em "Pilotar", antes do jogo existir
@@ -603,15 +605,18 @@ export async function abrirJogo() {
     const a = NAVE_ARMAS[navArmaIdx];
     nave.raiz.updateMatrixWorld();
     let alvo = null;
-    if (a.guiado && mundo.planetas) { _v.set(0, 0, 1).transformDirection(nave.corpo.matrixWorld); alvo = mundo.alvoNaFrente(s.pos, _v); }
+    if (a.guiado && mundo.planetas) { camera.getWorldDirection(_v); alvo = mundo.alvoNaFrente(s.pos, _v); }
     if (a.alterna) ladoTiro = -ladoTiro;
+    // o tiro vai para o centro da tela (a mira), nao para onde o nariz aponta:
+    // a nave segue a mira com atraso, entao o nariz quase nunca esta nela
+    const ponto = pontoDaMiraNave(_miraN, a.vel * (a.vida || 1.4) * .8);
     tiros.disparar(nave.corpo, s.vel, nave.raiz.scale.x, {
-      cor: a.cor, vel: a.vel, esc: a.esc, comp: a.comp, espalha: a.espalha, vida: a.vida,
+      cor: a.cor, vel: a.vel, esc: a.esc, comp: a.comp, espalha: a.espalha, vida: a.vida, ponto,
       lados: a.unico ? [0] : a.alterna ? [ladoTiro] : a.guiado ? [ladoTiro = -ladoTiro] : [-1, 1],
       dados: { arma: a.id, dano: a.dano, area: a.area || 0, alvo }
     });
     som.tiro(a.tom); if (a.area) som.explosao(.12);
-    if (rede) { _v.set(0, 0, 1).transformDirection(nave.corpo.matrixWorld); rede.tiro(s.pos, _v, a.id); }
+    if (rede) { _v.subVectors(ponto, s.pos).normalize(); rede.tiro(s.pos, _v, a.id); }
   }
   function alternarInventario(v = !inventarioAberto) {
     if (v) montarInventario();
@@ -656,11 +661,30 @@ export async function abrirJogo() {
   const _mira = new THREE.Vector3(), _dirC = new THREE.Vector3(), _bc = new THREE.Vector3();
   function pontoDaMira(out) {
     camera.getWorldDirection(_dirC); out.copy(camera.position);
-    for (let d = 0; d < 400; d += 1.5) {
-      out.addScaledVector(_dirC, 1.5);
-      if (d < 4) continue;
+    for (let d = 0, passo = .5; d < 400; d += passo, passo = Math.min(3, passo * 1.04)) {
+      out.addScaledVector(_dirC, passo);
+      if (d < 2.5) continue;   // a camera fica atras do astronauta
       if (s.dentro) { if (Math.hypot(out.x - BASE_INT.x, out.z - BASE_INT.z) > RAIO_SALA - .3 || out.y < BASE_INT.y || out.y > BASE_INT.y + 9) return out; }
-      else if (out.y < mundo.alturaChao(out.x, out.z)) return out;
+      else {
+        if (out.y < mundo.alturaChao(out.x, out.z)) return out;
+        for (const pr of mundo.predios) if (Math.hypot(out.x - pr.pos.x, out.z - pr.pos.z) < 6 && out.y < pr.pos.y + 14) return out;
+        if (rede) { const r = rede.remotoEm(out); if (r) return out; }
+      }
+    }
+    return out;
+  }
+  // mira da nave: o raio do centro da tela ate a primeira rocha (espaco) ou o
+  // chao (superficie); sem nada, um ponto longe nesse raio
+  const _miraN = new THREE.Vector3(), _dirN = new THREE.Vector3();
+  function pontoDaMiraNave(out, alcance) {
+    camera.getWorldDirection(_dirN); out.copy(camera.position);
+    if (mundo.planetas) {
+      const h = mundo.rochaNoRaio(camera.position, _dirN, alcance);
+      return out.addScaledVector(_dirN, h ? h.t : alcance);
+    }
+    for (let d = 0, passo = 4; d < alcance; d += passo, passo = Math.min(40, passo * 1.15)) {
+      out.addScaledVector(_dirN, passo);
+      if (out.y < mundo.alturaChao(out.x, out.z)) return out;
     }
     return out;
   }
@@ -695,8 +719,16 @@ export async function abrirJogo() {
   const onlineUI = $('.jogo-online'), feedUI = $('.jogo-feed'), vidaUI = $('.jogo-vida'), placarUI = $('.jogo-placar'), morteUI = $('.jogo-morte'), danoUI = $('.jogo-dano');
   if (!sessao()) onlineUI.innerHTML = '<i class="off"></i>offline · crie uma conta no terminal do site para jogar online';
   // quem esta logado: fixo embaixo do titulo e um aviso ao abrir
-  $('.jogo-conta').innerHTML = sessao() ? `👤 <b>${sessao().usuario}</b>` : '👤 <b>sem conta</b> (offline)';
-  setTimeout(() => mostrarConquista(sessao() ? `<b>👤 logado como ${sessao().usuario}</b><span>online · aperte P para ligar o PvP</span>` : '<b>👤 sem conta — jogando offline</b><span>crie uma no terminal do site (criar-conta) para jogar online</span>'), 900);
+  $('.jogo-conta').innerHTML = sessao() ? `<i></i>logado como <b>${sessao().usuario}</b>` : '<i class="off"></i><b>sem conta</b> · offline';
+  // aviso grande de entrada com a conta (proprio, para nao ser trocado por outros avisos)
+  {
+    const bv = $('.jogo-bemvindo'), eu = sessao();
+    bv.querySelector('small').textContent = eu ? 'LOGADO COMO' : 'SEM CONTA';
+    bv.querySelector('b').textContent = eu ? eu.usuario : 'jogando offline';
+    bv.querySelector('span').textContent = eu ? 'online · P liga o PvP · TAB placar' : 'crie uma conta no terminal do site (criar-conta) para jogar online';
+    bv.classList.toggle('off', !eu);
+    setTimeout(() => bv.classList.add('on'), 600); setTimeout(() => bv.classList.remove('on'), 5200);
+  }
   $('.jogo-pvp').addEventListener('click', () => alternarPvp());
   function alternarPvp(v = !meuPvp) {
     if (!rede) { mostrarConquista('<b>PvP precisa de conta</b><span>crie no terminal do site (criar-conta)</span>'); return; }
@@ -1622,7 +1654,7 @@ export async function abrirJogo() {
   requestAnimationFrame(quadro);
   // modo de teste (?debugjogo): avanca a simulacao sem depender do rAF
   if (/debugjogo/.test(location.search)) { semTrava = true; raiz.classList.add('sem-trava'); }   // teste: sem convite de clique
-  if (/debugjogo/.test(location.search)) window.__jogo = { s, pe, tecla, mouse: (x, y) => { mdx += x; mdy += y; }, passo: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) passo(dt); }, interagir, get alvo() { return alvoPerto; }, get mundo() { return mundo; }, get predioPerto() { return predioPerto; }, get mapaInfo() { return mapaInfo; }, get destino() { return destino; } };
+  if (/debugjogo/.test(location.search)) window.__jogo = { s, pe, tecla, mouse: (x, y) => { mdx += x; mdy += y; }, passo: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) passo(dt); }, interagir, get alvo() { return alvoPerto; }, get mundo() { return mundo; }, get predioPerto() { return predioPerto; }, get mapaInfo() { return mapaInfo; }, get destino() { return destino; }, get tiros() { return tiros; }, camera };
 
   function fechar() {
     rodando = false;

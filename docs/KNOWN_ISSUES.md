@@ -759,3 +759,14 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
 - **A pé de lado e de costas:**
   - a cadência agora vem da passada de cada clipe (andar ~1,5 m/s e correr ~5,2 m/s na velocidade natural). De lado e de costas usam clipes de corrida, que antes rodavam no ritmo do andar e pareciam "travados";
   - velocidades por direção: frente 3,4, lado 3,0 e costas 2,5 m/s (com Shift: 6,8 / 5,6 / 4,6).
+
+## Admin, mira dos tiros, aviso de login e rodinha (07/10/2026)
+- **Área de admin** (`/admin.html`, ou o comando `admin` no terminal do site):
+  - mostra contas (sem senha), quem está online e onde, logins, abates e mortes;
+  - o servidor só responde (`/api/admin`) se o email da conta estiver no segredo `ADMINS` da Cloudflare (`npx wrangler secret put ADMINS`, vários separados por vírgula). O email não fica no código.
+- **Tiros vão para a mira:**
+  - antes, a nave atirava para onde o nariz apontava, e o nariz segue a mira com atraso (até ~45° numa virada rápida);
+  - agora o centro da tela vira um raio (`rochaNoRaio` no espaço, chão na superfície) e cada laser sai da sua asa convergindo nesse ponto;
+  - a pé, a mira também para em prédios e em outros jogadores (antes atravessava e o tiro ia para o chão atrás).
+- **Login visível:** ao abrir o jogo aparece um aviso grande "LOGADO COMO …" (ou "SEM CONTA"), próprio, sem ser trocado por outros avisos. Embaixo do título fica um selo com ponto verde.
+- **Rodinha do mouse:** para cima aproxima e para baixo afasta (estava invertida).

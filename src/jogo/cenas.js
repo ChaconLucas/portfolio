@@ -495,6 +495,7 @@ export function criarEspaco(cena) {
     detritos.inst.instanceColor.needsUpdate = true;
   }
   const _cw = new THREE.Vector3();
+  const _rr = new THREE.Vector3(), _rp = new THREE.Vector3();
   // posicao no mundo de uma rocha do cinturao (o cinturao gira devagar)
   const centroCinto = (x) => x.c.copy(x.local).applyAxisAngle(_eixoY, cinturao.rotation.y);
   function rochasPerto(c, raio, cb) {
@@ -578,6 +579,17 @@ export function criarEspaco(cena) {
     mapaInfo: { cinturao: { raio: 9.4 * ESC, largura: 700 }, campos: [[2050, 3.8, 260], [8100, 1.0, 520], [8400, 3.4, 520], [8000, 5.4, 520]].map(([R, a, e]) => ({ x: Math.cos(a) * R, z: Math.sin(a) * R * .55, r: e * 1.2 })) },
     /** esfera (c, r) bate em alguma rocha viva? devolve a rocha */
     /** esfera (c, r) bate em alguma rocha viva (campos ou cinturao)? devolve a rocha */
+    /** a rocha mais perto que o raio (origem, dir unitario) cruza: { x, t } ou null */
+    rochaNoRaio(o, dir, alcance = 3000) {
+      let melhor = null, tMin = Infinity;
+      const ver = (x) => {
+        _rr.subVectors(x.c, o); const tc = _rr.dot(dir); if (tc < 0) return;
+        const d2 = _rr.lengthSq() - tc * tc, r2 = (x.k * .85) ** 2; if (d2 > r2) return;
+        const t = tc - Math.sqrt(r2 - d2); if (t < tMin) { tMin = t; melhor = x; }
+      };
+      for (let t = 0; t <= alcance && t < tMin; t += 200) rochasPerto(_rp.copy(o).addScaledVector(dir, t), 160, ver);
+      return melhor ? { x: melhor, t: tMin } : null;
+    },
     rochaEm(c, r) { let achou = null; rochasPerto(c, r, (x) => { if (!achou) achou = x; }); return achou; },
     /** dano numa rocha: pisca, leva um tranco e quebra (destrocos) quando a vida acaba. true = quebrou */
     danificar(x, dano) {

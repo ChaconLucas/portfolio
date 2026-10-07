@@ -44,7 +44,7 @@ export function criarTiros() {
     /**
      * Tiro da nave. corpo: o corpo da nave (matrixWorld); velNave; escala da nave;
      * o = { cor, vel, esc (grossura), lados: [-1, 1] ou [lado], espalha (rad),
-     *       vida, dados: { dano, area, alvo (rocha a perseguir), arma } }
+     *       vida, ponto (para onde a mira aponta), dados: { dano, area, alvo (rocha a perseguir), arma } }
      */
     disparar(corpo, velNave, escala = 1, o = {}) {
       const fwd = _d.set(0, 0, 1).transformDirection(corpo.matrixWorld);
@@ -53,7 +53,9 @@ export function criarTiros() {
         l.m.position.set(lado * 1.25, -.1, 1.2).applyMatrix4(corpo.matrixWorld);
         l.m.quaternion.setFromRotationMatrix(corpo.matrixWorld);
         l.m.scale.set(escala * (o.esc || 1), escala * (o.esc || 1), escala * (o.comp || 1));
-        const dir = _e.copy(fwd);
+        // com ponto de mira: cada laser sai da sua asa e converge nele
+        const dir = o.ponto ? _e.subVectors(o.ponto, l.m.position).normalize() : _e.copy(fwd);
+        if (o.ponto) l.m.quaternion.setFromUnitVectors(_z, dir);
         if (o.espalha) { dir.x += (Math.random() - .5) * o.espalha; dir.y += (Math.random() - .5) * o.espalha; dir.z += (Math.random() - .5) * o.espalha; dir.normalize(); }
         l.vel.copy(dir).multiplyScalar(o.vel || 1100).add(velNave);
         l.vida = o.vida || 1.4; l.m.visible = true; l.m.material = matDe(o.cor || 0xff4fd8);

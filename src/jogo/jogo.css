@@ -382,8 +382,21 @@ html.cursor-proprio .jogo .jogo-pvp{cursor:pointer!important}
 @keyframes jogoTroca{0%{opacity:0;transform:translate(-50%,-50%) scale(.85)}12%{opacity:1;transform:translate(-50%,-50%) scale(1.04)}22%{transform:translate(-50%,-50%) scale(1)}75%{opacity:1}100%{opacity:0;transform:translate(-50%,-56%) scale(1)}}
 /* conta logada, embaixo do titulo */
 .jogo-titulo{flex-wrap:wrap}
-.jogo-conta{flex-basis:100%;font-style:normal;font-size:11px;color:rgba(228,220,255,.6);margin-top:2px}
+.jogo-conta{flex-basis:100%;font-style:normal;font-size:12px;color:rgba(228,220,255,.7);margin-top:6px;display:inline-flex;align-items:center;gap:6px;
+  width:max-content;padding:4px 10px;border-radius:999px;background:rgba(12,10,22,.6);border:1px solid rgba(43,255,143,.35)}
 .jogo-conta b{color:#fff}
+.jogo-conta i{width:7px;height:7px;border-radius:50%;background:#2bff8f;box-shadow:0 0 8px #2bff8f}
+.jogo-conta i.off{background:#ff9f57;box-shadow:0 0 8px #ff9f57}
+/* aviso de entrada: quem esta logado */
+.jogo-bemvindo{position:absolute;left:50%;top:30%;transform:translate(-50%,-50%) scale(.94);display:flex;flex-direction:column;align-items:center;gap:4px;
+  padding:18px 34px;border-radius:16px;background:rgba(10,8,20,.72);border:1px solid rgba(43,255,143,.45);box-shadow:0 0 40px rgba(43,255,143,.15);
+  pointer-events:none;opacity:0;transition:opacity .45s,transform .45s;z-index:5;text-align:center}
+.jogo-bemvindo.on{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.jogo-bemvindo small{font-size:10px;letter-spacing:.3em;color:rgba(228,255,240,.6)}
+.jogo-bemvindo b{font-size:24px;letter-spacing:.04em;color:#fff;text-shadow:0 0 16px rgba(43,255,143,.7)}
+.jogo-bemvindo span{font-size:11px;color:rgba(228,220,255,.7)}
+.jogo-bemvindo.off{border-color:rgba(255,159,87,.45)}
+.jogo-bemvindo.off b{text-shadow:0 0 16px rgba(255,159,87,.6)}
 .jogo-titulo span::before{content:"● "}
 .jogo.toque .jogo-conta{display:none}
 .jogo-ajuda{top:92px}

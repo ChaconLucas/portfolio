@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Painel do jogo · admin</title>
+<link rel="icon" href="/favicon.svg">
+<style>
+  :root { --fundo: #07060d; --cartao: #110e1c; --borda: rgba(169,139,255,.22); --texto: #e9e2ff; --fraco: rgba(228,220,255,.55); --roxo: #a98bff; --verde: #2bff8f; --vermelho: #ff6b6b; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fundo); color: var(--texto); font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px 16px 64px; }
+  header { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+  h1 { margin: 0; font-size: 18px; letter-spacing: .2em; color: var(--roxo); }
+  h2 { font-size: 12px; letter-spacing: .24em; color: var(--fraco); margin: 32px 0 10px; font-weight: 700; }
+  a { color: var(--roxo); }
+  .quem { color: var(--fraco); font-size: 12px; }
+  .numeros { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+  .num { background: var(--cartao); border: 1px solid var(--borda); border-radius: 12px; padding: 14px 16px; }
+  .num small { display: block; font-size: 10px; letter-spacing: .2em; color: var(--fraco); }
+  .num b { font-size: 26px; }
+  .tabela { overflow-x: auto; background: var(--cartao); border: 1px solid var(--borda); border-radius: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 640px; }
+  th { text-align: left; font-size: 10px; letter-spacing: .16em; color: var(--fraco); padding: 10px 12px; border-bottom: 1px solid var(--borda); font-weight: 700; }
+  td { padding: 9px 12px; border-bottom: 1px solid rgba(255,255,255,.05); }
+  tr:last-child td { border-bottom: none; }
+  .on { color: var(--verde); } .pvp { color: var(--vermelho); } .vazio { color: var(--fraco); padding: 16px; }
+  .ponto { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--verde); box-shadow: 0 0 8px var(--verde); margin-right: 6px; }
+  .aviso { background: var(--cartao); border: 1px solid var(--borda); border-radius: 12px; padding: 24px; }
+  .erro { color: var(--vermelho); }
+  input[type=search] { width: 100%; max-width: 360px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--borda); background: var(--cartao); color: var(--texto); font: inherit; margin-bottom: 16px; }
+  button { font: inherit; color: var(--texto); background: rgba(255,255,255,.06); border: 1px solid var(--borda); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>PAINEL DO JOGO · ADMIN</h1>
+    <div class="quem"><span id="quem"></span> · <span id="atualizado"></span> · <button id="recarregar" type="button">atualizar</button> · <a href="/">voltar ao site</a></div>
+  </header>
+  <input type="search" id="busca" placeholder="buscar conta por usuário ou email" hidden>
+  <div id="conteudo"><div class="aviso">carregando…</div></div>
+</main>
+<script>
+  // Painel so para admin: a sessao e a do site (localStorage 'su-sessao', criada
+  // no terminal) e o servidor so responde se o email da conta estiver no
+  // segredo ADMINS. Nenhuma senha passa por aqui.
+  const SERVIDOR = new URLSearchParams(location.search).get('servidor') === 'local' ? 'http://127.0.0.1:8787' : 'https://stack-universe.chaconlucas.workers.dev';
+  const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const data = (ms) => ms ? new Date(ms).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+  const ha = (ms) => { if (!ms) return '—'; const s = (Date.now() - ms) / 1000; return s < 60 ? 'agora' : s < 3600 ? Math.round(s / 60) + ' min' : s < 86400 ? Math.round(s / 3600) + ' h' : Math.round(s / 86400) + ' d'; };
+  const sala = (s) => s === 'espaco' ? 'espaço' : String(s || '').replace(/^planeta-/, 'planeta ');
+  let sessao = null; try { sessao = JSON.parse(localStorage.getItem('su-sessao')); } catch (e) {}
+  const conteudo = document.getElementById('conteudo');
+  document.getElementById('quem').textContent = sessao ? 'logado como ' + sessao.usuario : 'sem login';
+  let filtro = '', ultimo = null;
+  const busca = document.getElementById('busca');
+  busca.addEventListener('input', () => { filtro = busca.value.toLowerCase(); if (ultimo) desenhar(ultimo); });
+  async function carregar() {
+    if (!sessao || !sessao.token) { conteudo.innerHTML = '<div class="aviso">faça login com a conta de admin no terminal do <a href="/">site</a> (digite <b>entrar</b>) e volte aqui.</div>'; return; }
+    let r;
+    try { r = await (await fetch(SERVIDOR + '/api/admin', { headers: { Authorization: 'Bearer ' + sessao.token } })).json(); }
+    catch (e) { conteudo.innerHTML = '<div class="aviso erro">sem conexão com o servidor</div>'; return; }
+    if (r.erro) { conteudo.innerHTML = `<div class="aviso erro">${esc(r.erro)} — esta área é só para a conta de admin.</div>`; return; }
+    document.getElementById('atualizado').textContent = 'atualizado ' + new Date().toLocaleTimeString('pt-BR');
+    ultimo = r; busca.hidden = false; desenhar(r);
+  }
+  function desenhar(r) {
+    const hoje = r.contas.filter((c) => Date.now() - (c.ultimo || 0) < 86400e3).length;
+    const contas = r.contas.filter((c) => !filtro || (c.nome + ' ' + c.email).toLowerCase().includes(filtro));
+    conteudo.innerHTML = `
+      <div class="numeros">
+        <div class="num"><small>CONTAS</small><b>${r.contas.length}</b></div>
+        <div class="num"><small>ONLINE AGORA</small><b class="on">${r.online.length}</b></div>
+        <div class="num"><small>ATIVOS EM 24 H</small><b>${hoje}</b></div>
+        <div class="num"><small>ABATES NO PvP</small><b class="pvp">${r.contas.reduce((s, c) => s + (c.abates || 0), 0)}</b></div>
+      </div>
+      <h2>ONLINE AGORA</h2>
+      <div class="tabela">${r.online.length ? `<table><thead><tr><th>jogador</th><th>onde</th><th>PvP</th><th>há</th></tr></thead><tbody>${r.online.map((o) => `<tr><td><span class="ponto"></span>${esc(o.usuario)}</td><td>${esc(sala(o.sala))}</td><td>${o.pvp ? '<span class="pvp">⚔ ligado</span>' : 'desligado'}</td><td>${ha(o.desde)}</td></tr>`).join('')}</tbody></table>` : '<div class="vazio">ninguém jogando agora</div>'}</div>
+      <h2>CONTAS (${r.contas.length}${filtro ? ` · ${contas.length} na busca` : ''})</h2>
+      <div class="tabela"><table><thead><tr><th>usuário</th><th>email</th><th>criada em</th><th>último acesso</th><th>logins</th><th>abates</th><th>mortes</th></tr></thead><tbody>
+        ${contas.map((c) => `<tr><td>${esc(c.nome)}</td><td>${esc(c.email)}</td><td>${data(c.criado)}</td><td>${ha(c.ultimo)}</td><td>${c.acessos || 0}</td><td>${c.abates || 0}</td><td>${c.mortes || 0}</td></tr>`).join('') || '<tr><td colspan="7" class="vazio">nenhuma conta</td></tr>'}
+      </tbody></table></div>`;
+  }
+  document.getElementById('recarregar').addEventListener('click', carregar);
+  carregar(); setInterval(carregar, 10000);
+</script>
+</body>
+</html>

@@ -19,7 +19,7 @@
  * sair desloga, pilotar abre o jogo. Clicar em "Pilotar" sem conta sobe ate
  * aqui e ja comeca o cadastro (evento 'pedir-conta').
  */
-import { sessao, registrar, entrar, sair } from '../conta.js';
+import { sessao, registrar, entrar, sair, souAdmin } from '../conta.js';
 
 // rampa curta: com a longa o rosto virava sopa de letras; esta le como ASCII classico
 const RAMPA = ' .:-=+*#%@';
@@ -327,6 +327,14 @@ export function montarAvatarAscii() {
         case 'sair': case 'logout':
           if (!sessao()) { escrever([['nenhuma conta logada', 'at-dim']]); break; }
           sair().then(() => escrever([['você saiu da conta', 'at-dim']]));
+          break;
+        case 'admin': case 'adm':
+          if (!sessao()) { escrever([['faça login primeiro: ' + cmd('entrar'), 'at-erro']]); break; }
+          escrever([['conferindo permissão…', 'at-dim']]);
+          souAdmin().then((ok) => {
+            if (!ok) { escrever([['acesso negado: esta conta não é admin', 'at-erro']]); return; }
+            escrever([['abrindo o painel de admin…', 'at-dim']]); window.open('/admin.html', '_blank', 'noopener');
+          });
           break;
         case 'pilotar': case 'jogar': case 'play':
           if (!sessao()) { escrever([['para pilotar, crie uma conta primeiro', 'at-erro']]); iniciarFluxo('registrar'); break; }

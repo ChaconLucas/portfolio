@@ -10,6 +10,9 @@ import { DurableObject } from 'cloudflare:workers';
  *    (SHA-256, 100 mil voltas) com um sal aleatorio por conta. A sessao e um
  *    token aleatorio que o site guarda no navegador.
  *    Rotas: POST /api/registrar, POST /api/entrar, GET /api/eu, POST /api/sair
+ *    e GET /api/admin (so para os emails do segredo ADMINS: contas, quem esta
+ *    online e onde, abates/mortes). O segredo e configurado com
+ *    `npx wrangler secret put ADMINS` (emails separados por virgula).
  *
  *  - Sala (PartyServer): uma por lugar ("espaco", "planeta-frontend"...). So
  *    entra quem tem sessao valida (o nome vem da conta). Repassa posicao e
@@ -46,6 +49,11 @@ export class Contas extends DurableObject {
     this.sql = ctx.storage.sql;
     this.sql.exec(`CREATE TABLE IF NOT EXISTS usuarios (usuario TEXT PRIMARY KEY, nome TEXT, email TEXT UNIQUE, hash TEXT, sal TEXT, criado INTEGER)`);
     this.sql.exec(`CREATE TABLE IF NOT EXISTS sessoes (token TEXT PRIMARY KEY, usuario TEXT, criado INTEGER)`);
+    // colunas novas (contas antigas ganham com valor padrao)
+    const cols = new Set(this.sql.exec('PRAGMA table_info(usuarios)').toArray().map((c) => c.name));
+    for (const [c, tipo] of [['ultimo', 'INTEGER DEFAULT 0'], ['acessos', 'INTEGER DEFAULT 0'], ['abates', 'INTEGER DEFAULT 0'], ['mortes', 'INTEGER DEFAULT 0']]) if (!cols.has(c)) this.sql.exec(`ALTER TABLE usuarios ADD COLUMN ${c} ${tipo}`);
+    // quem esta online agora (cada sala avisa quem entra e sai)
+    this.sql.exec(`CREATE TABLE IF NOT EXISTS online (id TEXT PRIMARY KEY, usuario TEXT, sala TEXT, pvp INTEGER DEFAULT 0, desde INTEGER)`);
     this.tentativas = new Map();   // ip -> { n, desde } (limite de tentativas)
   }
   limitar(ip) {
@@ -63,7 +71,7 @@ export class Contas extends DurableObject {
     if (this.sql.exec('SELECT 1 FROM usuarios WHERE usuario = ?', usuario).toArray().length) return { erro: 'esse usuário já existe' };
     if (this.sql.exec('SELECT 1 FROM usuarios WHERE email = ?', email).toArray().length) return { erro: 'esse email já tem conta — use entrar' };
     const sal = b64(crypto.getRandomValues(new Uint8Array(16)));
-    this.sql.exec('INSERT INTO usuarios VALUES (?, ?, ?, ?, ?, ?)', usuario, nome, email, await hashSenha(senha, sal), sal, Date.now());
+    this.sql.exec('INSERT INTO usuarios (usuario, nome, email, hash, sal, criado, ultimo, acessos) VALUES (?, ?, ?, ?, ?, ?, ?, 1)', usuario, nome, email, await hashSenha(senha, sal), sal, Date.now(), Date.now());
     const token = novoToken(); this.sql.exec('INSERT INTO sessoes VALUES (?, ?, ?)', token, usuario, Date.now());
     return { token, usuario: nome };
   }
@@ -75,12 +83,38 @@ export class Contas extends DurableObject {
     const h = await hashSenha(String(senha || ''), u ? u.sal : 'AAAAAAAAAAAAAAAAAAAAAA==');
     if (!u || !iguais(h, u.hash)) return { erro: 'usuário ou senha incorretos' };
     const token = novoToken(); this.sql.exec('INSERT INTO sessoes VALUES (?, ?, ?)', token, u.usuario, Date.now());
+    this.sql.exec('UPDATE usuarios SET ultimo = ?, acessos = acessos + 1 WHERE usuario = ?', Date.now(), u.usuario);
     return { token, usuario: u.nome };
   }
   validar(token) {
     if (!token) return null;
     const s = this.sql.exec('SELECT u.nome FROM sessoes s JOIN usuarios u ON u.usuario = s.usuario WHERE s.token = ?', String(token)).toArray()[0];
     return s ? s.nome : null;
+  }
+  /** dados da sessao com o email (para saber se e admin) */
+  quem(token) {
+    if (!token) return null;
+    return this.sql.exec('SELECT u.nome, u.email FROM sessoes s JOIN usuarios u ON u.usuario = s.usuario WHERE s.token = ?', String(token)).toArray()[0] || null;
+  }
+  // presenca: as salas avisam quem entra/sai e quem liga o PvP
+  presenca(id, nome, sala, on, pvp = false) {
+    if (on) this.sql.exec('INSERT OR REPLACE INTO online (id, usuario, sala, pvp, desde) VALUES (?, ?, ?, ?, ?)', id, nome, sala, pvp ? 1 : 0, Date.now());
+    else this.sql.exec('DELETE FROM online WHERE id = ?', id);
+    if (on) this.sql.exec('UPDATE usuarios SET ultimo = ? WHERE lower(nome) = lower(?)', Date.now(), nome);
+  }
+  abate(por, morto) {
+    this.sql.exec('UPDATE usuarios SET abates = abates + 1 WHERE lower(nome) = lower(?)', por);
+    this.sql.exec('UPDATE usuarios SET mortes = mortes + 1 WHERE lower(nome) = lower(?)', morto);
+  }
+  /** painel do admin: contas e quem esta online (sem senha/hash, claro) */
+  painel() {
+    // limpa presencas velhas (sala que caiu sem avisar): mais de 6 h
+    this.sql.exec('DELETE FROM online WHERE desde < ?', Date.now() - 6 * 3600e3);
+    return {
+      contas: this.sql.exec('SELECT nome, email, criado, ultimo, acessos, abates, mortes FROM usuarios ORDER BY criado DESC').toArray(),
+      online: this.sql.exec('SELECT usuario, sala, pvp, desde FROM online ORDER BY sala, usuario').toArray(),
+      sessoes: this.sql.exec('SELECT COUNT(*) AS n FROM sessoes').one().n
+    };
   }
   sair(token) { this.sql.exec('DELETE FROM sessoes WHERE token = ?', String(token || '')); return { ok: true }; }
 }
@@ -100,6 +134,7 @@ export class Sala extends Server {
     if (!nome) { conn.send(JSON.stringify({ t: 'erro', msg: 'faça login para jogar online' })); conn.close(4001, 'login'); return; }
     const j = { id: conn.id, nome, p: [0, 0, 0], r: 0, modo: 'espaco', arma: null, pvp: false, vida: 100, vivo: true, abates: 0, mortes: 0, ultTiro: 0 };
     this.jogadores.set(conn.id, j);
+    contas(this.env).presenca(conn.id, nome, this.name, true).catch(() => {});
     conn.send(JSON.stringify({ t: 'oi', id: conn.id, nome, jogadores: [...this.jogadores.values()].filter((x) => x.id !== conn.id).map(publico) }));
     this.broadcast(JSON.stringify({ t: 'entrou', ...publico(j) }), [conn.id]);
   }
@@ -115,6 +150,7 @@ export class Sala extends Server {
       this.broadcast(JSON.stringify({ t: 'tiro', id: j.id, o: m.o, d: m.d, arma: m.arma }), [conn.id]);
     } else if (m.t === 'pvp') {
       j.pvp = !!m.on; this.broadcast(JSON.stringify({ t: 'pvp', id: j.id, on: j.pvp }));
+      contas(this.env).presenca(j.id, j.nome, this.name, true, j.pvp).catch(() => {});
     } else if (m.t === 'acerto') {
       // o atirador diz quem acertou; o servidor confere tudo e aplica o dano
       const alvo = this.jogadores.get(String(m.alvo)), a = ARMAS[m.arma];
@@ -126,6 +162,7 @@ export class Sala extends Server {
       if (alvo.vida <= 0) {
         alvo.vivo = false; alvo.mortes++; j.abates++;
         this.broadcast(JSON.stringify({ t: 'morte', id: alvo.id, por: j.id, nome: alvo.nome, porNome: j.nome, arma: m.arma }));
+        contas(this.env).abate(j.nome, alvo.nome).catch(() => {});
         this.placar();
         setTimeout(() => { if (!this.jogadores.has(alvo.id)) return; alvo.vida = 100; alvo.vivo = true; this.broadcast(JSON.stringify({ t: 'renasceu', id: alvo.id })); }, 4000);
       }
@@ -136,12 +173,15 @@ export class Sala extends Server {
 
   onClose(conn) {
     if (!this.jogadores.delete(conn.id)) return;
+    contas(this.env).presenca(conn.id, '', this.name, false).catch(() => {});
     this.broadcast(JSON.stringify({ t: 'saiu', id: conn.id }));
   }
 }
 const publico = (j) => ({ id: j.id, nome: j.nome, p: j.p, r: j.r, modo: j.modo, arma: j.arma, pvp: j.pvp, vida: j.vida, abates: j.abates, mortes: j.mortes, esc: j.esc || 1 });
 
 /* --------------------------------------------------------------- rotas -- */
+// admins: emails no segredo ADMINS (nao fica no codigo)
+const ehAdmin = (env, email) => String(env.ADMINS || '').toLowerCase().split(',').map((x) => x.trim()).filter(Boolean).includes(String(email || '').toLowerCase());
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
@@ -153,7 +193,12 @@ export default {
       let r;
       if (url.pathname === '/api/registrar' && req.method === 'POST') r = await c.registrar(corpo.email, corpo.usuario, corpo.senha, ip);
       else if (url.pathname === '/api/entrar' && req.method === 'POST') r = await c.entrar(corpo.login, corpo.senha, ip);
-      else if (url.pathname === '/api/eu') { const nome = await c.validar(token); r = nome ? { usuario: nome } : { erro: 'sessão inválida' }; }
+      else if (url.pathname === '/api/eu') { const q = await c.quem(token); r = q ? { usuario: q.nome, admin: ehAdmin(env, q.email) } : { erro: 'sessão inválida' }; }
+      else if (url.pathname === '/api/admin') {
+        const q = await c.quem(token);
+        if (!q || !ehAdmin(env, q.email)) return json(req, { erro: 'acesso negado' }, 403);
+        r = await c.painel();
+      }
       else if (url.pathname === '/api/sair' && req.method === 'POST') r = await c.sair(token);
       else return json(req, { erro: 'rota não encontrada' }, 404);
       return json(req, r, r.erro ? 400 : 200);
