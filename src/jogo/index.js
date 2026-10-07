@@ -44,6 +44,12 @@ export async function abrirJogo() {
   if (window.__jogoAberto) return;
   window.__jogoAberto = true;
   document.documentElement.classList.add('jogo-aberto');
+  // o site embaixo para de animar enquanto o jogo esta aberto (antes ele
+  // continuava desenhando a nave em orbita, as estrelas, o cursor...: o PC
+  // fazia o trabalho duas vezes). Os quadros pedidos pelo site ficam
+  // guardados e voltam quando o jogo fecha; o jogo usa o rAF original.
+  const raf = window.requestAnimationFrame.bind(window), rafSite = window.requestAnimationFrame, guardados = [];
+  window.requestAnimationFrame = (cb) => { guardados.push(cb); return 0; };
   // celular/tablet: controles de toque (etapa 4). ?debugtoque forca no desktop
   const TOQUE = /debugtoque/.test(location.search) || (navigator.maxTouchPoints > 0 && matchMedia('(pointer:coarse)').matches);
 
@@ -131,6 +137,10 @@ export async function abrirJogo() {
       <span><kbd>E</kbd> entrar no prédio / embarcar</span><span><kbd>Mouse</kbd> câmera · rodinha = zoom</span>`
   };
   const ajuda = $('.jogo-ajuda'); ajuda.innerHTML = AJUDA.nave;
+  // ajuda das teclas: H esconde/mostra (lembra a escolha)
+  let ajudaOff = false; try { ajudaOff = localStorage.getItem('su-ajuda') === 'off'; } catch (e) { /* */ }
+  function alternarAjuda(v = !ajudaOff) { ajudaOff = v; raiz.classList.toggle('ajuda-off', v); try { localStorage.setItem('su-ajuda', v ? 'off' : 'on'); } catch (e) { /* */ } }
+  alternarAjuda(ajudaOff);
   // o clique em "Pilotar" ainda vale como gesto do usuario: trava o mouse ja
   let semTrava = false;
   // a trava e no documento inteiro: o botao "Pilotar" ja pediu no clique (Safari
@@ -145,8 +155,17 @@ export async function abrirJogo() {
   const som = criarSom();
   const pe = { pos: new THREE.Vector3(), rumo: 0, vel: new THREE.Vector3(), velY: 0, noChao: true, voando: false, rolando: 0 };
 
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, TOQUE ? 1.25 : 1.5));   // celular: menos pixels, mais quadros
+  // placa de video fraca (integrada antiga) ou sem aceleracao (o navegador
+  // desenhando no processador): comeca leve, sem antisserrilhado
+  const gpu = (() => { try { const g = document.createElement('canvas').getContext('webgl'), x = g && g.getExtension('WEBGL_debug_renderer_info'); return x ? String(g.getParameter(x.UNMASKED_RENDERER_WEBGL)) : ''; } catch (e) { return ''; } })();
+  const semAcel = /swiftshader|basic render|llvmpipe|software|microsoft basic/i.test(gpu);
+  const fraco = semAcel || /intel|mali|adreno \d{3}\b|powervr/i.test(gpu) && !/iris xe|arc/i.test(gpu) || (navigator.hardwareConcurrency || 8) <= 4 || /baixo/.test(location.search);
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: !fraco, powerPreference: 'high-performance' });
+  // resolucao automatica: comeca pelo que a maquina aguenta e ajusta pelo FPS
+  // (cai quando trava, sobe quando sobra) — PC bom fica com tudo no maximo
+  const prMax = Math.min(devicePixelRatio || 1, TOQUE ? 1.25 : 1.5), prMin = semAcel ? .4 : .55;
+  let pr = semAcel ? .5 : fraco ? Math.min(prMax, .8) : prMax;
+  renderer.setPixelRatio(pr);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   let cena = new THREE.Scene();          // troca na entrada/saida (a proxima cena e montada antes)
@@ -239,6 +258,7 @@ export async function abrirJogo() {
     if (/^Digit[1-4]$/.test(e.code) && !e.repeat) escolherArma(+e.code.slice(5) - 1, s.aPe);
     if (e.code === 'KeyN' && !e.repeat) alternarSom();
     if (e.code === 'KeyP' && !e.repeat) alternarPvp();
+    if (e.code === 'KeyH' && !e.repeat) alternarAjuda();
     // voz: T segurado fala para quem esta perto; Y segurado fala no radio (todos)
     if ((e.code === 'KeyT' || e.code === 'KeyY') && !e.repeat) falarVoz(e.code === 'KeyY' ? 'geral' : 'perto');
     if (e.code === 'KeyC' && !e.repeat && s.aPe && pe.noChao && !painelAberto) rolar();
@@ -298,8 +318,13 @@ export async function abrirJogo() {
     raiz.classList.toggle('mouse-preso', preso());
     if (!preso()) soltouEm = performance.now();
   };
-  // rodinha: para cima aproxima a camera, para baixo afasta
-  const aoRodar = (e) => { e.preventDefault(); zoom = Math.max(.6, Math.min(2.2, zoom * (1 - Math.sign(e.deltaY) * .1))); };
+  // rodinha: para cima aproxima a camera, para baixo afasta. Pinca no trackpad
+  // (chega como rodinha com ctrl): abrir os dedos aproxima, fechar afasta
+  const aoRodar = (e) => {
+    e.preventDefault();
+    const f = e.ctrlKey ? Math.exp(Math.max(-.25, Math.min(.25, e.deltaY * .01))) : 1 - Math.sign(e.deltaY) * .1;
+    zoom = Math.max(.6, Math.min(2.2, zoom * f));
+  };
   addEventListener('mousemove', aoMover);
   document.addEventListener('pointerlockchange', aoTravar);
   aoTravar();   // a trava pode ter vindo do clique em "Pilotar", antes do jogo existir
@@ -750,7 +775,8 @@ export async function abrirJogo() {
     linhas.push({ nome: (souAdm ? '👑 ' : '') + (sess?.usuario || 'você') + ' (você)', cor: sess ? minhaCor() : '', pvp: meuPvp, ...st(eu), eu: true });
     if (rede) for (const r of rede.remotos.values()) linhas.push({ nome: (r.admin ? '👑 ' : '') + r.nome, cor: corCss(r.matiz, r.admin), pvp: r.pvp, ...st(r.id) });
     linhas.sort((a, b) => b.abates - a.abates || a.mortes - b.mortes);
-    tabUI.querySelector('h4 span').textContent = rede ? `${linhas.length} na sala ${rede.sala}` : 'offline (sem conta)';
+    const total = voz ? voz.pares.size + 1 : linhas.length;
+    tabUI.querySelector('h4 span').textContent = rede ? `${total} jogando agora · ${linhas.length} aqui (${rede.sala === 'espaco' ? 'espaço' : rede.sala.replace(/^planeta-/, 'planeta ')})` : 'offline (sem conta)';
     tabUI.querySelector('tbody').innerHTML = linhas.map((x) => `<tr class="${x.eu ? 'eu' : ''}"><td><i class="cor-j" style="background:${x.cor || '#888'}"></i>${x.nome}</td><td>${x.pvp ? '<span class="pvp">⚔ ligado</span>' : '<span class="paz">desligado</span>'}</td><td>${x.abates}</td><td>${x.mortes}</td></tr>`).join('');
   }
 
@@ -1104,11 +1130,25 @@ export async function abrirJogo() {
   const _v = new THREE.Vector3(), _m = new THREE.Vector3();
   function quadro() {
     if (!rodando) return;
-    requestAnimationFrame(quadro);
-    const dt = Math.min(.05, relogio.getDelta());
+    raf(quadro);
+    const dtReal = relogio.getDelta(), dt = Math.min(.05, dtReal);
+    ajustarResolucao(dtReal);
     // pausado (mouse solto, menu na tela): o jogo para; so redesenha
-    if (pausado()) { renderer.render(cena, camera); return; }
+    if (pausado()) { if ((pausaN = (pausaN + 1) % 6) === 0) renderer.render(cena, camera); return; }   // pausado: ~10 quadros/s bastam
     passo(roda.aberta ? dt * .25 : dt);
+  }
+
+  // mede o FPS por ~1,5 s e ajusta a resolucao (no maximo um degrau por vez)
+  let fpsT = 0, fpsN = 0, fpsEspera = 2, pausaN = 0;
+  function ajustarResolucao(dtReal) {
+    if (pausado() || dtReal > .5) return;   // aba escondida / pausa nao contam
+    fpsT += dtReal; fpsN++; if (fpsT < 1.5) return;
+    const fps = fpsN / fpsT; fpsT = 0; fpsN = 0;
+    if (fpsEspera > 0) { fpsEspera--; return; }   // os primeiros segundos compilam shaders
+    let novo = pr;
+    if (fps < 40) novo = Math.max(prMin, pr * (fps < 25 ? .75 : .87));
+    else if (fps > 57 && pr < prMax) novo = Math.min(prMax, pr * 1.08);
+    if (Math.abs(novo - pr) > .01) { pr = novo; renderer.setPixelRatio(pr); medir(); medirPos(); fpsEspera = 1; }
   }
 
   function voarNave(dt, c, naSuperficie) {
@@ -1380,13 +1420,11 @@ export async function abrirJogo() {
     raiz.classList.toggle('a-pe', !!s.aPe);
     if (rede) {
       rede.estado({ p: s.aPe ? pe.pos : s.pos, r: s.aPe ? pe.rumo : s.rumo, modo: cinema || morto ? 'cinema' : s.aPe ? 'pe' : 'nave', arma: s.aPe ? ARMAS[armaIdx].id : NAVE_ARMAS[navArmaIdx].id, esc: s.aPe ? 1 : +nave.raiz.scale.x.toFixed(2) });
-      rede.atualizar(dt, cena);
+      rede.atualizar(dt, cena, s.aPe ? pe.pos : s.pos);
       if (voz) {
         voz.atualizar(volumeVoz);
         vozT -= dt; if (vozSuja || vozT <= 0) { vozSuja = false; vozT = .3; desenharVoz(); }
       }
-      const n = rede.remotos.size + 1;
-      onlineUI.innerHTML = `<i></i>${n} ${n === 1 ? 'jogador' : 'jogadores'} aqui`;
     }
     raiz.classList.toggle('voando', !!(s.aPe && pe.voando));
     if (mapaAberto) desenharMapaAgora();
@@ -1698,12 +1736,25 @@ export async function abrirJogo() {
       if (s.aPe) { c.fillStyle = '#fff'; c.beginPath(); c.arc(s.pos.x * esc, s.pos.z * esc, 7, 0, Math.PI * 2); c.fill(); }
       c.translate(Math.max(-140, Math.min(140, quem.x * esc)), Math.max(-140, Math.min(140, quem.z * esc)));
     }
+    // outros jogadores: ponto na cor de cada um (na borda, se estiver longe)
+    if (rede && (mundo.planetas || mundo.predios)) {
+      const esc = mundo.planetas ? 140 / LIMITE_ESPACO : 140 / 1700;
+      c.save();   // a origem ja esta em mim
+      for (const r of rede.remotos.values()) {
+        if (!r.obj || !r.vivo) continue;
+        let x = (r.pos.x - quem.x) * esc, z = (r.pos.z - quem.z) * esc; const d = Math.hypot(x, z);
+        if (d > 136) { x *= 136 / d; z *= 136 / d; }
+        c.fillStyle = corCss(r.matiz, r.admin); c.strokeStyle = '#000'; c.lineWidth = 2;
+        c.beginPath(); c.arc(x, z, 7, 0, Math.PI * 2); c.stroke(); c.fill();
+      }
+      c.restore();
+    }
     c.rotate(-rumo + Math.PI);
     c.fillStyle = '#2bff8f'; c.beginPath(); c.moveTo(0, -9); c.lineTo(6, 7); c.lineTo(-6, 7); c.closePath(); c.fill();
     c.restore();
   }
 
-  requestAnimationFrame(quadro);
+  raf(quadro);
   // modo de teste (?debugjogo): avanca a simulacao sem depender do rAF
   if (/debugjogo/.test(location.search)) { semTrava = true; raiz.classList.add('sem-trava'); }   // teste: sem convite de clique
   if (/debugjogo/.test(location.search)) window.__jogo = { s, pe, tecla, mouse: (x, y) => { mdx += x; mdy += y; }, passo: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) passo(dt); }, interagir, get alvo() { return alvoPerto; }, get mundo() { return mundo; }, get predioPerto() { return predioPerto; }, get mapaInfo() { return mapaInfo; }, get destino() { return destino; }, get tiros() { return tiros; }, camera, get nave() { return nave; }, get voz() { return voz; }, get rede() { return rede; } };
@@ -1724,5 +1775,6 @@ export async function abrirJogo() {
     raiz.remove();
     document.documentElement.classList.remove('jogo-aberto');
     window.__jogoAberto = false;
+    window.requestAnimationFrame = rafSite; guardados.splice(0).forEach((cb) => rafSite(cb));
   }
 }

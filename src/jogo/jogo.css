@@ -424,3 +424,11 @@ html.cursor-proprio .jogo .jogo-pvp{cursor:pointer!important}
 .jogo-voz div.eu{border-color:rgba(43,255,143,.6);color:#2bff8f}
 .jogo-voz div.eu.geral{border-color:rgba(79,210,255,.7);color:#4fd2ff}
 .jogo.toque .jogo-voz{bottom:auto;top:110px}
+
+/* quantos jogam fica so no TAB; a ajuda das teclas esconde com H */
+.jogo-online{display:none!important}
+.jogo.ajuda-off .jogo-ajuda span{display:none}
+.jogo.ajuda-off .jogo-ajuda::after{content:"H · mostrar teclas";font-size:10px;padding:3px 8px;border-radius:999px;border:1px solid rgba(169,139,255,.3);color:rgba(228,220,255,.5)}
+.jogo:not(.ajuda-off) .jogo-ajuda::after{content:"H · esconder";font-size:10px;color:rgba(228,220,255,.35)}
+/* com o jogo aberto, a pagina embaixo nem e composta (economiza GPU) */
+html.jogo-aberto body > *:not(.jogo){visibility:hidden}

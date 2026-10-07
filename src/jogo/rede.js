@@ -87,7 +87,8 @@ export function criarRede({ token, host, modeloNave, aoEvento }) {
     // nome em cima
     const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64;
     const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false, fog: false }));
+    // tamanho fixo na tela (sizeAttenuation false): da para achar o jogador de longe
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false, fog: false, sizeAttenuation: false }));
     sp.renderOrder = 20; g.add(sp);
     r.obj = g; r.tipo = tipo; r.rotulo = { cv, tex, sp }; r.rotuloSujo = true;
   }
@@ -105,6 +106,8 @@ export function criarRede({ token, host, modeloNave, aoEvento }) {
     const txt = (r.pvp ? '⚔ ' : '') + (r.admin ? '👑 ' : '') + r.nome;
     c.lineWidth = 5; c.strokeStyle = 'rgba(0,0,0,.75)'; c.strokeText(txt, 128, 22);
     c.fillStyle = r.pvp ? '#ff6b6b' : corCss(r.matiz, r.admin); c.fillText(txt, 128, 22);
+    // distancia (some quando esta perto); com PvP a barra de vida fica no lugar
+    if (!r.pvp && r.distTxt) { c.font = '700 18px ui-monospace, Menlo, monospace'; c.lineWidth = 4; c.strokeText(r.distTxt, 128, 50); c.fillStyle = 'rgba(228,220,255,.85)'; c.fillText(r.distTxt, 128, 50); }
     if (r.pvp) { c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(48, 44, 160, 10); c.fillStyle = r.vida > 35 ? '#2bff8f' : '#ff5f57'; c.fillRect(48, 44, 160 * Math.max(0, r.vida) / 100, 10); }
     tex.needsUpdate = true; r.rotuloSujo = false;
   }
@@ -137,7 +140,7 @@ export function criarRede({ token, host, modeloNave, aoEvento }) {
       }
       return null;
     },
-    atualizar(dt, cena) {
+    atualizar(dt, cena, eu) {
       for (const r of remotos.values()) {
         const tipo = r.modo === 'cinema' ? null : r.modo === 'pe' ? 'pe' : 'nave';
         if (tipo !== r.tipo) { if (tipo) criarVisual(r, tipo); else removerVisual(r); }
@@ -157,8 +160,10 @@ export function criarRede({ token, host, modeloNave, aoEvento }) {
           r.mixer.update(dt);
         }
         // rotulo acima (a pe: da cabeca; nave: um pouco acima)
-        const sp = r.rotulo.sp; sp.position.set(0, r.tipo === 'pe' ? 2.35 : 2.2 * 1, 0);
-        const esc = r.tipo === 'nave' ? 1 / r.esc : 1; sp.scale.set(2.6 * esc * (r.tipo === 'nave' ? 3 : 1), .65 * esc * (r.tipo === 'nave' ? 3 : 1), 1);
+        const sp = r.rotulo.sp; sp.position.set(0, r.tipo === 'pe' ? 2.35 : 2.2, 0);
+        sp.scale.set(.22, .055, 1);   // fracao da altura da tela (sizeAttenuation false)
+        // distancia ate mim no rotulo (redesenha so quando o texto muda)
+        if (eu) { const d = r.pos.distanceTo(eu), txt = d < 25 ? '' : d < 1000 ? Math.round(d / 5) * 5 + ' m' : (d / 1000).toFixed(1) + ' km'; if (txt !== r.distTxt) { r.distTxt = txt; r.rotuloSujo = true; } }
         if (r.rotuloSujo) desenharRotulo(r);
       }
     },

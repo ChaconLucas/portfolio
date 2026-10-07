@@ -184,9 +184,10 @@ export class Sala extends Server {
     this.broadcast(JSON.stringify({ t: 'entrou', ...publico(j) }), [conn.id]);
   }
 
-  /* sala "voz": uma so para todo mundo. O servidor so apresenta os jogadores
-     (WebRTC: oferta, resposta, candidatos) e avisa quem esta falando; o audio
-     vai direto de navegador para navegador. */
+  /* sala "voz": uma so para todo mundo. Avisa quem entra, sai e esta falando
+     e repassa o audio (pedacinhos comprimidos) de quem fala para os outros.
+     Passar pelo servidor (em vez de direto entre navegadores) funciona em
+     qualquer rede, inclusive operadora com CGNAT. */
   voz = new Map();   // id -> { nome, admin }
   vozEntrou(conn, eu) {
     const v = { id: conn.id, nome: eu.nome, admin: ehAdmin(this.env, eu.email) };
@@ -197,8 +198,13 @@ export class Sala extends Server {
   vozMensagem(conn, msg) {
     if (!this.voz.has(conn.id) || msg.length > 16000) return;
     let m; try { m = JSON.parse(msg); } catch { return; }
-    if (m.t === 'rtc') { const c = this.getConnection(String(m.para)); if (c && this.voz.has(c.id)) c.send(JSON.stringify({ t: 'rtc', de: conn.id, d: m.d })); }
-    else if (m.t === 'falando') this.broadcast(JSON.stringify({ t: 'falando', id: conn.id, modo: m.modo === 'geral' || m.modo === 'perto' ? m.modo : null }), [conn.id]);
+    if (m.t === 'a') {
+      // pedaco de audio (u-law 16 kHz em base64) de quem esta falando: repassa a todos
+      const v = this.voz.get(conn.id), agora = Date.now();
+      if (agora - (v.janela || 0) > 1000) { v.janela = agora; v.n = 0; }
+      if (++v.n > 40 || typeof m.d !== 'string' || m.d.length > 6000) return;   // limite: ~40 pedacos por segundo
+      this.broadcast(JSON.stringify({ t: 'a', id: conn.id, d: m.d }), [conn.id]);
+    } else if (m.t === 'falando') this.broadcast(JSON.stringify({ t: 'falando', id: conn.id, modo: m.modo === 'geral' || m.modo === 'perto' ? m.modo : null }), [conn.id]);
   }
 
   onMessage(conn, msg) {

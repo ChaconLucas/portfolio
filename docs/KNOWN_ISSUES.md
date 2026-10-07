@@ -798,3 +798,25 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - no painel: histórico de cada conta (tabela `historico`: conta criada, login, senha errada, entrou ou saiu de cada lugar com o tempo, PvP, abates, ban), últimos eventos, **banir** (com motivo) ou **desbanir**, e **excluir** (confirmando o nome);
   - banir e excluir derrubam a pessoa das salas e da voz na hora (`getServerByName(...).expulsar`, código 4003);
   - um admin não pode ser banido nem excluído.
+
+## Jogo: achar os outros jogadores, total online e pinça (07/10/2026)
+- **Ninguém se achava:** o universo é enorme e a nave tem 3 m. Já a poucas centenas de metros o outro jogador e o nome dele sumiam.
+  - O nome agora tem tamanho fixo na tela (`sizeAttenuation: false`) e mostra a distância (ex.: "1.1 km"). Aparece atrás de planetas também.
+  - O radar mostra cada jogador como um ponto na cor dele (na borda, se estiver longe).
+  - Só se veem jogadores no mesmo lugar: espaço ou o mesmo planeta (cada lugar é uma sala).
+- **Contador:** mostra quantos estão jogando no total ("N jogando agora"), contando a sala de voz, onde todo mundo logado entra. Antes contava só quem estava no mesmo lugar.
+- **Pinça no trackpad** (chega como rodinha com ctrl): abrir os dedos aproxima e fechar afasta, proporcional ao gesto. Estava invertida.
+
+## Voz pelo servidor, placar com o total, ajuda escondível e jogo bem mais leve (07/10/2026)
+- **Voz não chegava** entre redes diferentes: o WebRTC direto, sem servidor TURN, falha com CGNAT (comum em operadora no Brasil).
+  - Agora o áudio passa pela sala `voz` do servidor: pedaços de ~64 ms do microfone, reamostrados para 16 kHz e comprimidos em u-law, ~16 KB/s só enquanto fala.
+  - O servidor repassa no máximo ~40 pedaços por segundo por pessoa.
+  - Quem ouve agenda os pedaços numa fila com ~150 ms de folga. O volume (perto ou rádio) é um GainNode por jogador.
+  - O áudio do navegador é liberado no primeiro clique ou tecla.
+- **Quantos estão jogando:** fica só no **TAB** ("N jogando agora · M aqui (lugar)"); saiu o selo do topo.
+- **Ajuda das teclas:** **H** esconde e mostra, e a escolha fica salva.
+- **Leveza:**
+  - com o jogo aberto, o site embaixo para de animar (os `requestAnimationFrame` do site ficam guardados e voltam ao fechar) e nem é composto (`visibility: hidden`). Antes o PC desenhava o site e o jogo ao mesmo tempo;
+  - **resolução automática** pelo FPS, medido a cada 1,5 s: abaixo de 40 FPS cai, acima de 57 sobe até o máximo (1,5x);
+  - **placa fraca** (Intel antiga, Mali, PowerVR, 4 núcleos ou menos) ou **sem aceleração** (SwiftShader, Microsoft Basic Render, llvmpipe) começa sem antisserrilhado e com resolução baixa. Para forçar esse modo: `?baixo`;
+  - pausado, redesenha a ~10 quadros/s.
