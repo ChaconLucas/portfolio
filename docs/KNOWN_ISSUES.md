@@ -820,3 +820,21 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - **resolução automática** pelo FPS, medido a cada 1,5 s: abaixo de 40 FPS cai, acima de 57 sobe até o máximo (1,5x);
   - **placa fraca** (Intel antiga, Mali, PowerVR, 4 núcleos ou menos) ou **sem aceleração** (SwiftShader, Microsoft Basic Render, llvmpipe) começa sem antisserrilhado e com resolução baixa. Para forçar esse modo: `?baixo`;
   - pausado, redesenha a ~10 quadros/s.
+
+## Site inteiro: qualidade automática (07/10/2026)
+- **Medição** (Mac rápido, ms de CPU por segundo e desenhos por quadro):
+
+  | Parte | CPU | Desenhos por quadro |
+  |---|---|---|
+  | Stack Universe | ~150 ms/s | ~58 |
+  | GateCheck (Projetos) | ~187 ms/s | ~313, com sombras suaves a cada quadro e até 2x de resolução com antisserrilhado |
+  | Flash | ~45 ms/s | ~47 |
+
+  As animações fora da tela já paravam (no Contato só o buraco negro desenha).
+- **`src/effects/qualidade.js`:** mede o FPS da página em janelas de 2 s.
+  - **Só se cair abaixo de 40** reduz a resolução das cenas 3D (Stack Universe, GateCheck, Flash, WSL e buraco negro), em degraus de 13% (25% abaixo de 25 FPS), até no mínimo metade.
+  - Volta a subir depois de 3 janelas acima de 56 FPS, até o máximo original.
+  - Em PC bom o fator fica em 1 e nada muda.
+  - Pausa com a aba escondida ou com o jogo aberto.
+  - O Stack Universe (criado no `index.html`) entra pela fila `window.__qualidadeFila`.
+- **Testado** com um PC lento simulado (35 ms de CPU por quadro): a resolução caiu de 1044 para 689 px e voltou a 1044 em ~35 s depois de tirar a carga.

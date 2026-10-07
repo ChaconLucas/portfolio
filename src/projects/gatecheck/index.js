@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { registrarRenderer } from '../../effects/qualidade.js';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { criarEstacao, TOPO_TECLAS, TOPO_MOUSE, ALTURA_MESA as ALTURA_TAMPO } from './workstation.js';
@@ -68,6 +69,7 @@ export function montarCenaGatecheck(container, opcoes = {}) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
   const tetoDPR = ehMobile() ? 1.5 : 2;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, tetoDPR));
+  registrarRenderer(renderer);   // so baixa a resolucao se o PC nao aguentar
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 0.96;

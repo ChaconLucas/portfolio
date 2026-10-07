@@ -6437,6 +6437,7 @@ if(mount){
  camera.lookAt(0,0,0);
  const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true,powerPreference:'high-performance'});
  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.5));
+ (window.__qualidadeFila=window.__qualidadeFila||[]).push(renderer);   // qualidade automatica (src/effects/qualidade.js)
  renderer.outputColorSpace=THREE.SRGBColorSpace;
  renderer.toneMapping=THREE.ACESFilmicToneMapping;
  renderer.toneMappingExposure=1.24;

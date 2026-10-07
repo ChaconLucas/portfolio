@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { registrarRenderer } from '../../effects/qualidade.js';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { criarIphone, TELA as TELA_IPHONE } from './iphone.js';
@@ -64,6 +65,7 @@ export function montarCenaFlash(container, opcoes = {}) {
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, ehMobile() ? 1.5 : 2));
+  registrarRenderer(renderer);   // so baixa a resolucao se o PC nao aguentar
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 0.96;

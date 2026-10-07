@@ -1,3 +1,4 @@
+import { registrar, fatorAtual } from './qualidade.js';
 /**
  * Buraco negro do Contato: o fim da viagem que comeca no universo.
  *
@@ -207,7 +208,7 @@ export function montarBuracoNegro(secao) {
     const celular = innerWidth <= 900;
     // No celular resolucao menor: o disco e macio. Abaixo de ~.85 a borda da
     // sombra comeca a serrilhar (visto em 375px).
-    dpr = Math.min(devicePixelRatio || 1, 1.5) * (celular ? .85 : 1);
+    dpr = Math.min(devicePixelRatio || 1, 1.5) * (celular ? .85 : 1) * fatorAtual();
     W = Math.round(r.width * dpr); H = Math.round(r.height * dpr);
     canvas.width = W; canvas.height = H;
     gl.viewport(0, 0, W, H);
@@ -277,6 +278,7 @@ export function montarBuracoNegro(secao) {
   addEventListener('pointermove', aoMover, { passive: true });
   addEventListener('scroll', aoRolar, { passive: true });
   addEventListener('resize', aoRedimensionar, { passive: true });
+  registrar(() => aoRedimensionar());   // qualidade automatica mudou: refaz o tamanho
   // a secao muda de altura sem a janela mudar (o rodape entra depois, fontes
   // carregam): sem isto o canvas ficava esticado
   const ro = new ResizeObserver(aoRedimensionar);

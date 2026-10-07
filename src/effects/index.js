@@ -1,4 +1,5 @@
 import './efeitos.css';
+import './qualidade.js';   // resolucao automatica das cenas 3D (so baixa se o PC nao aguentar)
 
 /* Site aberto antes de uma publicacao nova: os arquivos antigos (com hash no
    nome) somem da Vercel e o import do jogo/efeitos da 404 — "Pilotar" travava.
