@@ -748,3 +748,14 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - HUD: contador de jogadores, feed (entrou, saiu, abates), vida quando o PvP está ligado, tela de "você foi abatido" e placar no **TAB** (segurar).
   - As armas agora são **1–4** e a roda abre no **I**; a caixa da arma mostra os slots.
 - **Testar sem mexer na produção:** `npx wrangler dev --port 8787` e abrir o site com `?servidor=local`. Os dados locais ficam em `.wrangler/`, que está no `.gitignore`.
+
+## Jogo: aviso de troca de arma, caixa da arma, conta no HUD, lados e ré (07/10/2026)
+- **Troca de arma (1–4 ou roda):** aparece no meio da tela por ~1,3 s a silhueta da arma (`desenharSilhueta`, exportada de `roda.js`), na cor dela, com nome e descrição.
+- **Caixa da arma, redesenhada:** nome numa linha em cima (borda na cor da arma), 3D no meio (lasers e plasma agora saem das asas da própria nave) e os 4 slots com número e silhueta, com o atual aceso.
+- **Conta:** o usuário logado fica embaixo do título (👤). Ao abrir o jogo aparece "logado como …" ou "sem conta, jogando offline".
+- **Nave de lado e de ré:**
+  - A/D eram 34 m/s² com um freio lateral forte, então a nave parava em ~14 m/s. Agora são 150 m/s² no espaço (38 na superfície), sem freio lateral enquanto a tecla está apertada, com teto de 220 m/s (45 na superfície);
+  - S freia e, parada, dá ré (teto de 160 m/s no espaço, 30 na superfície).
+- **A pé de lado e de costas:**
+  - a cadência agora vem da passada de cada clipe (andar ~1,5 m/s e correr ~5,2 m/s na velocidade natural). De lado e de costas usam clipes de corrida, que antes rodavam no ritmo do andar e pareciam "travados";
+  - velocidades por direção: frente 3,4, lado 3,0 e costas 2,5 m/s (com Shift: 6,8 / 5,6 / 4,6).

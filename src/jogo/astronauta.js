@@ -163,7 +163,18 @@ export async function criarAstronauta(cena) {
       const k = 1 - Math.exp(-dt * 7);
       for (const n of LOOP) { if (!acao[n]) continue; peso[n] += (alvo[n] - peso[n]) * k; acao[n].setEffectiveWeight(peso[n] * (1 - g)); }
       // fase comum dos ciclos: andar ~1 passo duplo/s a 1,6 m/s; correr mais rapido
-      if (noChao) fase = (fase + dt * (v < 2.6 ? .55 + v * .3 : .9 + v * .1)) % 1;
+      // ritmo do passo pela PASSADA de cada animacao (metros por ciclo): andar
+      // ~1,5 m/s e correr ~5,2 m/s na velocidade natural do clipe. De lado e de
+      // costas usam clipes de corrida, entao a passada de corrida vale para eles
+      if (noChao && v > .05) {
+        const dW = acao.Walk ? acao.Walk.getClip().duration : 1, dR = acao.Run ? acao.Run.getClip().duration : .7;
+        const passadaW = 1.5 * dW, passadaR = 5.2 * dR;
+        const naoFrente = v > 0 ? (Math.max(0, -frente) + Math.abs(lado)) / (Math.abs(frente) + Math.abs(lado) + 1e-6) : 0;
+        const kCorre = Math.max(naoFrente, Math.min(1, Math.max(0, (v - 2.6) / 2.8)));
+        // devagar demais com passada de corrida fica "arrastado": encurta a passada
+        const passada = (passadaW + (passadaR - passadaW) * kCorre) * (.55 + .45 * Math.min(1, v / 4));
+        fase = (fase + dt * v / passada) % 1;
+      }
       for (const n of CICLO) if (acao[n]) acao[n].time = fase * acao[n].getClip().duration;
       mixer.update(dt);
       // no ar: inclina para onde voa (suave) e balanca de leve

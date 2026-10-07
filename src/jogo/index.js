@@ -9,7 +9,7 @@ import { criarTiros } from './tiros.js';
 import { desenharMapa } from './mapa.js';
 import { criarInterior, RAIO_SALA } from './interior.js';
 import { emblema } from './predios.js';
-import { criarRoda } from './roda.js';
+import { criarRoda, desenharSilhueta } from './roda.js';
 import { criarRede } from './rede.js';
 import { sessao, HOST_SALAS } from '../conta.js';
 
@@ -56,7 +56,7 @@ export async function abrirJogo() {
     <div class="jogo-dobra"></div>
     <div class="jogo-nuvens"><i></i><i></i><i></i><i></i></div>
     <div class="jogo-topo">
-      <div class="jogo-titulo"><b>STACK UNIVERSE</b><span>pilotando</span></div>
+      <div class="jogo-titulo"><b>STACK UNIVERSE</b><span>pilotando</span><em class="jogo-conta"></em></div>
       <div class="jogo-botoes-topo"><button class="jogo-pvp" type="button" title="PvP (P)">⚔ PvP</button><button class="jogo-mapa-bt" type="button" title="mapa (M)">🗺</button><button class="jogo-som" type="button" title="som (N)">🔊</button><button class="jogo-sair" type="button">ESC · SAIR</button></div>
     </div>
     <div class="jogo-ajuda"></div>
@@ -71,7 +71,8 @@ export async function abrirJogo() {
     <div class="jogo-comb"><small>JETPACK</small><i><em></em></i></div>
     <canvas class="jogo-mapa"></canvas>
     <div class="jogo-destino"><i></i><b></b><span></span></div>
-    <div class="jogo-arma"><i></i><b></b><span>1–4 trocam · I armas</span><div class="ja-3d"></div><div class="ja-slots"></div></div>
+    <div class="jogo-arma"><i></i><header><b></b></header><div class="ja-3d"></div><div class="ja-slots"></div></div>
+    <div class="jogo-troca"><canvas width="360" height="140"></canvas><b></b><span></span></div>
     <div class="jogo-inventario"><h4>INVENTÁRIO · <span>TAB fecha · 1–4 ou clique</span></h4><div class="ji-slots"></div></div>
     <canvas class="jogo-roda"></canvas>
     <div class="jogo-online"></div>
@@ -567,11 +568,25 @@ export async function abrirJogo() {
     slots.innerHTML = lista.map((a, i) => `<button type="button" data-i="${i}" class="${i === atual ? 'on' : ''}"><kbd>${i + 1}</kbd><i>${a.icone}</i><b>${a.nome}</b><span>${a.desc}</span></button>`).join('');
   }
   slots.addEventListener('click', (e) => { const b = e.target.closest('[data-i]'); if (b) { escolherArma(+b.dataset.i, !!s?.aPe); alternarInventario(false); } });
+  const hexCor = (x) => '#' + (x.cor || 0xc9bfe6).toString(16).padStart(6, '0');
   function mostrarArmaAtual() {
     const lista = s?.aPe ? ARMAS : NAVE_ARMAS, atual = s?.aPe ? armaIdx : navArmaIdx, a = lista[atual];
-    armaUI.children[0].textContent = a.icone; armaUI.children[1].textContent = a.nome;
-    // os 4 slots (1–4) com o atual aceso
-    $('.ja-slots').innerHTML = lista.map((x, i) => `<i class="${i === atual ? 'on' : ''}" style="--c:#${(x.cor || 0x9a8fb5).toString(16).padStart(6, '0')}"><b>${i + 1}</b></i>`).join('');
+    armaUI.querySelector('header b').textContent = a.nome;
+    armaUI.style.setProperty('--c', hexCor(a));
+    // os 4 slots (1–4): numero e o desenho de cada arma; o atual aceso
+    const sl = $('.ja-slots');
+    sl.innerHTML = lista.map((x, i) => `<i class="${i === atual ? 'on' : ''}" style="--c:${hexCor(x)}"><b>${i + 1}</b><canvas width="64" height="32"></canvas></i>`).join('');
+    sl.querySelectorAll('canvas').forEach((cv, i) => desenharSilhueta(cv.getContext('2d'), lista[i].id, 32, 16, 15, i === atual ? '#fff' : 'rgba(228,220,255,.85)', hexCor(lista[i])));
+  }
+  // aviso rapido no meio da tela ao trocar de arma (desenho, numero e nome)
+  const trocaUI = $('.jogo-troca'); let trocaT = 0;
+  function avisarTroca(lista, i) {
+    const a = lista[i], cv = trocaUI.querySelector('canvas'), c = cv.getContext('2d');
+    c.clearRect(0, 0, 360, 140); desenharSilhueta(c, a.id, 180, 70, 64, '#fff', hexCor(a));
+    trocaUI.querySelector('b').textContent = a.nome; trocaUI.querySelector('span').textContent = `${i + 1} · ${a.desc}`;
+    trocaUI.style.setProperty('--c', hexCor(a));
+    trocaUI.classList.remove('on'); void trocaUI.offsetWidth; trocaUI.classList.add('on');
+    clearTimeout(trocaT); trocaT = setTimeout(() => trocaUI.classList.remove('on'), 1300);
   }
   function escolherArma(i, aPe = true) {
     if (aPe) {
@@ -579,6 +594,7 @@ export async function abrirJogo() {
       astro?.arma(ARMAS[armaIdx].id); raiz.classList.toggle('armado', !!ARMAS[armaIdx].id);
     } else navArmaIdx = Math.max(0, Math.min(NAVE_ARMAS.length - 1, i));
     invAPe = null; montarInventario(); mostrarArmaAtual();
+    avisarTroca(aPe ? ARMAS : NAVE_ARMAS, aPe ? armaIdx : navArmaIdx);
     som.bip(760, .06);
   }
   montarInventario(); mostrarArmaAtual();
@@ -678,6 +694,9 @@ export async function abrirJogo() {
   let meuPvp = false, minhaVida = 100, morto = false;
   const onlineUI = $('.jogo-online'), feedUI = $('.jogo-feed'), vidaUI = $('.jogo-vida'), placarUI = $('.jogo-placar'), morteUI = $('.jogo-morte'), danoUI = $('.jogo-dano');
   if (!sessao()) onlineUI.innerHTML = '<i class="off"></i>offline · crie uma conta no terminal do site para jogar online';
+  // quem esta logado: fixo embaixo do titulo e um aviso ao abrir
+  $('.jogo-conta').innerHTML = sessao() ? `👤 <b>${sessao().usuario}</b>` : '👤 <b>sem conta</b> (offline)';
+  setTimeout(() => mostrarConquista(sessao() ? `<b>👤 logado como ${sessao().usuario}</b><span>online · aperte P para ligar o PvP</span>` : '<b>👤 sem conta — jogando offline</b><span>crie uma no terminal do site (criar-conta) para jogar online</span>'), 900);
   $('.jogo-pvp').addEventListener('click', () => alternarPvp());
   function alternarPvp(v = !meuPvp) {
     if (!rede) { mostrarConquista('<b>PvP precisa de conta</b><span>crie no terminal do site (criar-conta)</span>'); return; }
@@ -1029,17 +1048,23 @@ export async function abrirJogo() {
     const cm = Math.cos(s.mira);
     FRENTE.set(Math.sin(s.rumo) * cm, Math.sin(s.mira), Math.cos(s.rumo) * cm);
     const emDobra = !naSuperficie && s.dobra > .05;
-    s.vel.addScaledVector(FRENTE, (acelera * (emDobra ? 2300 * s.dobra + 280 : turbo ? 95 : naSuperficie ? 42 : 280) - freia * (emDobra ? 600 : 100)) * dt);
-    s.vel.x += Math.cos(s.alvoRumo) * lado * 34 * dt; s.vel.z -= Math.sin(s.alvoRumo) * lado * 34 * dt;   // lados da visao
+    // S freia e, parado, da re; A/D sao propulsores laterais de verdade (com embalo)
+    const re = naSuperficie ? 30 : 140, ladoAcel = naSuperficie ? 38 : 150;
+    s.vel.addScaledVector(FRENTE, (acelera * (emDobra ? 2300 * s.dobra + 280 : turbo ? 95 : naSuperficie ? 42 : 280) - freia * (emDobra ? 600 : s.vel.dot(FRENTE) > 5 ? 160 : re)) * dt);
+    s.vel.x += Math.cos(s.alvoRumo) * lado * ladoAcel * dt; s.vel.z -= Math.sin(s.alvoRumo) * lado * ladoAcel * dt;   // lados da visao
     s.vel.y += sobe * dt * (naSuperficie ? 42 : 30);
     // arrasto: a parte lateral e forte (a nave "segura" na curva); solta, para e paira
     const frontal = FRENTE.clone().multiplyScalar(s.vel.dot(FRENTE));
     const lateral = s.vel.clone().sub(frontal); if (naSuperficie) lateral.y = 0;
-    s.vel.sub(lateral.multiplyScalar(1 - Math.exp(-dt * 2.4)));
+    // com A/D apertado o lateral nao e "freado" (desliza de lado); solto, segura a curva
+    s.vel.sub(lateral.multiplyScalar(1 - Math.exp(-dt * (lado ? .15 : 2.4))));
     const solto = !acelera && !freia && !lado && !sobe;
     s.vel.multiplyScalar(Math.exp(-dt * (acelera ? (emDobra ? .05 : .35) : solto ? 1.8 : .9)));
     if (naSuperficie) s.vel.y *= Math.exp(-dt * (sobe ? .9 : 3));
     const max = naSuperficie ? (turbo ? 150 : 70) : 480 + s.dobra * 3200; if (s.vel.length() > max) s.vel.setLength(s.vel.length() + (max - s.vel.length()) * (1 - Math.exp(-dt * 3)));
+    // re e lateral tem teto proprio (mais baixo que pra frente)
+    { const vf = s.vel.dot(FRENTE), maxRe = naSuperficie ? 30 : 160; if (vf < -maxRe) s.vel.addScaledVector(FRENTE, -maxRe - vf); }
+    { _v.copy(FRENTE).multiplyScalar(s.vel.dot(FRENTE)); _m.subVectors(s.vel, _v); const lt = Math.hypot(_m.x, _m.z), maxL = naSuperficie ? 45 : 220; if (lt > maxL) { s.vel.x -= _m.x * (1 - maxL / lt); s.vel.z -= _m.z * (1 - maxL / lt); } }
     s.pos.addScaledVector(s.vel, dt);
     s.banco += (Math.max(-.9, Math.min(.9, s.vRumo * .38 + lado * .35)) - s.banco) * (1 - Math.exp(-dt * 6));
     s.arfagem += (-sobe * .18 - acelera * .05 - s.arfagem) * (1 - Math.exp(-dt * 4));
@@ -1277,7 +1302,7 @@ export async function abrirJogo() {
       rede.estado({ p: s.aPe ? pe.pos : s.pos, r: s.aPe ? pe.rumo : s.rumo, modo: cinema || morto ? 'cinema' : s.aPe ? 'pe' : 'nave', arma: s.aPe ? ARMAS[armaIdx].id : NAVE_ARMAS[navArmaIdx].id, esc: s.aPe ? 1 : +nave.raiz.scale.x.toFixed(2) });
       rede.atualizar(dt, cena);
       const n = rede.remotos.size + 1;
-      onlineUI.innerHTML = `<i></i>${n} ${n === 1 ? 'jogador' : 'jogadores'} aqui · <b>${sess.usuario}</b>`;
+      onlineUI.innerHTML = `<i></i>${n} ${n === 1 ? 'jogador' : 'jogadores'} aqui`;
     }
     raiz.classList.toggle('voando', !!(s.aPe && pe.voando));
     if (mapaAberto) desenharMapaAgora();
@@ -1320,9 +1345,15 @@ export async function abrirJogo() {
     } else {
       const id = chave.slice(5);
       if (id === 'laser' || id === 'plasma') {
+        // a propria nave, com os tiros saindo das asas
         const cor = id === 'laser' ? 0xff4fd8 : 0x4fd2ff;
-        [-.18, .18].forEach((x) => { const b = add(new THREE.CylinderGeometry(.03, .03, .8, 10), cor, x, 0, 0, true); b.rotation.x = Math.PI / 2; const n = add(new THREE.CylinderGeometry(.012, .012, .82, 8), 0xffffff, x, 0, 0, true); n.rotation.x = Math.PI / 2; });
-        if (id === 'plasma') [-.18, .18].forEach((x) => [-.3, 0, .3].forEach((z) => add(new THREE.SphereGeometry(.05, 10, 8), 0x9fe8ff, x, 0, z, true)));
+        const nv = nave.modelo.clone(true); nv.scale.multiplyScalar(.28); g.add(nv);
+        const brilho = (x, z, comp, r) => {
+          const b = new THREE.Mesh(new THREE.CylinderGeometry(r, r, comp, 10), new THREE.MeshBasicMaterial({ color: cor, transparent: true, opacity: .9, blending: THREE.AdditiveBlending, depthWrite: false })); b.rotation.x = Math.PI / 2; b.position.set(x, -.02, z); g.add(b);
+          const n = new THREE.Mesh(new THREE.CylinderGeometry(r * .35, r * .35, comp * 1.02, 8), new THREE.MeshBasicMaterial({ color: 0xffffff })); n.rotation.x = Math.PI / 2; n.position.copy(b.position); g.add(n);
+        };
+        if (id === 'laser') [-.36, .36].forEach((x) => brilho(x, .62, .55, .028));
+        else [-.36, .36].forEach((x, k) => [.42, .72, 1].forEach((z) => brilho(x, z + k * .14, .12, .03)));
       } else if (id === 'missil') {
         const corpo = add(new THREE.CylinderGeometry(.06, .06, .6, 14), 0xdcd6ea); corpo.rotation.x = Math.PI / 2;
         const ponta = add(new THREE.ConeGeometry(.06, .16, 14), 0xffb347, 0, 0, .38); ponta.rotation.x = Math.PI / 2;
@@ -1385,9 +1416,11 @@ export async function abrirJogo() {
         if (_v.lengthSq() > 0) { const f = Math.min(1, _v.length()); _v.normalize().multiplyScalar(f); }
         pe.vel.addScaledVector(_v, 5 * dt); pe.vel.multiplyScalar(Math.exp(-dt * .25));
       } else {
-        const vmax = correndo ? 6.8 : 3.4;
-        // analogico: joystick pela metade anda mais devagar
-        if (_v.lengthSq() > 0) { const f = Math.min(1, _v.length()); _v.normalize().multiplyScalar(vmax * f); }
+        // pra frente mais rapido; de lado e de costas um pouco mais devagar (natural)
+        const fr = c.acelera - c.freia, la = c.lado;
+        const vF = fr >= 0 ? (correndo ? 6.8 : 3.4) : (correndo ? 4.6 : 2.5), vL = correndo ? 5.6 : 3;
+        const mag = Math.min(1, Math.hypot(fr, la)) / Math.max(1e-6, Math.hypot(fr, la));
+        _v.set(fx2 * fr * vF + fz * la * vL, 0, fz * fr * vF - fx2 * la * vL).multiplyScalar(Math.hypot(fr, la) > 0 ? mag : 0);
         if (pe.rolando <= 0) pe.vel.lerp(_v, 1 - Math.exp(-dt * (pe.noChao ? 10 : 1.2)));
       }
     }

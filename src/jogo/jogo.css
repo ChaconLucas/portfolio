@@ -356,3 +356,36 @@ html.cursor-proprio .jogo .jogo-pvp{cursor:pointer!important}
 .jogo-online{top:62px}
 .jogo-vida{bottom:150px}
 .jogo-acao{bottom:200px}
+
+/* ---- caixa da arma (redesenho): nome em cima, 3D no meio, slots embaixo ---- */
+.jogo-arma{width:236px!important;height:150px!important;padding:0!important;display:block!important;border-color:color-mix(in srgb,var(--c,#a98bff) 45%,transparent)!important;
+  background:linear-gradient(180deg,rgba(12,10,22,.2),rgba(12,10,22,.6))!important;box-shadow:0 0 24px color-mix(in srgb,var(--c,#a98bff) 18%,transparent)}
+.jogo-arma header{position:absolute;left:12px;right:10px;top:8px;display:flex;justify-content:space-between;align-items:center;z-index:1}
+.jogo-arma header b{font-size:12px;color:#fff;letter-spacing:.04em;text-shadow:0 0 8px rgba(0,0,0,.8)}
+.jogo-arma header span{font-size:9px;color:rgba(228,220,255,.5)}
+.jogo-arma header kbd{min-width:14px;padding:1px 4px;font-size:8px}
+.jogo-arma .ja-3d{inset:26px 0 40px 0!important}
+.jogo-arma .ja-slots{position:absolute;left:8px;right:8px;bottom:6px;top:auto;display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.jogo-arma .ja-slots i{position:relative;display:block;width:auto;height:30px;border-radius:7px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12)}
+.jogo-arma .ja-slots i b{position:absolute;left:4px;top:2px;font-size:8px;color:rgba(228,220,255,.55)}
+.jogo-arma .ja-slots i canvas{position:absolute;inset:2px 2px 2px 10px;width:calc(100% - 12px);height:26px}
+.jogo-arma .ja-slots i.on{background:color-mix(in srgb,var(--c) 30%,transparent);border-color:var(--c);box-shadow:0 0 10px color-mix(in srgb,var(--c) 50%,transparent)}
+.jogo-arma .ja-slots i.on b{color:#fff}
+@media(max-width:900px){.jogo-arma{width:190px!important;height:128px!important}.jogo-painel{left:226px}}
+.jogo-painel{left:272px}
+/* aviso de troca de arma, no meio da tela */
+.jogo-troca{position:absolute;left:50%;top:58%;transform:translate(-50%,-50%) scale(.92);display:flex;flex-direction:column;align-items:center;gap:2px;pointer-events:none;opacity:0;z-index:4}
+.jogo-troca canvas{width:180px;height:70px;filter:drop-shadow(0 0 12px var(--c,#a98bff))}
+.jogo-troca b{font-size:18px;letter-spacing:.06em;color:#fff;text-shadow:0 0 14px var(--c,#a98bff),0 2px 6px rgba(0,0,0,.9)}
+.jogo-troca span{font-size:11px;color:rgba(228,220,255,.7);text-shadow:0 1px 4px rgba(0,0,0,.9)}
+.jogo-troca.on{animation:jogoTroca 1.3s ease-out forwards}
+@keyframes jogoTroca{0%{opacity:0;transform:translate(-50%,-50%) scale(.85)}12%{opacity:1;transform:translate(-50%,-50%) scale(1.04)}22%{transform:translate(-50%,-50%) scale(1)}75%{opacity:1}100%{opacity:0;transform:translate(-50%,-56%) scale(1)}}
+/* conta logada, embaixo do titulo */
+.jogo-titulo{flex-wrap:wrap}
+.jogo-conta{flex-basis:100%;font-style:normal;font-size:11px;color:rgba(228,220,255,.6);margin-top:2px}
+.jogo-conta b{color:#fff}
+.jogo-titulo span::before{content:"● "}
+.jogo.toque .jogo-conta{display:none}
+.jogo-ajuda{top:92px}
+.jogo-arma header b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.jogo-troca canvas{width:240px;height:94px}

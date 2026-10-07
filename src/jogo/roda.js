@@ -49,6 +49,12 @@ function silhueta(c, id) {
   }
 }
 
+/** desenha a silhueta de uma arma centrada em (cx, cy), tamanho s */
+export function desenharSilhueta(c, id, cx, cy, s, cor = '#e9e2ff', brilho = 'rgba(124,77,255,.7)') {
+  c.save(); c.translate(cx, cy); c.scale(s, s); silhueta(c, id ?? 'mao');
+  c.fillStyle = cor; c.shadowColor = brilho; c.shadowBlur = 10; c.fill(); c.restore();
+}
+
 export function criarRoda(canvas) {
   const c = canvas.getContext('2d');
   let lista = [], sel = 0, aberta = false, mx = 0, my = 0, aberturaT = 0;
