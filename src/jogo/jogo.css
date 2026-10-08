@@ -432,3 +432,6 @@ html.cursor-proprio .jogo .jogo-pvp{cursor:pointer!important}
 .jogo:not(.ajuda-off) .jogo-ajuda::after{content:"H · esconder";font-size:10px;color:rgba(228,220,255,.35)}
 /* com o jogo aberto, a pagina embaixo nem e composta (economiza GPU) */
 html.jogo-aberto body > *:not(.jogo){visibility:hidden}
+
+/* selo de admin (placar, avisos) */
+.selo-adm{display:inline-block;margin-left:4px;padding:1px 6px;border-radius:6px;background:#ff4fd8;color:#fff;font-size:10px;font-weight:900;letter-spacing:.08em;vertical-align:middle}

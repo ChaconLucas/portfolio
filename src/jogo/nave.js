@@ -178,11 +178,11 @@ export { matizDe, corCss } from '../conta.js';
  * Os materiais sao clonados, o modelo de origem nao muda. Pode ser chamado de
  * novo para trocar a cor.
  */
-export function pintarNave(modelo, { matiz = 270, admin = false } = {}) {
+export function pintarNave(modelo, { matiz = 270, admin = false, filtro = null } = {}) {
   const cor = admin ? new THREE.Color(.45, .18, 1) : new THREE.Color().setHSL(matiz / 360, 1, .5);
   const cor2 = admin ? new THREE.Color(1, .3, .82) : cor;
   modelo.traverse((o) => {
-    if (!o.isMesh) return;
+    if (!o.isMesh || (filtro && !filtro(o))) return;
     let u = o.material.userData.pintura;
     if (!u) {
       o.material = o.material.clone();
@@ -220,5 +220,20 @@ export function enfeitesAdmin(brilho) {
   }
   const aura = new THREE.Sprite(new THREE.SpriteMaterial({ map: brilho, color: 0xc06bff, transparent: true, opacity: .22, blending: THREE.AdditiveBlending, depthWrite: false }));
   aura.scale.setScalar(4); g.add(aura);
+  return g;
+}
+
+/** traje do astronauta do admin: roxo e rosa (so o corpo; as armas nao) */
+export const pintarAstronautaAdmin = (modelo) => pintarNave(modelo, { admin: true, filtro: (o) => o.isSkinnedMesh });
+
+/** aureola do admin: anel de neon rosa girando acima da cabeca, com brilho */
+export function aureolaAdmin() {
+  const g = new THREE.Group(); g.position.y = 2.2;
+  const anel = new THREE.Mesh(new THREE.TorusGeometry(.34, .035, 6, 32), new THREE.MeshBasicMaterial({ color: 0xff5fd2, transparent: true, opacity: .95, blending: THREE.AdditiveBlending, depthWrite: false }));
+  anel.rotation.x = Math.PI / 2; g.add(anel);
+  const anel2 = new THREE.Mesh(new THREE.TorusGeometry(.42, .018, 6, 32), new THREE.MeshBasicMaterial({ color: 0x9a6bff, transparent: true, opacity: .8, blending: THREE.AdditiveBlending, depthWrite: false }));
+  anel2.rotation.x = Math.PI / 2; g.add(anel2);
+  let t = 0;
+  anel.onBeforeRender = () => { t += .016; g.position.y = 2.2 + Math.sin(t * 2) * .04; anel.rotation.z = t * 1.5; anel2.rotation.z = -t; anel2.rotation.x = Math.PI / 2 + Math.sin(t) * .2; };
   return g;
 }

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import './jogo.css';
-import { criarNave, matizDe, corCss } from './nave.js';
+import { criarNave, matizDe, corCss, pintarAstronautaAdmin, aureolaAdmin } from './nave.js';
 import { criarAstronauta } from './astronauta.js';
 import { criarEspaco, criarSuperficie, LIMITE_ESPACO, R_GLOBO } from './cenas.js';
 import { STACK, PROJETOS_POR_TECH, ANCORA } from './dados.js';
@@ -780,8 +780,8 @@ export async function abrirJogo() {
     raiz.classList.toggle('tab-on', v); if (!v) return;
     const linhas = [];
     const eu = rede ? rede.meuId : null, st = (id) => stats.get(id) || { abates: 0, mortes: 0 };
-    linhas.push({ nome: (souAdm ? '👑 ' : '') + (sess?.usuario || 'você') + ' (você)', cor: sess ? minhaCor() : '', pvp: meuPvp, ...st(eu), eu: true });
-    if (rede) for (const r of rede.remotos.values()) linhas.push({ nome: (r.admin ? '👑 ' : '') + r.nome, cor: corCss(r.matiz, r.admin), pvp: r.pvp, ...st(r.id) });
+    linhas.push({ nome: (souAdm ? '👑 ' : '') + (sess?.usuario || 'você') + (souAdm ? ' <span class="selo-adm">ADM</span>' : '') + ' (você)', cor: sess ? minhaCor() : '', pvp: meuPvp, ...st(eu), eu: true });
+    if (rede) for (const r of rede.remotos.values()) linhas.push({ nome: (r.admin ? '👑 ' : '') + r.nome + (r.admin ? ' <span class="selo-adm">ADM</span>' : ''), cor: corCss(r.matiz, r.admin), pvp: r.pvp, ...st(r.id) });
     linhas.sort((a, b) => b.abates - a.abates || a.mortes - b.mortes);
     const total = voz ? voz.pares.size + 1 : linhas.length;
     tabUI.querySelector('h4 span').textContent = rede ? `${total} jogando agora · ${linhas.length} aqui (${rede.sala === 'espaco' ? 'espaço' : rede.sala.replace(/^planeta-/, 'planeta ')})` : 'offline (sem conta)';
@@ -816,8 +816,8 @@ export async function abrirJogo() {
   }
   const NOME_ARMA = { blaster: 'blaster', rifle: 'rifle', canhao: 'canhão', laser: 'lasers', plasma: 'plasma', missil: 'míssil', ions: 'íons' };
   function eventoRede(tipo, m) {
-    if (tipo === 'conectado' && m.admin && !souAdm) { souAdm = true; nave.pintar({ matiz: matizDe(sess.usuario), admin: true }); $('.jogo-conta').classList.add('adm'); $('.jogo-conta').style.setProperty('--cj', minhaCor()); }
-    if (tipo === 'entrou') noFeed(`<b style="color:${corCss(matizDe(m.nome), m.admin)}">${m.admin ? '👑 ' : ''}${m.nome}</b> entrou aqui`);
+    if (tipo === 'conectado' && m.admin && !souAdm) { souAdm = true; nave.pintar({ matiz: matizDe(sess.usuario), admin: true }); pintarAstronautaAdmin(astro.raiz); astro.raiz.add(aureolaAdmin()); $('.jogo-conta').classList.add('adm'); $('.jogo-conta').style.setProperty('--cj', minhaCor()); }
+    if (tipo === 'entrou') noFeed(`<b style="color:${corCss(matizDe(m.nome), m.admin)}">${m.admin ? '👑 ' : ''}${m.nome}</b>${m.admin ? ' <span class="selo-adm">ADM</span>' : ''} entrou aqui`);
     else if (tipo === 'saiu') noFeed(`<b>${m.nome}</b> saiu`);
     else if (tipo === 'erro') noFeed(`<span class="ruim">${m.msg}</span>`);
     else if (tipo === 'tiro') {

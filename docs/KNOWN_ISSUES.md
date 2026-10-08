@@ -900,3 +900,14 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - rodovias, repetidas nas bordas;
   - os sítios: só o quadradinho de longe, com o nome ao aproximar.
 - **Medido** (Mac): ~320 ms para montar o planeta (~220 ms ao entrar de novo), ~230 chamadas de desenho dentro de uma cidade grande.
+
+## Online: astronauta dos outros e nave de longe (08/10/2026)
+- **O astronauta dos outros não aparecia:**
+  - a escala vinha de uma caixa calculada no clone (SkeletonUtils) com o esqueleto ainda não posicionado, e o corpo ficava com ~5 cm;
+  - agora a escala sai do modelo original quando ele carrega;
+  - se alguém estava a pé antes de o modelo carregar, só o nome era criado e o corpo nunca aparecia; agora o corpo é refeito quando o modelo chega (`semCorpo`).
+- **Nave dos outros no espaço:** só o nome aparecia, porque a nave tem 3 m e some a poucas centenas de metros. Cada jogador ganhou um **farol** (brilho na cor dele, do mesmo tamanho na tela a qualquer distância), que aparece de longe e some perto.
+- **Astronauta do admin é o único diferente:**
+  - traje roxo e rosa (`pintarAstronautaAdmin`: o mesmo tingimento da nave, só nas malhas com esqueleto, as armas não) e auréola de neon girando acima da cabeça (`aureolaAdmin`);
+  - aparece para todo mundo, inclusive para o próprio admin;
+  - o nome leva o selo rosa **ADM** (no rótulo em cima do jogador, no placar do TAB e no aviso de "entrou").

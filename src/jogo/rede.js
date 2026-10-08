@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import PartySocket from 'partysocket';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as clonarEsqueleto } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { pintarNave, enfeitesAdmin, matizDe, corCss } from './nave.js';
+import { pintarNave, enfeitesAdmin, pintarAstronautaAdmin, aureolaAdmin, matizDe, corCss } from './nave.js';
 
 /**
  * Multiplayer: conecta na SALA do lugar onde o jogador esta ("espaco" ou
@@ -18,8 +18,10 @@ import { pintarNave, enfeitesAdmin, matizDe, corCss } from './nave.js';
 export function criarRede({ token, host, modeloNave, aoEvento }) {
   let sock = null, sala = null, meuId = null, enviadoEm = 0;
   const remotos = new Map();
-  let astroGltf = null;
-  new GLTFLoader().loadAsync('/assets/jogo/astronauta.glb').then((g) => { astroGltf = g; }).catch(() => {});
+  let astroGltf = null, escalaAstro = 1;
+  // a escala sai do modelo original (o clone com esqueleto ainda nao posicionado
+  // dava uma caixa errada e o astronauta ficava com 5 cm)
+  new GLTFLoader().loadAsync('/assets/jogo/astronauta.glb').then((g) => { const cx = new THREE.Box3().setFromObject(g.scene); escalaAstro = 1.85 / (cx.max.y - cx.min.y); astroGltf = g; }).catch(() => {});
 
   function entrar(nova) {
     if (nova === sala) return;
@@ -68,8 +70,10 @@ export function criarRede({ token, host, modeloNave, aoEvento }) {
     const g = new THREE.Group();
     if (tipo === 'pe' && astroGltf) {
       const m = clonarEsqueleto(astroGltf.scene);
-      const cx = new THREE.Box3().setFromObject(m); m.scale.setScalar(1.85 / (cx.max.y - cx.min.y));
+      m.scale.setScalar(escalaAstro);
       m.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
+      // o admin e o unico com traje roxo e rosa e aureola
+      if (r.admin) { pintarAstronautaAdmin(m); g.add(aureolaAdmin()); }
       g.add(m);
       const mixer = new THREE.AnimationMixer(m), clip = (n) => astroGltf.animations.find((a) => a.name === n);
       const acoes = {}; ['Idle_Neutral', 'Walk', 'Run', 'Idle'].forEach((n) => { const c = clip(n); if (c) { acoes[n] = mixer.clipAction(c); acoes[n].play(); acoes[n].setEffectiveWeight(n === 'Idle_Neutral' ? 1 : 0); } });
@@ -90,13 +94,19 @@ export function criarRede({ token, host, modeloNave, aoEvento }) {
     // tamanho fixo na tela (sizeAttenuation false): da para achar o jogador de longe
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false, fog: false, sizeAttenuation: false }));
     sp.renderOrder = 20; g.add(sp);
-    r.obj = g; r.tipo = tipo; r.rotulo = { cv, tex, sp }; r.rotuloSujo = true;
+    // farol: um brilho na cor do jogador, do mesmo tamanho na tela a qualquer
+    // distancia (a nave tem 3 m: de longe ela some, o farol nao)
+    const farol = new THREE.Sprite(new THREE.SpriteMaterial({ map: brilhoTex(), color: r.admin ? 0xff4fd8 : new THREE.Color().setHSL(r.matiz / 360, .9, .6), transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending, sizeAttenuation: false, fog: false }));
+    farol.renderOrder = 19; farol.position.y = tipo === 'pe' ? 1.1 : 0; g.add(farol);
+    r.obj = g; r.tipo = tipo; r.rotulo = { cv, tex, sp }; r.farol = farol; r.rotuloSujo = true;
+    // (a pe sem o modelo carregado ainda: tenta de novo quando chegar)
+    r.semCorpo = tipo === 'pe' && !astroGltf;
   }
   function removerVisual(r) {
     if (!r.obj) return;
     r.obj.parent?.remove(r.obj);
     r.obj.traverse((o) => { if (o.isMesh && o.material && !o.isSkinnedMesh) { /* materiais do clone sao compartilhados */ } });
-    r.rotulo?.tex.dispose(); r.rotulo?.sp.material.dispose();
+    r.rotulo?.tex.dispose(); r.rotulo?.sp.material.dispose(); r.farol?.material.dispose(); r.farol = null;
     r.obj = null; r.tipo = null;
   }
   function desenharRotulo(r) {
@@ -104,8 +114,19 @@ export function criarRede({ token, host, modeloNave, aoEvento }) {
     c.clearRect(0, 0, 256, 64);
     c.font = '800 26px ui-monospace, Menlo, monospace'; c.textAlign = 'center'; c.textBaseline = 'middle';
     const txt = (r.pvp ? '⚔ ' : '') + (r.admin ? '👑 ' : '') + r.nome;
-    c.lineWidth = 5; c.strokeStyle = 'rgba(0,0,0,.75)'; c.strokeText(txt, 128, 22);
-    c.fillStyle = r.pvp ? '#ff6b6b' : corCss(r.matiz, r.admin); c.fillText(txt, 128, 22);
+    // admin: selo "ADM" do lado do nome (o nome encolhe se nao couber)
+    const selo = r.admin ? 58 : 0, larg = c.measureText(txt).width, cabe = 244 - selo;
+    if (larg > cabe) c.font = `800 ${Math.floor(26 * cabe / larg)}px ui-monospace, Menlo, monospace`;
+    const lt = Math.min(larg, cabe), x0 = 128 - (lt + (selo ? selo + 6 : 0)) / 2;
+    c.textAlign = 'left';
+    c.lineWidth = 5; c.strokeStyle = 'rgba(0,0,0,.75)'; c.strokeText(txt, x0, 22);
+    c.fillStyle = r.pvp ? '#ff6b6b' : corCss(r.matiz, r.admin); c.fillText(txt, x0, 22);
+    if (selo) {
+      const sx = x0 + lt + 6;
+      c.fillStyle = '#ff4fd8'; c.beginPath(); c.roundRect ? c.roundRect(sx, 8, selo, 28, 8) : c.rect(sx, 8, selo, 28); c.fill();
+      c.fillStyle = '#fff'; c.font = '900 18px ui-monospace, Menlo, monospace'; c.textAlign = 'center'; c.fillText('ADM', sx + selo / 2, 23);
+    }
+    c.textAlign = 'center';
     // distancia (some quando esta perto); com PvP a barra de vida fica no lugar
     if (!r.pvp && r.distTxt) { c.font = '700 18px ui-monospace, Menlo, monospace'; c.lineWidth = 4; c.strokeText(r.distTxt, 128, 50); c.fillStyle = 'rgba(228,220,255,.85)'; c.fillText(r.distTxt, 128, 50); }
     if (r.pvp) { c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(48, 44, 160, 10); c.fillStyle = r.vida > 35 ? '#2bff8f' : '#ff5f57'; c.fillRect(48, 44, 160 * Math.max(0, r.vida) / 100, 10); }
@@ -143,7 +164,8 @@ export function criarRede({ token, host, modeloNave, aoEvento }) {
     atualizar(dt, cena, eu, periodo = 0) {
       for (const r of remotos.values()) {
         const tipo = r.modo === 'cinema' ? null : r.modo === 'pe' ? 'pe' : 'nave';
-        if (tipo !== r.tipo) { if (tipo) criarVisual(r, tipo); else removerVisual(r); }
+        // tipo mudou, ou o astronauta foi criado antes do modelo carregar
+        if (tipo !== r.tipo || (r.semCorpo && astroGltf)) { if (tipo) criarVisual(r, tipo); else removerVisual(r); }
         if (!r.obj) continue;
         if (r.obj.parent !== cena) cena.add(r.obj);
         // planeta que da a volta: mostra a copia do outro jogador mais perto de mim
@@ -167,6 +189,8 @@ export function criarRede({ token, host, modeloNave, aoEvento }) {
         // distancia ate mim no rotulo (redesenha so quando o texto muda)
         if (eu) { const d = r.pos.distanceTo(eu), txt = d < 25 ? '' : d < 1000 ? Math.round(d / 5) * 5 + ' m' : (d / 1000).toFixed(1) + ' km'; if (txt !== r.distTxt) { r.distTxt = txt; r.rotuloSujo = true; } }
         if (r.rotuloSujo) desenharRotulo(r);
+        // farol: aparece de longe (some perto, onde a nave/astronauta ja se ve)
+        if (r.farol && eu) { const d = r.pos.distanceTo(eu), k = Math.min(1, Math.max(0, (d - (r.tipo === 'pe' ? 25 : 60)) / 120)); r.farol.visible = k > .01; r.farol.material.opacity = .9 * k; r.farol.scale.setScalar(.035 + Math.sin(performance.now() / 260) * .004); }
       }
     },
     fechar() { if (sock) { sock.onmessage = null; sock.close(); } for (const r of remotos.values()) removerVisual(r); remotos.clear(); }
