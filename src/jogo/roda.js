@@ -19,6 +19,10 @@ function silhueta(c, id) {
       R(.22, .05, .32, .12, .06);
       break;
     }
+    case 'espada':
+      // espada de energia deitada: cabo, guarda e a lamina comprida
+      R(-.85, -.05, .3, .1, .03); R(-.56, -.16, .06, .32, .02); R(-.5, -.035, 1.3, .07, .035);
+      break;
     case 'blaster':
       R(-.55, -.18, .85, .26, .06); R(.3, -.12, .4, .12, .03); R(-.45, .05, .2, .42, .05); R(-.2, .06, .18, .08, .02);
       break;

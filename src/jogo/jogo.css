@@ -435,3 +435,86 @@ html.jogo-aberto body > *:not(.jogo){visibility:hidden}
 
 /* selo de admin (placar, avisos) */
 .selo-adm{display:inline-block;margin-left:4px;padding:1px 6px;border-radius:6px;background:#ff4fd8;color:#fff;font-size:10px;font-weight:900;letter-spacing:.08em;vertical-align:middle}
+
+/* marcador de acerto: quatro tracos em volta da mira */
+.jogo-hitx{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;pointer-events:none;opacity:0}
+.jogo-hitx i{position:absolute;left:50%;top:50%;width:10px;height:2px;margin:-1px 0 0 -5px;background:#fff;box-shadow:0 0 4px rgba(0,0,0,.8)}
+.jogo-hitx i:nth-child(1){transform:rotate(45deg) translateX(-13px)}.jogo-hitx i:nth-child(2){transform:rotate(-45deg) translateX(-13px)}
+.jogo-hitx i:nth-child(3){transform:rotate(45deg) translateX(13px)}.jogo-hitx i:nth-child(4){transform:rotate(-45deg) translateX(13px)}
+.jogo-hitx b{position:absolute;left:50%;top:-22px;transform:translateX(-50%);font-size:10px;letter-spacing:.2em;color:#6fd8ff;white-space:nowrap;text-shadow:0 0 6px rgba(0,0,0,.9)}
+.jogo-hitx.on{opacity:1;animation:hitx .16s ease-out}
+.jogo-hitx.jogador i{background:#ff4b4b;width:13px;box-shadow:0 0 8px rgba(255,60,60,.9)}
+.jogo-hitx.bloqueado i{background:#6fd8ff}
+@keyframes hitx{from{transform:scale(1.5)}to{transform:scale(1)}}
+/* numeros de dano */
+.jogo-danos{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.jogo-danos .dano{position:absolute;transform:translate(-50%,-50%);font-weight:900;font-size:18px;color:#ff5b5b;text-shadow:0 0 8px rgba(0,0,0,.9),0 0 12px rgba(255,60,60,.6);animation:dano .9s ease-out forwards}
+@keyframes dano{from{opacity:1;margin-top:0;transform:translate(-50%,-50%) scale(1.3)}to{opacity:0;margin-top:-46px;transform:translate(-50%,-50%) scale(.9)}}
+/* habilidades: granada (G) e escudo (Q), com a recarga enchendo */
+.jogo-habil{position:absolute;left:24px;bottom:200px;display:none;gap:8px}
+.jogo.a-pe-ui .jogo-habil,.jogo:not(.a-pe-ui) .jogo-habil{display:flex}
+.jogo-habil div{position:relative;width:54px;height:54px;border-radius:12px;background:rgba(12,10,22,.78);border:1px solid rgba(169,139,255,.35);display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;opacity:.6}
+.jogo-habil div.pronto{opacity:1;border-color:rgba(43,255,143,.6)}
+.jogo-habil div.ativo{border-color:#6fd8ff;box-shadow:0 0 14px rgba(111,216,255,.6)}
+.jogo-habil b{font-size:16px;color:#fff}.jogo-habil span{font-size:8px;letter-spacing:.12em;color:rgba(228,220,255,.7);text-transform:uppercase}
+.jogo-habil i{position:absolute;left:0;right:0;bottom:0;height:calc(var(--cd,0) * 100%);background:rgba(0,0,0,.55)}
+.jogo.toque .jogo-habil{bottom:auto;top:150px}
+.jogo-voz{bottom:270px}
+
+/* municao: numero e barrinha embaixo da mira (enche na recarga) */
+.jogo-mun{position:absolute;left:50%;top:calc(50% + 44px);transform:translateX(-50%);width:120px;display:flex;flex-direction:column;align-items:center;gap:3px;pointer-events:none;opacity:0;transition:opacity .25s}
+.jogo-mun.on{opacity:1}
+.jogo-mun b{font-size:12px;font-weight:800;letter-spacing:.08em;color:#fff;text-shadow:0 0 6px rgba(0,0,0,.9)}
+.jogo-mun i{width:100%;height:3px;border-radius:3px;background:rgba(255,255,255,.14);overflow:hidden}
+.jogo-mun em{display:block;height:100%;width:100%;transform-origin:left;background:#2bff8f;transition:transform .06s}
+.jogo-mun span{font-size:8px;letter-spacing:.18em;color:rgba(228,220,255,.5);opacity:0}
+.jogo-mun.vazio span{opacity:1;color:#ffb347}
+.jogo-mun.recarga b{color:#4fd2ff;font-size:10px;letter-spacing:.2em}
+.jogo-mun.recarga em{background:#4fd2ff}
+.jogo-mun.vazio b{color:#ff5f57}
+
+/* ================= HUD limpo (por cima de tudo acima) =================
+   Menos caixas: titulo e conta numa linha so, um menu (☰) no canto, caixa da
+   arma compacta com a municao, habilidades pequenas, um painel so, e a ajuda
+   das teclas escondida (H mostra). */
+.jogo-topo{top:16px;left:20px;right:20px}
+.jogo-titulo{gap:10px;font-size:11px;flex-wrap:nowrap!important;align-items:center}
+.jogo-titulo b{font-size:11px;letter-spacing:.2em;opacity:.8}
+.jogo-titulo span{font-size:10px;opacity:.7}
+.jogo-conta{flex-basis:auto!important;margin:0!important;padding:0!important;background:none!important;border:none!important;font-size:11px!important}
+.jogo-botoes-topo{position:relative;gap:8px}
+.jogo-menu-bt{width:34px;height:34px;border-radius:10px;background:rgba(12,10,22,.6);border:1px solid rgba(169,139,255,.3);color:#e9e2ff;font-size:16px;cursor:pointer}
+.jogo-menu{position:absolute;right:0;top:42px;display:none;flex-direction:column;gap:6px;padding:8px;border-radius:12px;background:rgba(12,10,22,.92);border:1px solid rgba(169,139,255,.3);min-width:150px}
+.jogo.menu-on .jogo-menu{display:flex}
+.jogo-menu button{all:unset;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;font-size:12px;color:#e9e2ff}
+.jogo-menu button:hover{background:rgba(169,139,255,.15)}
+.jogo-pvp-selo{display:none;padding:5px 10px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.1em;color:#fff;background:rgba(255,75,75,.85)}
+.jogo.pvp-on .jogo-pvp-selo{display:inline-block}
+/* caixa da arma: compacta, municao no canto, slots so na troca */
+.jogo-arma{width:190px!important;height:92px!important;bottom:20px!important;left:20px!important}
+.jogo-arma .ja-3d{inset:22px 0 4px 0!important}
+.jogo-arma header{top:6px!important}
+.jogo-arma header b{font-size:11px!important}
+.ja-mun{font-style:normal;font-size:13px;font-weight:800;color:#fff;letter-spacing:.04em}
+.ja-mun.vazio{color:#ff5f57}
+.ja-slots{top:auto!important;bottom:6px;right:8px;opacity:0;transition:opacity .25s}
+.jogo-arma.trocando .ja-slots,.jogo.inv-on .ja-slots{opacity:1}
+/* habilidades: pequenas, ao lado da caixa da arma */
+.jogo-habil{left:218px!important;bottom:20px!important;flex-direction:column;gap:6px}
+.jogo-habil div{width:38px;height:42px;border-radius:10px}
+.jogo-habil b{font-size:12px}.jogo-habil span{font-size:7px}
+/* um painel so (velocidade/altitude e o alvo), mais discreto; a pe sem velocidade */
+.jogo-painel{left:auto!important;right:186px!important;bottom:20px!important;gap:8px}
+.jogo-vel,.jogo-alvo{padding:8px 12px!important;min-width:0!important;border-radius:10px!important;background:rgba(12,10,22,.55)!important}
+.jogo-painel b{font-size:14px!important}
+.jogo.a-pe-ui .jogo-vel{display:none}
+.jogo-radar{width:140px!important;height:140px!important;right:20px!important;bottom:20px!important}
+/* embaixo da mira: so a barra de recarga, e so recarregando */
+.jogo-mun b,.jogo-mun span{display:none}
+.jogo-mun{opacity:0!important;width:70px}
+.jogo-mun.recarga{opacity:1!important}
+/* troca de arma: aviso menor e mais rapido */
+.jogo-troca canvas{width:130px!important;height:52px!important}
+.jogo-troca b{font-size:14px!important}
+.jogo-troca span{display:none}
+.jogo-voz{bottom:124px!important;left:20px!important}

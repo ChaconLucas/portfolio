@@ -911,3 +911,57 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - traje roxo e rosa (`pintarAstronautaAdmin`: o mesmo tingimento da nave, só nas malhas com esqueleto, as armas não) e auréola de neon girando acima da cabeça (`aureolaAdmin`);
   - aparece para todo mundo, inclusive para o próprio admin;
   - o nome leva o selo rosa **ADM** (no rótulo em cima do jogador, no placar do TAB e no aviso de "entrou").
+
+## Armas novas, duas mãos, superaquecimento, acerto, granada e escudo (08/10/2026)
+- **Armas detalhadas** (`src/jogo/armas3d.js`):
+  - blocos chanfrados (RoundedBoxGeometry) com **textura de painéis** gerada em canvas (juntas, parafusos, gravação com o nome da arma, faixas de alerta na cor dela, desgaste);
+  - metal com **reflexo** (envMap de um RoomEnvironment, gerado uma vez em `index.js`);
+  - célula de energia brilhando, cano com aletas, mira holográfica no rifle.
+- **As duas mãos:**
+  - **IK de dois ossos no braço esquerdo:** a clavícula avança o ombro quando o alvo está longe, e a mão vai até `userData.maoEsq`, por baixo do cabo/guarda-mão. Os dedos fecham.
+  - O giro é feito no espaço do osso pai (o esqueleto tem reflexão).
+  - Um bug de *aliasing* no `slerpQuaternions` (o mesmo quaternion dos dois lados) zerava o giro.
+  - **Distância da mão esquerda ao ponto da arma:** 7 a 15 cm parado (limite do alcance do braço na pose de mira) e 2 cm correndo.
+  - **Primeira pessoa:** luvas nas duas mãos, com punho e friso de neon (`maosPrimeiraPessoa`).
+- **Superaquecimento:**
+  - cada tiro esquenta a arma (blaster 9%, rifle 4,5%, canhão 34%), que esfria sozinha;
+  - em 100% ela **trava por 1,8 s**, solta vapor e mostra "SUPERAQUECIDA";
+  - a célula vai do tom da arma ao vermelho, o cano acende, e há uma barra de calor embaixo da mira.
+- **Acerto:**
+  - quatro traços na mira (vermelhos em jogador, brancos em objetos e asteroides);
+  - **número de dano** subindo de onde bateu;
+  - som de dois tons ao acertar jogador e "BLOQUEADO" (azul) quando o alvo está de escudo.
+- **Granada de energia (G):**
+  - arco com gravidade, quica no chão e nas paredes, explode em 1,7 s (raio de 9 m), recarga de 3,5 s;
+  - quebra destrutíveis; no PvP o servidor aplica 45 de dano (até 4 alvos por granada);
+  - os outros veem a explosão (`fx`).
+- **Escudo (Q):**
+  - 3 s sem levar dano, recarga de 12 s;
+  - bolha de energia no astronauta ou na nave, que os outros também veem;
+  - o servidor ignora o dano e avisa "bloqueado".
+- **HUD:** quadradinhos G e Q, com a recarga enchendo.
+- **Testado:** o servidor (com dois clientes) bloqueou o tiro de escudo e aplicou a granada; o rifle travou depois de ~2,8 s de tiro contínuo.
+- **Atualização (mesmo dia): pente e recarga no lugar do superaquecimento**, a pedido.
+  - **Munição infinita, mas cada arma tem pente:** blaster 12, rifle 30, canhão 1 (recarrega a cada tiro).
+  - **Recarga:** acabou o pente, recarrega sozinho (no laço do jogo, logo depois do último tiro); **R** recarrega antes. Tempos: blaster 1,1 s, rifle 1,7 s, canhão 1,25 s.
+  - **Animação:** a arma inclina, a célula de energia apaga, troca e enche de novo (`userData.recarga(k)`, aplicada sobre a pose da arma na mão). Sons na saída e na entrada da célula.
+  - **Embaixo da mira:** "12 / ∞" e uma barrinha que enche na recarga.
+- **Espada de energia no slot 1** (no lugar das mãos livres):
+  - lâmina de luz (núcleo branco + brilho na cor), cabo com guarda;
+  - anda com as animações sem arma, sem a mão esquerda;
+  - o golpe é um arco de ~100° (`userData.golpe`), com o gesto do braço e um leque de luz na frente;
+  - acerta destrutíveis num leque de ~110° até ~3 m;
+  - no PvP o servidor aplica 35 de dano com alcance de 7 m (testado: perto conta; a 40 m é recusado);
+  - o jogo começa com a espada na mão.
+
+## HUD mais limpo (08/10/2026)
+- **Topo:**
+  - título e conta numa linha só, sem caixa;
+  - um botão **☰** no canto abre PvP, mapa, som e sair (as teclas P, M, N e Esc continuam);
+  - com PvP ligado aparece só um selo vermelho "⚔ PvP".
+- **Caixa da arma** compacta (190 × 92), com a munição no canto ("12/12"). Os slots 1–4 só aparecem na troca (1,8 s) ou com o inventário aberto. O aviso de troca no meio da tela ficou menor e mais rápido.
+- **Granada e escudo:** ícones pequenos ao lado da caixa da arma.
+- **Velocidade e alvo:** um painel só, mais discreto; a pé some a velocidade.
+- **Embaixo da mira:** só a barra de recarga, enquanto recarrega.
+- **Ajuda das teclas** começa escondida (H mostra; a escolha fica salva).
+- Conferido numa janela de 696 px: nada se sobrepõe.

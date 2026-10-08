@@ -45,6 +45,9 @@ export function criarRede({ token, host, modeloNave, aoEvento }) {
     else if (m.t === 'morte') { const r = remotos.get(m.id); if (r) { r.vivo = false; r.rotuloSujo = true; } aoEvento('morte', { ...m, eu: m.id === meuId, fuiEu: m.por === meuId }); }
     else if (m.t === 'renasceu') { const r = remotos.get(m.id); if (r) { r.vivo = true; r.vida = 100; r.rotuloSujo = true; } aoEvento('renasceu', { ...m, eu: m.id === meuId }); }
     else if (m.t === 'placar') aoEvento('placar', m);
+    else if (m.t === 'escudo') { const r = remotos.get(m.id); if (r) r.escudoAte = performance.now() + (m.ate || 3000); aoEvento('escudo', { ...m, eu: m.id === meuId }); }
+    else if (m.t === 'bloqueado') aoEvento('bloqueado', { ...m, eu: m.id === meuId, fuiEu: m.de === meuId });
+    else if (m.t === 'fx') aoEvento('fx', m);
     else if (m.t === 'erro') aoEvento('erro', m);
   }
 
@@ -107,7 +110,7 @@ export function criarRede({ token, host, modeloNave, aoEvento }) {
     r.obj.parent?.remove(r.obj);
     r.obj.traverse((o) => { if (o.isMesh && o.material && !o.isSkinnedMesh) { /* materiais do clone sao compartilhados */ } });
     r.rotulo?.tex.dispose(); r.rotulo?.sp.material.dispose(); r.farol?.material.dispose(); r.farol = null;
-    r.obj = null; r.tipo = null;
+    r.obj = null; r.tipo = null; r.bolha = null;
   }
   function desenharRotulo(r) {
     const { cv, tex } = r.rotulo, c = cv.getContext('2d');
@@ -152,6 +155,8 @@ export function criarRede({ token, host, modeloNave, aoEvento }) {
     tiro(o, d, arma) { sock?.send(JSON.stringify({ t: 'tiro', o: [o.x, o.y, o.z].map((v) => +v.toFixed(2)), d: [d.x, d.y, d.z].map((v) => +v.toFixed(3)), arma })); },
     pvp(on) { sock?.send(JSON.stringify({ t: 'pvp', on })); },
     acerto(alvo, arma) { sock?.send(JSON.stringify({ t: 'acerto', alvo, arma })); },
+    escudo() { sock?.send(JSON.stringify({ t: 'escudo' })); },
+    fx(p, tipo) { sock?.send(JSON.stringify({ t: 'fx', tipo, p: [p.x, p.y, p.z].map((v) => +v.toFixed(2)) })); },
     /** jogador remoto perto de p (para os tiros): devolve o remoto ou null */
     remotoEm(p) {
       for (const r of remotos.values()) {
@@ -189,10 +194,22 @@ export function criarRede({ token, host, modeloNave, aoEvento }) {
         // distancia ate mim no rotulo (redesenha so quando o texto muda)
         if (eu) { const d = r.pos.distanceTo(eu), txt = d < 25 ? '' : d < 1000 ? Math.round(d / 5) * 5 + ' m' : (d / 1000).toFixed(1) + ' km'; if (txt !== r.distTxt) { r.distTxt = txt; r.rotuloSujo = true; } }
         if (r.rotuloSujo) desenharRotulo(r);
+        // escudo ligado: bolha de energia em volta
+        const comEscudo = (r.escudoAte || 0) > performance.now();
+        if (comEscudo && !r.bolha) { r.bolha = bolhaEscudo(r.tipo === 'pe' ? 1.25 : 3.2 * r.esc); r.bolha.position.y = r.tipo === 'pe' ? .95 : 0; r.obj.add(r.bolha); }
+        if (r.bolha) { r.bolha.visible = comEscudo; if (comEscudo) r.bolha.material.opacity = .25 + Math.sin(performance.now() / 90) * .06; }
         // farol: aparece de longe (some perto, onde a nave/astronauta ja se ve)
         if (r.farol && eu) { const d = r.pos.distanceTo(eu), k = Math.min(1, Math.max(0, (d - (r.tipo === 'pe' ? 25 : 60)) / 120)); r.farol.visible = k > .01; r.farol.material.opacity = .9 * k; r.farol.scale.setScalar(.035 + Math.sin(performance.now() / 260) * .004); }
       }
     },
     fechar() { if (sock) { sock.onmessage = null; sock.close(); } for (const r of remotos.values()) removerVisual(r); remotos.clear(); }
   };
+}
+
+/** bolha do escudo de energia (tambem usada no jogador local) */
+export function bolhaEscudo(raio) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(raio, 24, 16), new THREE.MeshBasicMaterial({ color: 0x6fd8ff, transparent: true, opacity: .28, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  const anel = new THREE.Mesh(new THREE.TorusGeometry(raio * 1.01, raio * .02, 6, 40), new THREE.MeshBasicMaterial({ color: 0xbff0ff, transparent: true, opacity: .7, blending: THREE.AdditiveBlending, depthWrite: false }));
+  anel.rotation.x = Math.PI / 2; m.add(anel);
+  return m;
 }

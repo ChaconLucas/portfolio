@@ -10,7 +10,9 @@ import { desenharMapa } from './mapa.js';
 import { criarInterior, RAIO_SALA } from './interior.js';
 import { emblema } from './predios.js';
 import { criarRoda, desenharSilhueta } from './roda.js';
-import { criarRede } from './rede.js';
+import { criarRede, bolhaEscudo } from './rede.js';
+import { ambienteArmas, maosPrimeiraPessoa } from './armas3d.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { CURVA, curvarCena } from './curva.js';
 import { criarVoz } from './voz.js';
 import { sessao, HOST_SALAS } from '../conta.js';
@@ -65,7 +67,7 @@ export async function abrirJogo() {
     <div class="jogo-nuvens"><i></i><i></i><i></i><i></i></div>
     <div class="jogo-topo">
       <div class="jogo-titulo"><b>STACK UNIVERSE</b><span>pilotando</span><em class="jogo-conta"></em></div>
-      <div class="jogo-botoes-topo"><button class="jogo-pvp" type="button" title="PvP (P)">⚔ PvP</button><button class="jogo-mapa-bt" type="button" title="mapa (M)">🗺</button><button class="jogo-som" type="button" title="som (N)">🔊</button><button class="jogo-sair" type="button">ESC · SAIR</button></div>
+      <div class="jogo-botoes-topo"><span class="jogo-pvp-selo">⚔ PvP</span><button class="jogo-menu-bt" type="button" aria-label="menu" title="menu">☰</button><div class="jogo-menu"><button class="jogo-pvp" type="button" title="PvP (P)">⚔ PvP <kbd>P</kbd></button><button class="jogo-mapa-bt" type="button" title="mapa (M)">🗺 mapa <kbd>M</kbd></button><button class="jogo-som" type="button" title="som (N)">🔊</button><button class="jogo-sair" type="button">sair <kbd>Esc</kbd></button></div></div>
     </div>
     <div class="jogo-ajuda"></div>
     <div class="jogo-acao"></div>
@@ -79,13 +81,17 @@ export async function abrirJogo() {
     <div class="jogo-comb"><small>JETPACK</small><i><em></em></i></div>
     <canvas class="jogo-mapa"></canvas>
     <div class="jogo-destino"><i></i><b></b><span></span></div>
-    <div class="jogo-arma"><i></i><header><b></b></header><div class="ja-3d"></div><div class="ja-slots"></div></div>
+    <div class="jogo-arma"><i></i><header><b></b><em class="ja-mun"></em></header><div class="ja-3d"></div><div class="ja-slots"></div></div>
     <div class="jogo-troca"><canvas width="360" height="140"></canvas><b></b><span></span></div>
     <div class="jogo-inventario"><h4>INVENTÁRIO · <span>TAB fecha · 1–4 ou clique</span></h4><div class="ji-slots"></div></div>
     <canvas class="jogo-roda"></canvas>
     <div class="jogo-online"></div>
     <div class="jogo-feed"></div>
     <div class="jogo-voz"></div>
+    <div class="jogo-mun"><b>12 / ∞</b><i><em></em></i><span>R recarrega</span></div>
+    <div class="jogo-hitx"><i></i><i></i><i></i><i></i><b></b></div>
+    <div class="jogo-danos"></div>
+    <div class="jogo-habil"><div data-h="g"><b>G</b><span>granada</span><i></i></div><div data-h="q"><b>Q</b><span>escudo</span><i></i></div></div>
     <div class="jogo-vida"><small>VIDA</small><i><em></em></i><span>100</span></div>
     <div class="jogo-placar"></div>
     <div class="jogo-tab"><h4>PLACAR · <span></span></h4><table><thead><tr><th>jogador</th><th>PvP</th><th>abates</th><th>mortes</th></tr></thead><tbody></tbody></table><p>segure TAB para ver · P liga/desliga o PvP</p></div>
@@ -133,13 +139,13 @@ export async function abrirJogo() {
   const AJUDA = {
     nave: `<span><kbd>W</kbd><kbd>S</kbd> acelerar / frear</span><span><kbd>A</kbd><kbd>D</kbd> para os lados</span>
       <span><kbd>Espaço</kbd><kbd>Ctrl</kbd> subir / descer</span><span><kbd>Shift</kbd>+<kbd>W</kbd> velocidade da luz</span><span><kbd>E</kbd> interagir</span><span><kbd>Mouse</kbd> visão / direção · rodinha = zoom</span><span><kbd>Botão dir.</kbd> mirar (zoom)</span><span><kbd>T</kbd> voz perto · <kbd>Y</kbd> rádio</span>`,
-    pe: `<span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> andar</span><span><kbd>Shift</kbd> correr · <kbd>Espaço</kbd> pular · <kbd>C</kbd> rolar</span><span><kbd>Botão dir.</kbd> mirar</span><span><kbd>T</kbd> voz perto · <kbd>Y</kbd> rádio</span>
+    pe: `<span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> andar</span><span><kbd>Shift</kbd> correr · <kbd>Espaço</kbd> pular · <kbd>C</kbd> rolar</span><span><kbd>Botão dir.</kbd> mirar</span><span><kbd>R</kbd> recarregar · <kbd>G</kbd> granada · <kbd>Q</kbd> escudo</span><span><kbd>T</kbd> voz perto · <kbd>Y</kbd> rádio</span>
       <span><kbd>Espaço</kbd> no ar = jetpack · <kbd>Espaço</kbd>/<kbd>Ctrl</kbd> sobe/desce · <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> voa</span>
       <span><kbd>E</kbd> entrar no prédio / embarcar</span><span><kbd>Mouse</kbd> câmera · rodinha = zoom</span>`
   };
   const ajuda = $('.jogo-ajuda'); ajuda.innerHTML = AJUDA.nave;
   // ajuda das teclas: H esconde/mostra (lembra a escolha)
-  let ajudaOff = false; try { ajudaOff = localStorage.getItem('su-ajuda') === 'off'; } catch (e) { /* */ }
+  let ajudaOff = true; try { ajudaOff = localStorage.getItem('su-ajuda') !== 'on'; } catch (e) { /* */ }   // comeca escondida (H mostra)
   function alternarAjuda(v = !ajudaOff) { ajudaOff = v; raiz.classList.toggle('ajuda-off', v); try { localStorage.setItem('su-ajuda', v ? 'off' : 'on'); } catch (e) { /* */ } }
   alternarAjuda(ajudaOff);
   // o clique em "Pilotar" ainda vale como gesto do usuario: trava o mouse ja
@@ -162,6 +168,9 @@ export async function abrirJogo() {
   const semAcel = /swiftshader|basic render|llvmpipe|software|microsoft basic/i.test(gpu);
   const fraco = semAcel || /intel|mali|adreno \d{3}\b|powervr/i.test(gpu) && !/iris xe|arc/i.test(gpu) || (navigator.hardwareConcurrency || 8) <= 4 || /baixo/.test(location.search);
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: !fraco, powerPreference: 'high-performance' });
+  // reflexo do metal das armas (um ambiente de estudio, gerado uma vez)
+  const envArmas = (() => { const pm = new THREE.PMREMGenerator(renderer); const tx = pm.fromScene(new RoomEnvironment(), .04).texture; pm.dispose(); return tx; })();
+  ambienteArmas(envArmas);
   // resolucao automatica: comeca pelo que a maquina aguenta e ajusta pelo FPS
   // (cai quando trava, sobe quando sobra) — PC bom fica com tudo no maximo
   const prMax = Math.min(devicePixelRatio || 1, TOQUE ? 1.25 : 1.5), prMin = semAcel ? .4 : .55;
@@ -267,6 +276,9 @@ export async function abrirJogo() {
     if (e.code === 'KeyN' && !e.repeat) alternarSom();
     if (e.code === 'KeyP' && !e.repeat) alternarPvp();
     if (e.code === 'KeyH' && !e.repeat) alternarAjuda();
+    if (e.code === 'KeyG' && !e.repeat) lancarGranada();
+    if (e.code === 'KeyR' && !e.repeat) recarregar();
+    if (e.code === 'KeyQ' && !e.repeat) ligarEscudo();
     // voz: T segurado fala para quem esta perto; Y segurado fala no radio (todos)
     if ((e.code === 'KeyT' || e.code === 'KeyY') && !e.repeat) falarVoz(e.code === 'KeyY' ? 'geral' : 'perto');
     if (e.code === 'KeyC' && !e.repeat && s.aPe && pe.noChao && !painelAberto) rolar();
@@ -283,10 +295,13 @@ export async function abrirJogo() {
   addEventListener('keydown', baixo); addEventListener('keyup', cima);
   addEventListener('blur', () => { tecla.clear(); voz?.falar(null); });
   $('.jogo-sair').addEventListener('click', () => fechar());
+  $('.jogo-menu-bt').addEventListener('click', (e) => { e.stopPropagation(); raiz.classList.toggle('menu-on'); });
+  raiz.addEventListener('click', (e) => { if (!e.target.closest('.jogo-botoes-topo')) raiz.classList.remove('menu-on'); });
   $('.jogo-som').addEventListener('click', () => alternarSom());
   $('.jogo-mapa-bt').addEventListener('click', () => alternarMapa());
-  function alternarSom() { som.destravar(); const m = som.alternarMudo(); $('.jogo-som').textContent = m ? '🔇' : '🔊'; }
-  if (som.mudo) $('.jogo-som').textContent = '🔇';
+  const rotuloSom = (m) => { $('.jogo-som').innerHTML = (m ? '🔇 som desligado' : '🔊 som') + ' <kbd>N</kbd>'; };
+  function alternarSom() { som.destravar(); rotuloSom(som.alternarMudo()); }
+  rotuloSom(som.mudo);
 
   /* Mouse = mira (terceira pessoa): o MOVIMENTO do mouse gira a mira e a
      camera na hora; a nave persegue a mira com inercia. Mouse parado, nada
@@ -600,7 +615,7 @@ export async function abrirJogo() {
      A pe, o clique atira com a arma da mao, na direcao da mira (centro da
      tela). TAB abre o inventario (mouse solto para clicar); 1–4 trocam direto. */
   const ARMAS = [
-    { id: null, nome: 'Mãos livres', icone: '✋', desc: 'sem arma: anda e voa leve', st: [0, 0, 0] },
+    { id: 'espada', nome: 'Espada de energia', icone: '⚔', desc: 'golpe corpo a corpo', cor: 0xff4fd8, cad: .42, corpo: true, st: [.75, .55, .05] },
     { id: 'blaster', nome: 'Blaster', icone: '🔫', desc: 'tiro a tiro, preciso', cor: 0xff4fd8, cad: .26, vel: 260, esc: .1, tom: 1, st: [.4, .4, .7] },
     { id: 'rifle', nome: 'Rifle de plasma', icone: '⚡', desc: 'rajada rápida', cor: 0x4fd2ff, cad: .085, vel: 330, esc: .07, tom: 1.35, st: [.25, .95, .8] },
     { id: 'canhao', nome: 'Canhão de íons', icone: '💥', desc: 'lento, explode na área', cor: 0xffa040, cad: .85, vel: 150, esc: .32, tom: .55, st: [1, .15, .45] }
@@ -640,7 +655,8 @@ export async function abrirJogo() {
     trocaUI.querySelector('b').textContent = a.nome; trocaUI.querySelector('span').textContent = `${i + 1} · ${a.desc}`;
     trocaUI.style.setProperty('--c', hexCor(a));
     trocaUI.classList.remove('on'); void trocaUI.offsetWidth; trocaUI.classList.add('on');
-    clearTimeout(trocaT); trocaT = setTimeout(() => trocaUI.classList.remove('on'), 1300);
+    clearTimeout(trocaT); trocaT = setTimeout(() => trocaUI.classList.remove('on'), 900);
+    armaUI.classList.add('trocando'); clearTimeout(armaUI._t); armaUI._t = setTimeout(() => armaUI.classList.remove('trocando'), 1800);
   }
   function escolherArma(i, aPe = true) {
     if (aPe) {
@@ -652,6 +668,7 @@ export async function abrirJogo() {
     som.bip(760, .06);
   }
   montarInventario(); mostrarArmaAtual();
+  astro.arma(ARMAS[armaIdx].id); raiz.classList.toggle('armado', !!ARMAS[armaIdx].id);   // comeca com a espada na mao
   let ladoTiro = 1;
   function atirarNave() {
     const a = NAVE_ARMAS[navArmaIdx];
@@ -699,7 +716,9 @@ export async function abrirJogo() {
   function atualizarVista1(dt) {
     const id = ARMAS[armaIdx].id, on = !!(s.fp && s.aPe && id);
     vista1.visible = on; if (!on) return;
-    if (!vmModelos[id]) { vmModelos[id] = astro.modeloArma(id); vmModelos[id].scale.setScalar(.85); vista1.add(vmModelos[id]); }
+    if (!vmModelos[id]) { vmModelos[id] = astro.modeloArma(id); vmModelos[id].add(maosPrimeiraPessoa(id, vmModelos[id])); vmModelos[id].scale.setScalar(.85); vista1.add(vmModelos[id]); }
+    vmModelos[id].userData.recarga(recarregando && recarregando.id === id ? recarregando.t / recarregando.dur : -1);
+    if (id === 'espada') vmModelos[id].userData.golpe(golpeVM);
     for (const k in vmModelos) vmModelos[k].visible = k === id;
     vmChute *= Math.exp(-dt * 14);
     const bal = Math.hypot(pe.vel.x, pe.vel.z) * (pe.noChao ? 1 : 0), t = tTotal;
@@ -742,6 +761,11 @@ export async function abrirJogo() {
   }
   function atirarAPe() {
     const a = ARMAS[armaIdx]; if (!a.id) return;
+    if (a.corpo) return golpear();
+    // pente: municao infinita, mas acabou o pente tem que recarregar
+    if (recarregando) return;
+    if (pente[a.id] <= 0) { recarregar(); return; }
+    pente[a.id]--; ultimoTiro = tTotal;
     if (s.fp && vmModelos[a.id]) { vista1.updateMatrixWorld(true); vmModelos[a.id].userData.boca.getWorldPosition(_bc); const fl = vmModelos[a.id].userData.clarao; fl.material.opacity = 1; setTimeout(() => { fl.material.opacity = 0; }, 50); vmChute = 1; }
     else astro.boca(_bc);
     pontoDaMira(_mira); miraAbre = Math.min(1, miraAbre + (a.id === 'rifle' ? .25 : .6));
@@ -773,6 +797,148 @@ export async function abrirJogo() {
     for (const f of voz.falantes(volumeVoz)) linhas.push(`<div class="${f.modo}${f.ouve ? '' : ' longe'}"><i style="background:${corCss(matizDe(f.nome), f.admin)}"></i><b style="color:${corCss(matizDe(f.nome), f.admin)}">${f.admin ? '👑 ' : ''}${f.nome}</b> ${f.modo === 'geral' ? '📻' : f.ouve ? '🎙' : '🎙 longe'}</div>`);
     vozUI.innerHTML = linhas.join('');
   }
+
+  /* ---- calor das armas, acerto, granada (G) e escudo (Q) ---- */
+  // pente de cada arma (municao infinita, mas recarrega) e tempo de recarga
+  const PENTE = { blaster: 12, rifle: 30, canhao: 1 }, T_RECARGA = { blaster: 1.1, rifle: 1.7, canhao: 1.25 };
+  const pente = { ...PENTE };
+  let recarregando = null, ultimoTiro = -9;   // recarregando: { id, t, dur }
+  const munUI = $('.jogo-mun'), munTxt = $('.jogo-mun b'), munBarra = $('.jogo-mun em');
+  function recarregar() {
+    const id = ARMAS[armaIdx].id;
+    if (!s.aPe || !id || ARMAS[armaIdx].corpo || recarregando || pente[id] >= PENTE[id]) return;
+    recarregando = { id, t: 0, dur: T_RECARGA[id] }; som.bip(420, .04);
+  }
+  function atualizarMunicao(dt) {
+    const a = ARMAS[armaIdx];
+    // trocou de arma no meio: cancela (o pente continua como estava)
+    if (recarregando && recarregando.id !== a.id) { astro.recarregar(recarregando.id, -1); recarregando = null; }
+    // pente vazio: recarrega sozinho logo depois do ultimo tiro
+    if (!recarregando && s.aPe && a.id && !a.corpo && pente[a.id] <= 0 && tTotal - ultimoTiro > .14) recarregar();
+    if (recarregando) {
+      const r = recarregando, antes = r.t / r.dur; r.t += dt; const k = Math.min(1, r.t / r.dur);
+      if (antes < .45 && k >= .45) som.bip(760, .03);      // celula sai
+      if (antes < .7 && k >= .7) som.bip(1050, .04);       // celula nova entra
+      astro.recarregar(r.id, k);
+      if (k >= 1) { pente[r.id] = PENTE[r.id]; astro.recarregar(r.id, -1); recarregando = null; som.bip(1500, .05); }
+    }
+    const arma = s.aPe && a.id && !a.corpo;
+    munUI.classList.toggle('on', !!arma); munUI.classList.toggle('recarga', !!recarregando); munUI.classList.toggle('vazio', !!(arma && pente[a.id] <= 0));
+    const jaMun = armaUI.querySelector('.ja-mun'); jaMun.textContent = arma ? (recarregando ? '···' : `${pente[a.id]}/${PENTE[a.id]}`) : ''; jaMun.classList.toggle('vazio', !!(arma && pente[a.id] <= 0));
+    if (arma) { munTxt.textContent = recarregando ? 'RECARREGANDO' : `${pente[a.id]} / ∞`; munBarra.style.transform = `scaleX(${(recarregando ? recarregando.t / recarregando.dur : pente[a.id] / PENTE[a.id]).toFixed(3)})`; }
+  }
+
+  // espada: arco na frente; acerta o que estiver ate ~3 m num leque de ~110 graus
+  let golpeVM = -1, golpeAcertou = false, golpeT = -1;
+  const rastroGeo = new THREE.RingGeometry(.9, 2.6, 24, 1, -Math.PI * .35, Math.PI * .7);
+  const rastro = new THREE.Mesh(rastroGeo, new THREE.MeshBasicMaterial({ color: 0xff7ae0, transparent: true, opacity: 0, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
+  rastro.renderOrder = 5;
+  function golpear() {
+    if (golpeT >= 0) return;
+    golpeT = 0; golpeAcertou = false; golpeVM = 0;
+    astro.golpear(); som.bip(320, .05); setTimeout(() => som.bip(180, .08), 40);
+    if (!rastro.parent) cena.add(rastro);
+  }
+  const _gf = new THREE.Vector3(), _gp = new THREE.Vector3();
+  function atualizarGolpe(dt) {
+    if (golpeVM >= 0) { golpeVM += dt / .34; if (golpeVM >= 1) golpeVM = -1; }
+    if (golpeT < 0) { rastro.material.opacity = Math.max(0, rastro.material.opacity - dt * 6); return; }
+    golpeT += dt;
+    // o rastro: um leque de luz na frente do peito, girando com o corte
+    const fr = _gf.set(Math.sin(pe.rumo), 0, Math.cos(pe.rumo));
+    if (rastro.parent !== cena) cena.add(rastro);
+    rastro.position.copy(pe.pos).addScaledVector(fr, .2); rastro.position.y += 1.15;
+    rastro.rotation.set(-Math.PI / 2, 0, 0); rastro.rotateZ(pe.rumo + Math.PI / 2 - .8 + golpeT * 6);
+    rastro.material.opacity = Math.max(0, .55 * (1 - golpeT / .3));
+    // o golpe pega no meio do arco
+    if (!golpeAcertou && golpeT > .1) {
+      golpeAcertou = true;
+      const quebrou = (tipo) => som.explosao(tipo === 'barril' ? .6 : .2);
+      let acertou = false;
+      for (const dist of [1.2, 2.2]) for (const ang of [-.7, 0, .7]) {
+        _gp.copy(pe.pos).addScaledVector(fr.clone().applyAxisAngle(_vY, ang), dist); _gp.y += 1.1;
+        if (mundo.estruturas?.testarTiro(_gp, 3, 0, (q, tam, cor) => tiros.explodir(q, Math.min(tam, 2), cor), quebrou)) acertou = true;
+      }
+      if (rede && meuPvp) for (const r of rede.remotos.values()) {
+        if (!r.vivo || !r.pvp || !r.obj) continue;
+        const dx = r.pos.x - pe.pos.x, dz = r.pos.z - pe.pos.z, d = Math.hypot(dx, dz);
+        if (d < 3.2 && Math.abs(r.pos.y - pe.pos.y) < 2.2 && (dx * fr.x + dz * fr.z) / Math.max(d, .01) > .3) { rede.acerto(r.id, 'espada'); marcarAcerto(r.pos.clone().setY(r.pos.y + 1.2), 'jogador', DANO.espada); acertou = true; }
+      }
+      if (acertou) { marcarAcerto(null, 'objeto'); som.bip(240, .06); abalo = Math.max(abalo, .12); }
+    }
+    if (golpeT > .42) golpeT = -1;
+  }
+  const _vY = new THREE.Vector3(0, 1, 0);
+
+  // marcador de acerto (na mira) e numero de dano subindo de onde bateu
+  const hitUI = $('.jogo-hitx'), danosUI = $('.jogo-danos'); let hitT = 0;
+  const DANO = { blaster: 12, rifle: 6, canhao: 40, laser: 9, plasma: 4, missil: 30, ions: 55, granada: 45, espada: 35 };
+  function marcarAcerto(p, tipo, dano) {
+    hitUI.className = 'jogo-hitx on ' + tipo; clearTimeout(hitT); hitT = setTimeout(() => { hitUI.className = 'jogo-hitx'; }, tipo === 'jogador' ? 260 : 150);
+    hitUI.querySelector('b').textContent = tipo === 'bloqueado' ? 'BLOQUEADO' : '';
+    if (tipo === 'jogador') { som.bip(1700, .03); setTimeout(() => som.bip(2400, .04), 45); } else if (tipo === 'objeto') som.bip(2300, .02);
+    if (!dano || !p) return;
+    const v = p.clone().project(camera); if (v.z > 1) return;
+    const el = document.createElement('div'); el.className = 'dano ' + tipo; el.textContent = '-' + dano;
+    el.style.left = ((v.x * .5 + .5) * innerWidth + (Math.random() - .5) * 30) + 'px'; el.style.top = ((-v.y * .5 + .5) * innerHeight) + 'px';
+    danosUI.appendChild(el); setTimeout(() => el.remove(), 900);
+  }
+
+  // granada de energia: arco com gravidade, quica, explode em 1,7 s
+  const granadas = []; let granadaCd = 0, escudoCd = 0, escudoT = 0;
+  const matGranada = new THREE.MeshStandardMaterial({ color: 0x2a2836, metalness: .7, roughness: .3, emissive: new THREE.Color(0xb36bff), emissiveIntensity: 1 });
+  const geoGranada = new THREE.IcosahedronGeometry(.13, 1), geoAnelG = new THREE.TorusGeometry(.15, .025, 6, 20);
+  function lancarGranada() {
+    if (!s.aPe || s.dentro || morto || granadaCd > 0 || painelAberto) return;
+    granadaCd = 3.5;
+    const g = new THREE.Mesh(geoGranada, matGranada.clone()); const anel = new THREE.Mesh(geoAnelG, new THREE.MeshBasicMaterial({ color: 0xd9a6ff })); g.add(anel);
+    astro.boca(g.position); g.position.y += .1;
+    camera.getWorldDirection(_dirG);
+    const v = new THREE.Vector3().copy(_dirG).multiplyScalar(17).add(pe.vel); v.y += 5.5;
+    cena.add(g); granadas.push({ m: g, v, vida: 1.7, anel });
+    astro.gesto('Interact'); som.bip(520, .05);
+  }
+  const _dirG = new THREE.Vector3();
+  function atualizarGranadas(dt) {
+    granadaCd = Math.max(0, granadaCd - dt); escudoCd = Math.max(0, escudoCd - dt);
+    for (let i = granadas.length - 1; i >= 0; i--) {
+      const gr = granadas[i], p = gr.m.position;
+      gr.vida -= dt; gr.v.y -= 16 * dt; p.addScaledVector(gr.v, dt);
+      gr.m.rotation.x += dt * 8; gr.anel.rotation.y += dt * 12;
+      const chao = mundo.alturaChao ? mundo.alturaChao(p.x, p.z) + .13 : -1e9;
+      if (p.y < chao) { p.y = chao; if (gr.v.y < -2) som.bip(300, .02); gr.v.y = Math.abs(gr.v.y) * .35; gr.v.x *= .6; gr.v.z *= .6; }
+      if (mundo.estruturas) for (const w of mundo.estruturas.paredes) { if (p.y > w.h) continue; const q = mundo.estruturas.distParede(p.x, p.z, w); if (q.d < w.esp + .15) { const nx = p.x - q.qx, nz = p.z - q.qz, l = Math.hypot(nx, nz) || 1; const dot = (gr.v.x * nx + gr.v.z * nz) / l; if (dot < 0) { gr.v.x -= 1.6 * dot * nx / l; gr.v.z -= 1.6 * dot * nz / l; } break; } }
+      // pisca mais rapido perto de explodir
+      gr.m.material.emissiveIntensity = 1 + (Math.sin(tTotal * (gr.vida < .6 ? 40 : 14)) * .5 + .5) * 2;
+      if (gr.vida <= 0) { explodirGranada(p.clone()); cena.remove(gr.m); gr.m.material.dispose(); gr.anel.material.dispose(); granadas.splice(i, 1); }
+    }
+    if (escudoT > 0) { escudoT -= dt; if (escudoT <= 0) { bolhaEu.visible = false; bolhaNave.visible = false; } else { const o = .25 + Math.sin(tTotal * 11) * .06; bolhaEu.material.opacity = o; bolhaNave.material.opacity = o; } }
+    // HUD das habilidades (recarga)
+    habUI.g.classList.toggle('pronto', granadaCd <= 0); habUI.g.style.setProperty('--cd', (granadaCd / 3.5).toFixed(3));
+    habUI.q.classList.toggle('pronto', escudoCd <= 0); habUI.q.style.setProperty('--cd', (escudoCd / 12).toFixed(3)); habUI.q.classList.toggle('ativo', escudoT > 0);
+  }
+  function explodirGranada(p, alheia) {
+    tiros.explodir(p, 11, [.8, .45, 1]); tiros.explodir(p, 5, [1, .9, 1]);
+    const d = p.distanceTo(camera.position); som.explosao(Math.max(.15, 1 - d / 120)); abalo = Math.max(abalo, Math.max(0, 1 - d / 40));
+    if (alheia) return;
+    const quebrou = (tipo, pos) => som.explosao(tipo === 'barril' ? .6 : .2);
+    mundo.estruturas?.testarTiro(p, 4, 9, (q, tam, cor) => tiros.explodir(q, tam, cor), quebrou);
+    if (rede) {
+      rede.fx(p, 'granada');
+      if (meuPvp) for (const r of rede.remotos.values()) if (r.vivo && r.pvp && r.obj && r.pos.distanceTo(p) < 9) { rede.acerto(r.id, 'granada'); marcarAcerto(r.pos.clone().setY(r.pos.y + 1.2), 'jogador', DANO.granada); }
+    }
+  }
+  // escudo de energia: 3 s, recarga de 12 s (o servidor ignora o dano nesse tempo)
+  const bolhaEu = bolhaEscudo(1.25); bolhaEu.position.y = .95; bolhaEu.visible = false;
+  const bolhaNave = bolhaEscudo(3.4); bolhaNave.visible = false;
+  function ligarEscudo() {
+    if (escudoCd > 0 || morto) return;
+    escudoCd = 12; escudoT = 3;
+    if (!bolhaEu.parent) astro.raiz.add(bolhaEu); if (!bolhaNave.parent) nave.raiz.add(bolhaNave);
+    bolhaEu.visible = !!s.aPe; bolhaNave.visible = !s.aPe;
+    rede?.escudo(); som.bip(880, .08); som.bip(1320, .12);
+  }
+  const habUI = { g: $('.jogo-habil [data-h="g"]'), q: $('.jogo-habil [data-h="q"]') };
 
   /* ---- placar no TAB (segurar) ---- */
   const tabUI = $('.jogo-tab'), stats = new Map();   // id -> { abates, mortes }
@@ -840,6 +1006,8 @@ export async function abrirJogo() {
       if (mundo.planetas) { s.pos.set(-3090, 1340, 5970); s.vel.set(0, 0, 0); }
       else if (s.aPe) { pe.pos.set(0, mundo.alturaChao(0, 14) + .5, 14); pe.vel.set(0, 0, 0); pe.velY = 0; if (s.dentro) sairDoPredio(); }
       else { s.pos.set(0, mundo.alturaChao(0, 0) + 40, 0); s.vel.set(0, 0, 0); }
+    } else if (tipo === 'fx' && m.tipo === 'granada' && m.p) { explodirGranada(new THREE.Vector3().fromArray(m.p), true);
+    } else if (tipo === 'bloqueado') { if (m.fuiEu) marcarAcerto(null, 'bloqueado'); if (m.eu) { som.bip(1500, .05); abalo = Math.max(abalo, .15); }
     } else if (tipo === 'placar') {
       const lista = m.lista.filter((x) => x.pvp || x.abates || x.mortes).sort((a, b) => b.abates - a.abates).slice(0, 6);
       m.lista.forEach((x) => stats.set(x.id, { abates: x.abates, mortes: x.mortes }));
@@ -1368,9 +1536,10 @@ export async function abrirJogo() {
     const podeAtirar = !s.aPe && !painelAberto && !mapaAberto && (s.modo === 'espaco' || (s.modo === 'superficie' && !s.pousado));
     if (atirando && podeAtirar && !inventarioAberto && !morto && cadencia <= 0) { cadencia = NAVE_ARMAS[navArmaIdx].cad; atirarNave(); }
     if (invAPe !== !!s.aPe) { montarInventario(); mostrarArmaAtual(); }
-    if (atirando && s.aPe && !morto && ARMAS[armaIdx].id && !painelAberto && !mapaAberto && !inventarioAberto && cadencia <= 0) { cadencia = ARMAS[armaIdx].cad; atirarAPe(); }
+    if (atirando && s.aPe && !morto && ARMAS[armaIdx].id && !recarregando && !painelAberto && !mapaAberto && !inventarioAberto && cadencia <= 0) { cadencia = ARMAS[armaIdx].cad; atirarAPe(); }
     raiz.classList.toggle('a-pe-ui', !!s.aPe);
     tiros.atualizar(dt, acertou);
+    if (astro) { atualizarMunicao(dt); atualizarGolpe(dt); atualizarGranadas(dt); }
 
     // mira (mouse e setas)
     const livre = s.modo === 'espaco' || s.modo === 'superficie';
@@ -1461,7 +1630,7 @@ export async function abrirJogo() {
     if (s.aPe) atualizarVista1(dt); else vista1.visible = false;
     // mira de arma (a pe, armado): abre a cada tiro e fecha sozinha
     miraAbre *= Math.exp(-dt * 6);
-    raiz.classList.toggle('mira-arma', !!(s.aPe && ARMAS[armaIdx].id)); raiz.style.setProperty('--abre', (6 + miraAbre * 14).toFixed(1) + 'px');
+    raiz.classList.toggle('mira-arma', !!(s.aPe && ARMAS[armaIdx].id && !ARMAS[armaIdx].corpo)); raiz.style.setProperty('--abre', (6 + miraAbre * 14).toFixed(1) + 'px');
     let fov = s.aPe ? 60 : 62 + Math.min(1, veloc / 150) * 10 + s.dobra * 14 + (s.modo === 'entrando' ? tremor * 8 + (ent.gas || 0) * 10 : 0);
     fov *= 1 - mirarK * (s.aPe ? .32 : .45);   // mirando: a pe aproxima um pouco, na nave da o zoom
     if (Math.abs(camera.fov - fov) > .05) { camera.fov += (fov - camera.fov) * (1 - Math.exp(-dt * 14)); camera.updateProjectionMatrix(); }
@@ -1532,7 +1701,7 @@ export async function abrirJogo() {
     const g = new THREE.Group(), add = (geo, cor, x = 0, y = 0, z = 0, basico = false) => { const m = new THREE.Mesh(geo, basico ? new THREE.MeshBasicMaterial({ color: cor }) : new THREE.MeshStandardMaterial({ color: cor, metalness: .6, roughness: .35 })); m.position.set(x, y, z); g.add(m); return m; };
     if (chave.startsWith('pe:')) {
       const id = chave.slice(3);
-      if (id !== 'null') { const a = astro.modeloArma(id); a.visible = true; a.scale.setScalar(id === 'rifle' ? 1.7 : id === 'canhao' ? 1.9 : 2.6); const c = new THREE.Box3().setFromObject(a).getCenter(new THREE.Vector3()); a.position.sub(c); g.add(a); }
+      if (id !== 'null') { const a = astro.modeloArma(id); a.visible = true; a.scale.setScalar(id === 'rifle' ? 1.7 : id === 'canhao' ? 1.9 : id === 'espada' ? 1.05 : 2.6); const c = new THREE.Box3().setFromObject(a).getCenter(new THREE.Vector3()); a.position.sub(c); g.add(a); }
       else { add(new THREE.SphereGeometry(.2, 20, 14), 0xd8c9b0); [-.12, -.04, .04, .12].forEach((x) => add(new THREE.CapsuleGeometry(.035, .16, 4, 8), 0xd8c9b0, x, .22, 0)); }
       g.rotation.y = Math.PI / 2;
     } else {
@@ -1683,7 +1852,7 @@ export async function abrirJogo() {
     // meu tiro em outro jogador (os dois com PvP ligado)
     if (rede && meuPvp && dados) {
       const alvo = rede.remotoEm(p);
-      if (alvo && alvo.pvp) { rede.acerto(alvo.id, dados.arma); tiros.explodir(p, 3, [1, .3, .3]); som.bip(1400, .04); return true; }
+      if (alvo && alvo.pvp) { rede.acerto(alvo.id, dados.arma); tiros.explodir(p, 3, [1, .3, .3]); marcarAcerto(p.clone(), 'jogador', DANO[dados.arma]); return true; }
     }
     const canhao = dados && dados.pe && dados.arma === 'canhao';
     const bateu = (tam, cor) => { tiros.explodir(p, canhao ? 7 : tam, canhao ? [1, .6, .25] : cor); if (canhao) som.explosao(.5); return true; };
@@ -1694,7 +1863,7 @@ export async function abrirJogo() {
     const quebrouAlgo = (tipo, pos) => { som.explosao(tipo === 'barril' ? .7 : .25); if (tipo === 'barril') abalo = Math.max(abalo, Math.max(0, .8 - pos.distanceTo(camera.position) / 60)); };
     const explodirEf = (q, tam, cor) => tiros.explodir(q, tam, cor);
     if (dados && dados.pe) {
-      if (mundo.estruturas && mundo.estruturas.testarTiro(p, canhao ? 4 : dados.arma === 'rifle' ? .5 : 1, canhao ? 8 : 0, explodirEf, quebrouAlgo)) { if (canhao) bateu(7); return true; }
+      if (mundo.estruturas && mundo.estruturas.testarTiro(p, canhao ? 4 : dados.arma === 'rifle' ? .5 : 1, canhao ? 8 : 0, explodirEf, quebrouAlgo)) { marcarAcerto(null, 'objeto'); if (canhao) bateu(7); return true; }
       if (p.y < mundo.alturaChao(p.x, p.z)) return bateu(1.5, [.9, .7, 1]);
       for (const pr of mundo.predios) if (Math.hypot(p.x - pr.pos.x, p.z - pr.pos.z) < 6 && p.y < pr.pos.y + 14) return bateu(1.5, [.6, .8, 1]);
       if (Math.hypot(p.x - s.pos.x, p.z - s.pos.z) < 3 && Math.abs(p.y - s.pos.y) < 2) return bateu(1.5, [.7, .9, 1]);
@@ -1705,6 +1874,7 @@ export async function abrirJogo() {
       const area = dados?.area || 0, dano = dados?.dano || 1;
       const x = mundo.rochaEm(p, 2 + (area ? 4 : 0));
       if (x) {
+        marcarAcerto(null, 'objeto');
         // impacto: faisca no ponto do tiro, a rocha pisca e leva o tranco
         tiros.explodir(p, area ? area * .25 : 3.5, area ? [1, .55, .3] : [1, .85, .6]);
         if (area) {
@@ -1853,7 +2023,7 @@ export async function abrirJogo() {
     rede?.fechar(); voz?.fechar();
     nave?.destruir(); astro?.destruir(); mundo.destruir(); ent.mundoProx?.destruir(); tiros?.destruir(); som.fechar();
     rt.dispose(); posMat.dispose(); fotoTex?.dispose(); fotoMat.dispose(); removeEventListener('resize', medirPos);
-    renderer.dispose(); renderer.forceContextLoss();
+    envArmas.dispose(); renderer.dispose(); renderer.forceContextLoss();
     raiz.remove();
     document.documentElement.classList.remove('jogo-aberto');
     window.__jogoAberto = false;

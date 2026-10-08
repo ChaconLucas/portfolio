@@ -167,7 +167,9 @@ export class Contas extends DurableObject {
 // dano por arma (o servidor decide) e alcance maximo de cada uma
 const ARMAS = {
   blaster: { dano: 12, alcance: 450, cad: 200 }, rifle: { dano: 6, alcance: 500, cad: 60 }, canhao: { dano: 40, alcance: 350, cad: 700 },
-  laser: { dano: 9, alcance: 2500, cad: 100 }, plasma: { dano: 4, alcance: 2500, cad: 35 }, missil: { dano: 30, alcance: 3500, cad: 450 }, ions: { dano: 55, alcance: 2500, cad: 900 }
+  laser: { dano: 9, alcance: 2500, cad: 100 }, plasma: { dano: 4, alcance: 2500, cad: 35 }, missil: { dano: 30, alcance: 3500, cad: 450 }, ions: { dano: 55, alcance: 2500, cad: 900 },
+  espada: { dano: 35, alcance: 7, cad: 380 },   // corpo a corpo (alcance com folga: as posicoes chegam ~10x/s)
+  granada: { dano: 45, alcance: 90, cad: 0 }   // a granada pega varios de uma vez (cadencia propria abaixo)
 };
 export class Sala extends Server {
   jogadores = new Map();   // id -> estado publico
@@ -220,11 +222,22 @@ export class Sala extends Server {
     } else if (m.t === 'pvp') {
       j.pvp = !!m.on; this.broadcast(JSON.stringify({ t: 'pvp', id: j.id, on: j.pvp }));
       contas(this.env).presenca(j.id, j.nome, this.name, true, j.pvp).catch(() => {});
+    } else if (m.t === 'escudo') {
+      // escudo de energia: 3 s sem levar dano, recarga de 12 s
+      const agora = Date.now(); if (agora - (j.escudoEm || 0) < 11000 || !j.vivo) return;
+      j.escudoEm = agora; j.escudoAte = agora + 3000;
+      this.broadcast(JSON.stringify({ t: 'escudo', id: j.id, ate: 3000 }));
+    } else if (m.t === 'fx') {
+      // efeito para os outros verem (explosao da granada)
+      if (Array.isArray(m.p) && m.p.length === 3 && m.p.every(Number.isFinite)) this.broadcast(JSON.stringify({ t: 'fx', id: j.id, tipo: m.tipo === 'granada' ? 'granada' : 'x', p: m.p }), [conn.id]);
     } else if (m.t === 'acerto') {
       // o atirador diz quem acertou; o servidor confere tudo e aplica o dano
       const alvo = this.jogadores.get(String(m.alvo)), a = ARMAS[m.arma];
       if (!alvo || !a || alvo === j || !j.pvp || !alvo.pvp || !j.vivo || !alvo.vivo) return;
-      const agora = Date.now(); if (agora - j.ultTiro < a.cad * .8) return; j.ultTiro = agora;
+      const agora = Date.now();
+      if (m.arma === 'granada') { if (agora - (j.ultGranada || 0) < 2500 && j.granadaAlvos >= 4) return; if (agora - (j.ultGranada || 0) >= 2500) { j.ultGranada = agora; j.granadaAlvos = 0; } j.granadaAlvos++; }
+      else { if (agora - j.ultTiro < a.cad * .8) return; j.ultTiro = agora; }
+      if ((alvo.escudoAte || 0) > agora) { this.broadcast(JSON.stringify({ t: 'bloqueado', id: alvo.id, de: j.id })); return; }
       const d = Math.hypot(j.p[0] - alvo.p[0], j.p[1] - alvo.p[1], j.p[2] - alvo.p[2]); if (d > a.alcance) return;
       alvo.vida = Math.max(0, alvo.vida - a.dano);
       this.broadcast(JSON.stringify({ t: 'vida', id: alvo.id, vida: alvo.vida, de: j.id }));

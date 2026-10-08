@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { montarArma } from './armas3d.js';
 
 /**
  * O astronauta (Quaternius, "Astronaut", CC0 — public/assets/jogo/
@@ -40,45 +41,75 @@ export async function criarAstronauta(cena) {
 
   /* ---- armas na mao direita ---- */
   const mao = modelo.getObjectByName('WristR') || modelo.getObjectByName('Wrist.R');
-  const armas = {}, metal = new THREE.MeshStandardMaterial({ color: 0x2a2635, metalness: .7, roughness: .35 });
-  const brilho = (cor) => new THREE.MeshBasicMaterial({ color: cor });
-  function montarArma(tipo) {
-    const g = new THREE.Group(), b = (w, h, d, m, x = 0, y = 0, z = 0) => { const k = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); k.position.set(x, y, z); g.add(k); return k; };
-    const cil = (r, l, m, z, y = 0) => { const k = new THREE.Mesh(new THREE.CylinderGeometry(r, r, l, 12), m); k.rotation.x = Math.PI / 2; k.position.set(0, y, z); g.add(k); return k; };
-    let boca = .3;
-    if (tipo === 'blaster') {
-      b(.06, .1, .22, metal, 0, .02, .04); b(.045, .1, .05, metal, 0, -.06, -.02); cil(.022, .16, metal, .2, .04); b(.065, .02, .14, brilho(0xff4fd8), 0, .075, .05); boca = .29;
-    } else if (tipo === 'rifle') {
-      b(.07, .1, .42, metal, 0, .02, .1); b(.05, .12, .06, metal, 0, -.07, 0); cil(.025, .3, metal, .45, .03); b(.075, .025, .3, brilho(0x4fd2ff), 0, .08, .1); b(.05, .07, .14, metal, 0, .0, -.17); boca = .61;
-    } else if (tipo === 'canhao') {
-      cil(.07, .38, metal, .14, .03); cil(.085, .06, brilho(0xffa040), .33, .03); b(.06, .12, .08, metal, 0, -.07, -.02); b(.1, .06, .12, metal, 0, .1, .06); boca = .38;
-    }
-    const bocaObj = new THREE.Object3D(); bocaObj.position.set(0, .03, boca); g.add(bocaObj);
-    // clarao do cano (aparece um instante a cada tiro)
-    const cor = { blaster: 0xff7ae0, rifle: 0x7ae6ff, canhao: 0xffb060 }[tipo];
-    const fl = new THREE.Sprite(new THREE.SpriteMaterial({ map: texClarao(), color: cor, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
-    fl.scale.setScalar(tipo === 'canhao' ? .7 : .4); bocaObj.add(fl);
-    g.userData.boca = bocaObj; g.userData.clarao = fl; g.visible = false;
-    return g;
-  }
-  let _tex = null;
-  function texClarao() {
-    if (_tex) return _tex;
-    const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);
-    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.35, 'rgba(255,255,255,.6)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
-    return (_tex = new THREE.CanvasTexture(c));
-  }
+  const armas = {};   // modelos detalhados (armas3d.js)
   // monta as armas na pose de mira: alinhadas com a frente do corpo, na mao
   if (mao && acao.Idle_Gun_Pointing) {
     LOOP.forEach((n) => acao[n] && acao[n].setEffectiveWeight(n === 'Idle_Gun_Pointing' ? 1 : 0));
     mixer.update(0); modelo.updateMatrixWorld(true);
     const p = new THREE.Vector3(); mao.getWorldPosition(p);
-    ['blaster', 'rifle', 'canhao'].forEach((t) => {
-      const g = montarArma(t); g.position.copy(p); g.position.y += .02; raiz.add(g); raiz.updateMatrixWorld(true); mao.attach(g); armas[t] = g;
+    ['blaster', 'rifle', 'canhao', 'espada'].forEach((t) => {
+      const g = montarArma(t); g.position.copy(p); g.position.y += .02; raiz.add(g); raiz.updateMatrixWorld(true); mao.attach(g); g.userData.fixarBase(); armas[t] = g;
     });
     LOOP.forEach((n) => acao[n] && acao[n].setEffectiveWeight(n === 'Idle_Neutral' ? 1 : 0));
   }
   let armaAtual = null;
+
+  /* ---- as duas maos na arma: o braco esquerdo vai ate a empunhadura da
+     frente (IK de dois ossos: ombro e cotovelo) e os dedos fecham ---- */
+  const osso = (n) => modelo.getObjectByName(n);
+  const braco = { clavicula: osso('ShoulderL'), ombro: osso('UpperArmL'), cotovelo: osso('LowerArmL'), pulso: osso('WristL') };
+  const dedos = ['Index1L', 'Index2L', 'Index3L', 'Index1R', 'Index2R', 'Index3R'].map(osso).filter(Boolean);
+  const polegares = ['Thumb1L', 'Thumb2L', 'Thumb1R', 'Thumb2R'].map(osso).filter(Boolean);
+  // pose de repouso dos dedos: volta a ela antes da animacao (algumas animacoes
+  // nao mexem nos dedos, e a curva se acumularia quadro a quadro)
+  const repouso = new Map([...dedos, ...polegares].map((o) => [o, o.quaternion.clone()]));
+  const _S = new THREE.Vector3(), _E = new THREE.Vector3(), _W = new THREE.Vector3(), _T = new THREE.Vector3(), _n = new THREE.Vector3(), _p = new THREE.Vector3(), _en = new THREE.Vector3();
+  const _qa = new THREE.Quaternion(), _qw = new THREE.Quaternion(), _qp = new THREE.Quaternion(), _id = new THREE.Quaternion(), _qd = new THREE.Quaternion();
+  let ikPeso = 0;
+  // gira um osso (no mundo) para que a direcao "de" vire "para", com peso
+  // (a conta e feita no espaco do PAI do osso: o esqueleto tem reflexao, e com
+  // quaternions no mundo o giro saia ao contrario)
+  const _inv = new THREE.Matrix4();
+  function girar(o, de, para, k) {
+    _inv.copy(o.parent.matrixWorld).invert();
+    de.transformDirection(_inv); para.transformDirection(_inv);
+    _qw.setFromUnitVectors(de, para); _qa.copy(_id).slerp(_qw, Math.min(1, k));   // (_qw separado: usar o mesmo quaternion dos dois lados zerava o giro)
+    o.quaternion.premultiply(_qa);
+    o.updateWorldMatrix(false, true);
+  }
+  function maoEsquerdaNa(alvo, k) {
+    const { clavicula, ombro, cotovelo, pulso } = braco; if (!ombro || !cotovelo || !pulso || k < .01) return;
+    ombro.getWorldPosition(_S); cotovelo.getWorldPosition(_E); pulso.getWorldPosition(_W); _T.copy(alvo);
+    let a = _S.distanceTo(_E), b = _E.distanceTo(_W);
+    // longe demais: a clavicula leva o ombro um pouco para a frente (como quem
+    // estica o braco para segurar a arma)
+    if (clavicula && _S.distanceTo(_T) > (a + b) * .97) {
+      clavicula.getWorldPosition(_p);
+      girar(clavicula, _S.clone().sub(_p), _T.clone().sub(_p), k * .45);
+      ombro.getWorldPosition(_S); cotovelo.getWorldPosition(_E); pulso.getWorldPosition(_W);
+    }
+    let d = _S.distanceTo(_T); d = Math.max(Math.abs(a - b) + 1e-3, Math.min(a + b - 1e-3, d));
+    _n.subVectors(_T, _S).normalize();
+    // cotovelo dobra para o lado em que ja esta (e um pouco para baixo)
+    _p.subVectors(_E, _S); _p.addScaledVector(_n, -_p.dot(_n)); _p.y -= .02;
+    if (_p.lengthSq() < 1e-8) _p.set(0, -1, 0); _p.normalize();
+    const A = Math.acos(Math.max(-1, Math.min(1, (a * a + d * d - b * b) / (2 * a * d))));
+    _en.copy(_S).addScaledVector(_n, Math.cos(A) * a).addScaledVector(_p, Math.sin(A) * a);
+    girar(ombro, _E.clone().sub(_S), _en.clone().sub(_S), k);
+    cotovelo.getWorldPosition(_E); pulso.getWorldPosition(_W);
+    girar(cotovelo, _W.clone().sub(_E), _T.clone().sub(_E), k);
+  }
+  // fecha os dedos (por cima da animacao, que os reposiciona todo quadro)
+  function fecharDedos(k) {
+    if (k < .01) return;
+    _qd.setFromAxisAngle(new THREE.Vector3(1, 0, 0), .75 * k);
+    for (const o of dedos) { o.quaternion.multiply(_qd); }
+    _qd.setFromAxisAngle(new THREE.Vector3(0, 0, 1), .45 * k);
+    for (const o of polegares) o.quaternion.multiply(_qd);
+  }
+  // calor de cada arma (0..1), guardado aqui para o desenho
+  const recarga = { blaster: -1, rifle: -1, canhao: -1 };   // -1 = sem recarregar; 0..1 = andamento
+  let golpeT = -1;
 
   /* ---- jetpack ---- */
   const jet = new THREE.Group();
@@ -131,6 +162,10 @@ export async function criarAstronauta(cena) {
     /** coice do tiro (animacao rapida por cima) */
     /** um modelo solto da arma (para a visao em primeira pessoa) */
     modeloArma(t) { return montarArma(t); },
+    /** andamento da recarga de uma arma (0..1; -1 = parada) */
+    recarregar(t, k) { if (t in recarga) recarga[t] = k; },
+    /** golpe da espada: o arco da lamina e o braco */
+    golpear() { golpeT = 0; const a = acao.Interact; if (a && !(gesto && gesto.isRunning())) { a.reset(); a.setEffectiveWeight(1); a.timeScale = 2.4; a.fadeIn(.04); a.play(); gesto = a; } },
     atirou() {
       const ar = armas[armaAtual]; if (ar) { ar.userData.clarao.material.opacity = 1; ar.userData.clarao.material.rotation = Math.random() * 6; claraoT = .06; }
       const a = acao.Idle_Gun_Shoot; if (!a || (gesto && gesto !== a && gesto.isRunning())) return; a.reset(); a.setEffectiveWeight(1); a.timeScale = 2.2; a.fadeIn(.04); a.play(); gesto = a; },
@@ -142,7 +177,8 @@ export async function criarAstronauta(cena) {
     atualizar(dt, { frente = 0, lado = 0, noChao = true, jet: j = 0 }) {
       tempo += dt;
       if (claraoT > 0) { claraoT -= dt; if (claraoT <= 0) for (const k in armas) armas[k].userData.clarao.material.opacity = 0; }
-      const v = Math.hypot(frente, lado), armado = !!armaAtual;
+      // espada: anda como desarmado (as animacoes de arma sao de pistola)
+      const v = Math.hypot(frente, lado), armado = !!armaAtual && armaAtual !== 'espada';
       const alvo = {}; LOOP.forEach((n) => { alvo[n] = 0; });
       if (!noChao) {
         alvo.Idle = 1;
@@ -176,6 +212,7 @@ export async function criarAstronauta(cena) {
         fase = (fase + dt * v / passada) % 1;
       }
       for (const n of CICLO) if (acao[n]) acao[n].time = fase * acao[n].getClip().duration;
+      for (const [o, q] of repouso) o.quaternion.copy(q);
       mixer.update(dt);
       // no ar: inclina para onde voa (suave) e balanca de leve
       const alvoF = noChao ? 0 : Math.max(-.5, Math.min(.6, frente * .045)), alvoL = noChao ? 0 : Math.max(-.45, Math.min(.45, -lado * .045));
@@ -189,6 +226,16 @@ export async function criarAstronauta(cena) {
       chamas.forEach((c, i) => { c.visible = empuxo > .03; const tr = 1 + Math.sin(tempo * 60 + i * 2) * .12; c.scale.set(.8 + empuxo * .5, (.3 + empuxo * 1.6) * tr, .8 + empuxo * .5); });
       luzJet.material.color.setHex(empuxo > .05 ? 0x8fd8ff : 0x9f7bff);
       raiz.updateMatrixWorld();
+      // armado: a mao esquerda segura a frente da arma (nao no rolamento)
+      const rolando = gesto === acao.Roll && gesto?.isRunning();
+      ikPeso += ((armado && !rolando ? 1 : 0) - ikPeso) * (1 - Math.exp(-dt * 10));
+      if (ikPeso > .01 && armas[armaAtual]) {
+        fecharDedos(ikPeso); modelo.updateMatrixWorld(true);
+        maoEsquerdaNa(armas[armaAtual].userData.maoEsq.getWorldPosition(_T), ikPeso);
+      }
+      // golpe da espada (arco) e recarga das armas de fogo
+      if (golpeT >= 0) { golpeT += dt / .34; if (golpeT >= 1) { golpeT = -1; armas.espada?.userData.golpe(-1); } else armas.espada?.userData.golpe(golpeT); }
+      for (const k in recarga) armas[k]?.userData.recarga(recarga[k]);
       acum += dt * empuxo * 120;
       while (acum >= 1) {
         acum -= 1; const i = prox; prox = (prox + 1) % N;
