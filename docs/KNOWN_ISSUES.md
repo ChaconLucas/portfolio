@@ -965,3 +965,9 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
 - **Embaixo da mira:** só a barra de recarga, enquanto recarrega.
 - **Ajuda das teclas** começa escondida (H mostra; a escolha fica salva).
 - Conferido numa janela de 696 px: nada se sobrepõe.
+- **O ☰ não dava para clicar no computador:** durante o jogo o mouse fica preso (vira a mira). As opções foram para o **menu de pausa (Esc)**, onde o mouse fica livre: Continuar, PvP (mostra se está ligado), Mapa, Som (mostra se está ligado) e Sair. O ☰ ficou só no toque (celular).
+- **Esc tirava a tela cheia do navegador.**
+  - Agora o jogo entra em tela cheia sozinho ao clicar em Pilotar, também no computador (antes só no celular).
+  - No **Chrome/Edge**, ele pede o Esc para si (`navigator.keyboard.lock(['Escape'])`): um toque no Esc só pausa, e para sair da tela cheia se **segura** o Esc (o próprio Chrome avisa).
+  - No **Firefox/Safari** (sem essa API) o Esc ainda tira a tela cheia, mas ao clicar em Continuar (ou no jogo) ela volta sozinha.
+  - Ao fechar o jogo, a trava do Esc é solta e a tela cheia sai.

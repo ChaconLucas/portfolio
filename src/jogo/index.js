@@ -124,6 +124,7 @@ export async function abrirJogo() {
     <div class="jogo-pausa">
       <small>PAUSADO</small>
       <button type="button" class="jp-continuar">▶ continuar</button>
+      <div class="jp-opcoes"><button type="button" class="jp-opcao" data-op="pvp">⚔ PvP <kbd>P</kbd></button><button type="button" class="jp-opcao" data-op="mapa">🗺 mapa <kbd>M</kbd></button><button type="button" class="jp-opcao" data-op="som">🔊 som <kbd>N</kbd></button></div>
       <button type="button" class="jp-sair">✕ sair do jogo</button>
       <span>o mouse fica preso ao jogo e vira a mira · <kbd>Esc</kbd> pausa · <kbd>Esc</kbd> de novo sai</span>
     </div>
@@ -155,7 +156,13 @@ export async function abrirJogo() {
   const preso = () => !!document.pointerLockElement;
   // pausa = mouse solto no desktop (o menu "continuar / sair" esta na tela)
   const pausado = () => !preso() && !semTrava && !painelAberto && !mapaAberto && !inventarioAberto && !!s;
-  const travar = () => { if (preso() || semTrava) return; try { const r = document.documentElement.requestPointerLock?.(); r?.catch?.(() => {}); } catch (e) { /* */ } };
+  // voltar ao jogo (clique / continuar): trava o mouse e, se o Esc tirou a tela
+  // cheia (Firefox/Safari, ou Chrome sem a trava do Esc), volta para ela
+  const telaCheiaNoInicio = !!document.fullscreenElement || !TOQUE;
+  const travar = () => {
+    if (!preso() && !semTrava) try { const r = document.documentElement.requestPointerLock?.(); r?.catch?.(() => {}); } catch (e) { /* */ }
+    if (telaCheiaNoInicio && !document.fullscreenElement) try { const r = document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }); r?.then?.(() => navigator.keyboard?.lock?.(['Escape']).catch(() => {})).catch?.(() => {}); } catch (e) { /* */ }
+  };
   // estado declarado antes de carregar: o teclado ja escuta durante o carregamento
   let miraAbre = 0, roda = { aberta: false }, rede = null;   // a roda de verdade e criada depois de carregar
   let s = null, painelAberto = false, mapaAberto = false, inventarioAberto = false, tiros = null, armaIdx = 0, navArmaIdx = 0, abalo = 0;
@@ -325,7 +332,18 @@ export async function abrirJogo() {
   document.addEventListener('contextmenu', semMenu);
   document.addEventListener('mousedown', aoApertar); addEventListener('mouseup', aoSoltar);
   canvas.addEventListener('click', travar);
-  $('.jogo-pausa').addEventListener('click', (e) => { if (!e.target.closest('.jp-sair')) travar(); });
+  // pausado (Esc) o mouse fica livre: as opcoes ficam aqui (no jogo, as teclas)
+  $('.jogo-pausa').addEventListener('click', (e) => {
+    const op = e.target.closest('.jp-opcao');
+    if (op) { e.stopPropagation(); if (op.dataset.op === 'pvp') alternarPvp(); else if (op.dataset.op === 'som') alternarSom(); else if (op.dataset.op === 'mapa') alternarMapa(true); atualizarOpcoesPausa(); return; }
+    if (!e.target.closest('.jp-sair')) travar();
+  });
+  function atualizarOpcoesPausa() {
+    const q = (op) => $(`.jp-opcao[data-op="${op}"]`);
+    q('pvp').classList.toggle('ligado', meuPvp); q('pvp').innerHTML = `⚔ PvP ${meuPvp ? 'ligado' : 'desligado'} <kbd>P</kbd>`;
+    q('som').innerHTML = `${som.mudo ? '🔇 som desligado' : '🔊 som ligado'} <kbd>N</kbd>`;
+  }
+  document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement && s) try { atualizarOpcoesPausa(); } catch (e) { /* ainda carregando */ } });
   $('.jp-sair').addEventListener('click', (e) => { e.stopPropagation(); fechar(); });
   // navegador sem trava: cai no modo solto (o movimento do mouse mira mesmo assim)
   document.addEventListener('pointerlockerror', () => { semTrava = true; raiz.classList.add('sem-trava'); });
@@ -2017,6 +2035,7 @@ export async function abrirJogo() {
     removeEventListener('mousemove', aoMover); document.removeEventListener('pointerlockchange', aoTravar);
     document.removeEventListener('mousedown', aoApertar); document.removeEventListener('contextmenu', semMenu); removeEventListener('mouseup', aoSoltar);
     if (document.pointerLockElement) document.exitPointerLock();
+    try { navigator.keyboard?.unlock?.(); } catch (e) { /* */ }
     if (document.fullscreenElement) document.exitFullscreen?.()?.catch?.(() => {});
     tecla.clear(); clearTimeout(conquistaT);
     if (s?.dentro) { s.dentro.int.destruir(); s.dentro.lixo.forEach((o) => o.dispose && o.dispose()); }

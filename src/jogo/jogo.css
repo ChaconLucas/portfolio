@@ -518,3 +518,10 @@ html.jogo-aberto body > *:not(.jogo){visibility:hidden}
 .jogo-troca b{font-size:14px!important}
 .jogo-troca span{display:none}
 .jogo-voz{bottom:124px!important;left:20px!important}
+
+/* opcoes no menu de pausa (Esc): ali o mouse esta livre */
+.jogo-pausa .jp-opcoes{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.jogo-pausa .jp-opcao{min-width:0!important;font-size:12px!important;padding:10px 16px!important;letter-spacing:.06em!important}
+.jogo-pausa .jp-opcao.ligado{border-color:#ff6b6b!important;background:rgba(255,75,75,.2)!important}
+/* o ☰ so no toque (no computador o mouse fica preso; as opcoes estao no Esc) */
+.jogo:not(.toque) .jogo-menu-bt,.jogo:not(.toque) .jogo-menu{display:none!important}

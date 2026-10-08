@@ -111,7 +111,10 @@ document.getElementById('botaoPilotar')?.addEventListener('click', () => {
   // Safari recusa se vier depois de carregar o jogo (fim do gesto do usuario)
   const toque = navigator.maxTouchPoints > 0 && matchMedia('(pointer:coarse)').matches;
   // celular: tela cheia (onde der: Android sim, iPhone nao) em vez de travar o mouse
-  if (toque) { try { const r = document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }); r?.catch?.(() => {}); } catch (e) { /* */ } }
-  else try { const r = document.documentElement.requestPointerLock?.(); r?.catch?.(() => {}); } catch (e) { /* sem trava */ }
+  // tela cheia (celular e computador). No computador tambem trava o mouse e
+  // pede o Esc para o jogo (Chrome/Edge): um toque no Esc so pausa; para sair
+  // da tela cheia, segura o Esc
+  try { const r = document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }); r?.then?.(() => navigator.keyboard?.lock?.(['Escape']).catch(() => {})).catch?.(() => {}); } catch (e) { /* */ }
+  if (!toque) try { const r = document.documentElement.requestPointerLock?.(); r?.catch?.(() => {}); } catch (e) { /* sem trava */ }
   import('../jogo/index.js').then(({ abrirJogo }) => abrirJogo()).catch(() => location.reload());   // versao velha do site: recarrega
 });
