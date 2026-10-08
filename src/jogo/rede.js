@@ -140,12 +140,14 @@ export function criarRede({ token, host, modeloNave, aoEvento }) {
       }
       return null;
     },
-    atualizar(dt, cena, eu) {
+    atualizar(dt, cena, eu, periodo = 0) {
       for (const r of remotos.values()) {
         const tipo = r.modo === 'cinema' ? null : r.modo === 'pe' ? 'pe' : 'nave';
         if (tipo !== r.tipo) { if (tipo) criarVisual(r, tipo); else removerVisual(r); }
         if (!r.obj) continue;
         if (r.obj.parent !== cena) cena.add(r.obj);
+        // planeta que da a volta: mostra a copia do outro jogador mais perto de mim
+        if (periodo && eu) { r.alvo.x = eu.x + (r.alvo.x - eu.x) - periodo * Math.round((r.alvo.x - eu.x) / periodo); r.alvo.z = eu.z + (r.alvo.z - eu.z) - periodo * Math.round((r.alvo.z - eu.z) / periodo); }
         // vai suave ate a ultima posicao recebida (teleporte se longe demais)
         const d = r.pos.distanceTo(r.alvo);
         if (d > 300) r.pos.copy(r.alvo); else r.pos.lerp(r.alvo, 1 - Math.exp(-dt * 10));

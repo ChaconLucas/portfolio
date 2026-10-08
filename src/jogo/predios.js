@@ -194,7 +194,7 @@ export function emblema(nome, cor, guarda) {
  * Decoracao tematica espalhada pelo planeta (instanciada). Devolve a lista de
  * meshes e um animar(t) (as que flutuam/piscam).
  */
-export function decorar(key, cor, alturaChao, livre, guarda) {
+export function decorar(key, cor, alturaChao, livre, guarda, ext = 3600, fator = 1) {
   const r = rnd(key.length * 977 + 13);
   const corNeon = new THREE.Color(`hsl(${cor},95%,66%)`);
   const matBrilho = guarda(new THREE.MeshStandardMaterial({ color: new THREE.Color(`hsl(${cor},70%,55%)`), emissive: corNeon, emissiveIntensity: .9, roughness: .3, flatShading: true }));
@@ -212,13 +212,13 @@ export function decorar(key, cor, alturaChao, livre, guarda) {
   }[key];
   if (!T) return { animar() {} };
   const geo = guarda(T.geo());
-  const n = T.n * (T.pilha || 1);
+  const nBase = Math.round(T.n * fator), n = nBase * (T.pilha || 1);
   const inst = new THREE.InstancedMesh(geo, T.mat, n);
   const base = [];
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), v = new THREE.Vector3(), e = new THREE.Euler();
   let k = 0;
-  for (let i = 0; i < T.n; i++) {
-    let x, z; do { x = (r() - .5) * 3600; z = (r() - .5) * 3600; } while (!livre(x, z, 20));
+  for (let i = 0; i < nBase; i++) {
+    let x, z; do { x = (r() - .5) * ext; z = (r() - .5) * ext; } while (!livre(x, z, 20));
     const esc = T.esc[0] + r() * (T.esc[1] - T.esc[0]);
     const chao = alturaChao(x, z);
     if (T.barra) {

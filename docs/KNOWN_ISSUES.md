@@ -850,3 +850,53 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - `conta` e `help` mostram `admin` só para admin.
 - Atualiza na hora ao entrar ou sair (`conta.js` dispara `conta-mudou`). `matizDe` e `corCss` (cor do jogador) foram para `conta.js`; `nave.js` reexporta.
 - O "Pilotar" sem conta continua abrindo o terminal no cadastro (`pedir-conta`; com `{ modo: 'entrar' }` abre no login).
+
+## Planeta que dá a volta e estruturas novas (07/10/2026)
+- **O planeta dá a volta:** a superfície agora é um mundo de 6 × 6 km (`PERIODO` em `cenas.js`) que se repete nas bordas. Indo reto, você volta ao começo.
+  - **Relevo periódico:** frequências inteiras por volta e distâncias "pelo lado curto". As praças e os sítios são planos.
+  - **Grade de alturas:** o relevo vira uma grade de 10 m que serve a física e o desenho, guardada por planeta.
+  - **Rios:** são curvas periódicas que atravessam o planeta e emendam do outro lado.
+  - **Chão:** a malha acompanha quem joga (vértices sobre a grade, refeita a cada ~100 m) e a cor vem da textura do planeta repetida.
+  - **Globo e nuvens:** o globo de baixo segue a câmera; as nuvens aparecem na cópia mais perto.
+  - **Borda:** ao passar dela, nave, astronauta e câmera vão juntos para o outro lado (`darAVolta`). O conteúdo do chão (`mundo.conteudo`) é desenhado de novo do outro lado só quando a câmera está perto da borda (`desenharFantasmas`).
+  - **Outros jogadores e destino:** aparecem na cópia mais perto de você.
+  - **Saída:** conta como se a nave estivesse em cima do ponto de entrada. O céu (sol e planetas) também é calculado a partir desse ponto.
+- **Curvatura só no desenho** (`src/jogo/curva.js`): a física é plana, e cada vértice desce d²/(2R) em volta da câmera.
+  - **Onde entra:** é injetada em todos os materiais da superfície, sprites inclusive, e nos shaders próprios (água, fumaça) via `CURVA_GLSL`.
+  - **Onde não entra:** céu, astros, sol e o globo ficam marcados com `semCurva`.
+  - **No espaço** `CURVA.k` fica em 0. Materiais novos (outros jogadores, tiros) ganham a curva a cada segundo.
+- **Estruturas novas** (`estruturas.js`, em 33 sítios por planeta):
+  - **Bases** de cobertura para o PvP: contêineres (alguns empilhados), muros de sacos de areia, barreiras de concreto e torre de vigia.
+  - **Bunkers e galpões** para entrar: quatro paredes com porta, piso, luzes, tela, prateleiras e passarela no galpão, caixas destrutíveis. O teto some quando você está dentro e a câmera fica presa dentro.
+  - **Cavernas:** cúpula de pedras com entrada, cristais brilhando por dentro, câmera presa dentro.
+  - **O resto em maior quantidade:** naves caídas (16), ruínas (28), barris e caixas (34 grupos), cristais (1100) e decoração do tema (2,4x).
+  - **Leveza:**
+    - cada estrutura vira poucas malhas (peças juntadas por material com `mergeGeometries`);
+    - o que está longe não é desenhado (alcance por tipo, maior com altitude);
+    - sem luzes pontuais novas: os interiores têm luz própria fraca (`emissive`).
+- **Colisão:** além dos círculos, há **paredes** (segmentos com espessura) para o astronauta e para os tiros. Tudo conta a volta no mapa.
+- **Radar** centrado em você, com os sítios em losangos. O **mapa (M)** também mostra os sítios, que dá para clicar e marcar como destino.
+- **Medido** (Mac): 100 a 150 chamadas de desenho no meio do mapa e ~430 perto da borda (o outro lado desenhado), ~250 ms para montar o planeta.
+- **A fazer:** a nave ainda atravessa as estruturas novas; as cavernas são cúpulas, não túneis embaixo da terra.
+
+## Cidades futuristas, planeta de 16 km e mapa completo (07/10/2026)
+- **Planeta de 16 × 16 km** (`PERIODO`), com grade de relevo de 20 m. Continua dando a volta: é um planeta só, e sair por uma borda é chegar pela outra.
+- **Cada tecnologia é uma cidade** (`src/jogo/cidades.js`):
+  - **Tamanho pelo nível:** grande para Core/Primary (raio 380 m), média para Professional (250 m), pequena para as outras (190 m).
+  - **O que tem:** ruas e avenidas em grade com faixas de neon, postes, anel viário e o prédio da tecnologia na praça do centro.
+  - **Prédios futuristas** (mais altos perto do centro), em cinco tipos: torre em degraus, cúpula, agulha com anéis, bloco flutuante e torres gêmeas com ponte.
+  - **Ruínas:** de 3 a 5 cidades por planeta, sem tecnologia, com prédios quebrados, tortos e apagados, e entulho.
+  - **Leveza:** cada cidade são poucas malhas (peças juntadas por material) e some de longe. Os prédios colidem (círculos).
+- **Rodovias** (árvore ligando a plataforma e as cidades, mais atalhos nas grandes): faixa escura com bordas e centro em neon. O terreno debaixo vira um aterro suave, aplicado na grade do relevo.
+- **Nada da Terra:**
+  - bases viraram **postos avançados** (muros de energia, caixas flutuantes, pilones com cristal, torre de sensor com anel girando);
+  - bunkers viraram **módulos** (teto em cúpula, antena);
+  - galpões viraram **hangares** (teto em arco com nervuras de neon);
+  - colunas gregas viraram **pilones hexagonais**, e o arco virou **portal** de blocos;
+  - barris viraram **células de energia** (explodem igual).
+- **Sítios:** 66 por planeta (cavernas, módulos, hangares e postos), longe das cidades e das rodovias.
+- **Mapa (M):** abre mostrando o **planeta inteiro**, com:
+  - cidades no tamanho real (verde quando visitadas), ruínas tracejadas;
+  - rodovias, repetidas nas bordas;
+  - os sítios: só o quadradinho de longe, com o nome ao aproximar.
+- **Medido** (Mac): ~320 ms para montar o planeta (~220 ms ao entrar de novo), ~230 chamadas de desenho dentro de uma cidade grande.

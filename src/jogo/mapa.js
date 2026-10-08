@@ -2,7 +2,9 @@
  * Mapa em tela cheia (tecla M / botao no toque). Visto de cima:
  *  - no espaco: sol, orbitas, os 9 planetas (com o progresso de cada um),
  *    o cinturao, os campos de asteroides, os buracos negros e a nave;
- *  - na superficie: os locais de cada tecnologia (verde = visitado), a
+ *  - na superficie: o planeta inteiro (ele da a volta: sair por uma borda
+ *    e entrar pela outra). Cidades (uma por tecnologia, verde = visitada) e
+ *    as em ruinas, rodovias, cavernas, modulos, hangares, postos, a
  *    plataforma central, a nave e o astronauta.
  * Interativo: d.vista = { zoom, ox, oz } (centro do mapa no mundo). Devolve
  * os pontos clicaveis ja na tela (alvos) e a conversao tela -> mundo, para o
@@ -59,6 +61,29 @@ export function desenharMapa(c, W, H, d, t = 0) {
     });
   } else {
     { const [x, y] = alvo(0, 0, 'plataforma', 'plataforma'); c.strokeStyle = '#ffd36b'; c.lineWidth = 2; c.beginPath(); c.arc(x, y, 8, 0, Math.PI * 2); c.stroke(); c.lineWidth = 1; rotulo('plataforma', x, y + 20, '#ffd36b', 500, 10); }
+    // rodovias (podem passar da borda: o planeta da a volta, entao aparecem
+    // pelos dois lados, cortadas no quadro do planeta)
+    { const [a, b] = P(-d.limite, -d.limite), L2 = d.limite * 2; c.save(); c.beginPath(); c.rect(a, b, L2 * esc, L2 * esc); c.clip();
+      c.strokeStyle = 'rgba(190,175,255,.35)'; c.lineWidth = Math.max(1.5, 16 * esc); c.lineJoin = 'round';
+      for (const e of d.estradas || []) for (const ox of [-L2, 0, L2]) for (const oz of [-L2, 0, L2]) {
+        c.beginPath(); e.pontos.forEach((p, i) => { const [x, y] = P(p.x + ox, p.z + oz); if (i) c.lineTo(x, y); else c.moveTo(x, y); }); c.stroke();
+      }
+      c.restore(); c.lineWidth = 1; }
+    // cidades: circulo do tamanho real; em ruinas tracejado e apagado
+    (d.cidades || []).forEach((ci) => {
+      const [x, y] = P(ci.x, ci.z), r = Math.max(5, ci.raio * esc);
+      c.fillStyle = ci.ruina ? 'rgba(140,130,160,.12)' : ci.visto ? 'rgba(43,255,143,.14)' : 'rgba(169,139,255,.16)'; c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = ci.ruina ? 'rgba(170,160,190,.5)' : ci.visto ? 'rgba(43,255,143,.7)' : d.cor; if (ci.ruina) c.setLineDash([4, 4]); c.lineWidth = 1.5; c.stroke(); c.setLineDash([]); c.lineWidth = 1;
+      if (ci.ruina) { alvo(ci.x, ci.z, 'cidade em ruínas', 'sitio'); rotulo('ruínas', x, y, 'rgba(200,190,220,.85)', 600, 10); }
+      else rotulo({ grande: 'cidade grande', media: 'cidade média', pequena: 'cidade pequena' }[ci.tam], x, y + r + 12, 'rgba(228,220,255,.6)', 500, 9);
+    });
+    // cavernas, modulos, hangares e postos (clicaveis: marcam destino)
+    const NOME = { caverna: 'caverna', bunker: 'módulo', galpao: 'hangar', base: 'posto' }, COR = { caverna: '#c9a27a', bunker: '#9aa3b5', galpao: '#7fb0d8', base: '#d8c06a' };
+    (d.sitios || []).forEach((st) => {
+      const [x, y] = alvo(st.x, st.z, NOME[st.tipo] || st.tipo, 'sitio');
+      c.fillStyle = COR[st.tipo] || '#aaa'; c.fillRect(x - 4, y - 4, 8, 8);
+      if (v.zoom >= 1.8) rotulo(NOME[st.tipo] || st.tipo, x, y + 14, COR[st.tipo] || '#aaa', 500, 9);   // de longe so o quadradinho (a legenda explica)
+    });
     d.predios.forEach((p) => {
       const [x, y] = alvo(p.x, p.z, p.nome, 'predio');
       c.fillStyle = p.visto ? '#2bff8f' : d.cor; c.shadowColor = c.fillStyle; c.shadowBlur = 12;

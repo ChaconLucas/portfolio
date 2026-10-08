@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { STACK } from './dados.js';
 import { TIPOS, corpoPredio, portaria, emblema, decorar } from './predios.js';
 import { criarEstruturas } from './estruturas.js';
+import { planejarCidades, planejarEstradas } from './cidades.js';
 
 /**
  * As duas cenas do jogo:
@@ -740,84 +741,139 @@ const _branco = new THREE.Color(1, 1, 1), _eixoY = new THREE.Vector3(0, 1, 0);
 const _cor = new THREE.Color(), _vs = new THREE.Vector3(), _m4 = new THREE.Matrix4(), _q4 = new THREE.Quaternion(), _s4 = new THREE.Vector3();
 
 /* ============================================================ superficie == */
-// a plataforma central (onde a nave chega) fica numa praca plana de raio 40;
-// cada tecnologia tem o seu LOCAL espalhado pelo mapa (raio plano 60): uma
-// praca com o predio, uma plataforma de pouso e um feixe de luz que se ve de
-// longe. Entre eles, morros e montanhas.
-export const RAIO_PRACA = 40, RAIO_LOCAL = 60, LIMITE_SUP = 2000;
-// o chao curva junto com um globo gigante por baixo: descendo do alto se ve o
-// horizonte curvo do planeta, que vai achatando ate virar chao
+// O planeta e um quadrado de PERIODO x PERIODO que se REPETE nas bordas: indo
+// sempre reto voce da a volta e chega de novo onde comecou. Relevo, rios e
+// estruturas emendam sem costura (tudo e periodico). A fisica e plana; a curva
+// do planeta e so no desenho (curva.js), em volta de quem joga.
+// A plataforma central (onde a nave chega) fica numa praca plana de raio 40;
+// cada tecnologia tem o seu LOCAL espalhado pelo planeta (raio plano 60).
+export const PERIODO = 16000;
+export const RAIO_PRACA = 40, RAIO_LOCAL = 60, LIMITE_SUP = PERIODO / 2;
+// raio do planeta no desenho (a curva) e do globo que aparece por baixo
 export const R_GLOBO = 6000;
+export const embrulhar = (a) => a - PERIODO * Math.round(a / PERIODO);   // diferenca "pelo lado mais curto"
+const distW = (ax, az, bx, bz) => Math.hypot(embrulhar(ax - bx), embrulhar(az - bz));
 const suaveC = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
-// os locais das tecnologias: espalhados em volta da plataforma, alternando
-// perto e longe, sem encostar uns nos outros
+// frequencia periodica: n ondas por volta do planeta
+const F = (n) => n * Math.PI * 2 / PERIODO;
+// os locais das tecnologias: espalhados pelo planeta todo, sem encostar uns
+// nos outros (a distancia conta dando a volta)
 function locaisDe(key, n) {
   const r = rnd(key.length * 7919 + 17), out = [];
   for (let i = 0; i < n; i++) {
     let x, z, ok = false, tent = 0;
-    while (!ok && tent++ < 200) {
-      const ang = (i / n) * Math.PI * 2 + (r() - .5) * .5, R = (i % 2 ? 900 : 480) + r() * 420;
-      x = Math.cos(ang) * R; z = Math.sin(ang) * R;
-      ok = out.every((o) => Math.hypot(o.x - x, o.z - z) > 330);
+    while (!ok && tent++ < 400) {
+      const ang = (i / n) * Math.PI * 2 + (r() - .5) * .7, R = (i % 2 ? 1500 : 650) + r() * 900;
+      x = embrulhar(Math.cos(ang) * R); z = embrulhar(Math.sin(ang) * R);
+      ok = out.every((o) => distW(o.x, o.z, x, z) > 700) && distW(x, z, 0, 0) > 450;
     }
     out.push({ x, z });
   }
   return out;
 }
-// rios (so com atmosfera): um ou dois, atravessando o mapa em curvas, longe
-// das pracas. O leito e cavado no terreno (criarAltura) e a agua vem de estruturas.js
+// sitios das estruturas maiores (cada um com uma praca plana): bunkers e galpoes
+// para entrar, cavernas e bases com cobertura para o PvP
+function sitiosDe(key, cidades, naEstrada) {
+  const r = rnd(key.length * 2203 + 5), out = [];
+  const ocupado = (x, z, folga) => distW(x, z, 0, 0) < RAIO_PRACA + 90 + folga || cidades.some((l) => distW(l.x, l.z, x, z) < l.raio + 80 + folga) || out.some((s) => distW(s.x, s.z, x, z) < s.r + 50 + folga) || naEstrada(x, z, folga + 20);
+  const por = (tipo, n, raio) => {
+    for (let i = 0; i < n; i++) for (let k = 0; k < 200; k++) {
+      const x = (r() - .5) * PERIODO, z = (r() - .5) * PERIODO;
+      if (!ocupado(x, z, raio)) { out.push({ tipo, x, z, r: raio, rot: r() * Math.PI * 2, semente: Math.floor(r() * 1e6) }); break; }
+    }
+  };
+  // (o planeta e grande: mais de cada, longe das cidades e das rodovias)
+  por('caverna', 14, 34); por('bunker', 14, 22); por('galpao', 12, 26); por('base', 26, 28);
+  return out;
+}
+// rios (so com atmosfera): curvas que atravessam o planeta inteiro e fecham
+// nelas mesmas do outro lado (sao periodicas), desviando das pracas
 function riosDe(key, locais, ar) {
   if (!ar) return [];
   const r = rnd(key.length * 3301 + 9), zonas = [{ x: 0, z: 0 }, ...locais], out = [];
   const n = 1 + (key.length % 2);
   for (let k = 0; k < n; k++) {
-    const ang = r() * Math.PI * 2, pts = [];
-    let x = Math.cos(ang) * LIMITE_SUP * 1.05, z = Math.sin(ang) * LIMITE_SUP * 1.05, dir = ang + Math.PI + (r() - .5) * .6;
-    for (let i = 0; i < 160 && Math.abs(x) <= LIMITE_SUP * 1.1 && Math.abs(z) <= LIMITE_SUP * 1.1; i++) {
-      pts.push({ x, z });
-      dir += (r() - .5) * .35;
-      // desvia das pracas
-      for (const zn of zonas) { const dx = x - zn.x, dz = z - zn.z, d = Math.hypot(dx, dz); if (d < 260) { const fora = Math.atan2(dz, dx); dir += Math.atan2(Math.sin(fora - dir), Math.cos(fora - dir)) * .35; } }
-      x += Math.cos(dir) * 40; z += Math.sin(dir) * 40;
-      if (i > 8 && Math.hypot(x, z) > LIMITE_SUP * 1.12) break;
+    const eixoX = k % 2 === 0;             // o 1o corre ao longo de x, o 2o ao longo de z
+    const a1 = 120 + r() * 220, a2 = 50 + r() * 90, f1 = 1 + Math.floor(r() * 2), f2 = 3 + Math.floor(r() * 3), ph1 = r() * 6.28, ph2 = r() * 6.28;
+    const curva = (u) => a1 * Math.sin(F(f1) * u + ph1) + a2 * Math.sin(F(f2) * u + ph2);
+    const derivada = (u) => a1 * F(f1) * Math.cos(F(f1) * u + ph1) + a2 * F(f2) * Math.cos(F(f2) * u + ph2);
+    // o deslocamento que fica mais longe das pracas
+    let melhor = 0, nota = -1;
+    for (let tent = 0; tent < 40; tent++) {
+      const c0 = (r() - .5) * PERIODO; let m = Infinity;
+      for (const zn of zonas) { const u = eixoX ? zn.x : zn.z, v = eixoX ? zn.z : zn.x; m = Math.min(m, Math.abs(embrulhar(v - (c0 + curva(u))))); }
+      if (m > nota) { nota = m; melhor = c0; }
     }
-    const largura = 14 + r() * 8;
+    const c0 = melhor, largura = 14 + r() * 8, pts = [];
+    for (let u = -PERIODO / 2; u <= PERIODO / 2 + .1; u += 40) { const v = embrulhar(c0 + curva(u)); pts.push(eixoX ? { x: u, z: v } : { x: v, z: u }); }
     out.push({
       pontos: pts, largura,
       dist(px, pz) {
-        let m = Infinity;
-        for (let i = 1; i < pts.length; i++) {
-          const a = pts[i - 1], b = pts[i];
-          if (Math.abs(px - a.x) > 260 && Math.abs(px - b.x) > 260) continue;
-          if (Math.abs(pz - a.z) > 260 && Math.abs(pz - b.z) > 260) continue;
-          const vx = b.x - a.x, vz = b.z - a.z, l2 = vx * vx + vz * vz;
-          const u = Math.max(0, Math.min(1, ((px - a.x) * vx + (pz - a.z) * vz) / l2));
-          const d = Math.hypot(px - a.x - vx * u, pz - a.z - vz * u); if (d < m) m = d;
-        }
-        return m;
+        const u = eixoX ? px : pz, v = eixoX ? pz : px;
+        const dv = embrulhar(v - (c0 + curva(embrulhar(u))));
+        return Math.abs(dv) / Math.sqrt(1 + derivada(u) ** 2);
       }
     });
   }
   return out;
 }
-function criarAltura(locais, rios = []) {
-  const zonas = [{ x: 0, z: 0, r: RAIO_PRACA + 25 }, ...locais.map((l) => ({ x: l.x, z: l.z, r: RAIO_LOCAL }))];
-  return function alturaChao(x, z) {
-    // morros + montanhas "de crista" que crescem longe das pracas
-    const h = Math.sin(x * .021) * Math.cos(z * .017) * 11 + Math.sin(x * .053 + z * .031) * 4 + Math.cos(z * .071 - x * .013) * 2.5;
-    const crista = 1 - Math.abs(Math.sin(x * .0042 + Math.cos(z * .0031) * 1.7) * Math.cos(z * .0047 - x * .0012));
-    let longe = 1, zona = null;
-    for (const zn of zonas) { const d = Math.hypot(x - zn.x, z - zn.z), k = suaveC((d - zn.r) / 70); if (k < longe) { longe = k; zona = zn; } }
-    const montanha = Math.pow(crista, 3) * 120 * suaveC((Math.hypot(x, z) - 250) / 400);
-    // curva do globo: dentro de uma praca ela fica CONSTANTE (a do centro da
-    // praca). Longe do centro do mapa a curva inclinava a praca ~4 m de um
-    // lado ao outro e o predio (reto) afundava de um lado
-    const curva = (x * x + z * z) / (2 * R_GLOBO), curvaZona = zona ? (zona.x * zona.x + zona.z * zona.z) / (2 * R_GLOBO) : curva;
-    // leito dos rios: canal fundo e margens suaves
+// relevo periodico, plano nas pracas e nos sitios; vira uma grade (10 m) que
+// serve a fisica e o desenho (rapido de consultar)
+const PASSO_G = 20, NG = PERIODO / PASSO_G;
+const cacheAltura = new Map(), cacheSitios = new Map();
+function criarAltura(zonasIn, rios = [], estradas = []) {
+  const zonas = [{ x: 0, z: 0, r: RAIO_PRACA + 25 }, ...zonasIn];
+  // baldes de 400 m: cada ponto so olha as zonas perto (sao muitas)
+  const BAL = 400, NB = PERIODO / BAL, baldes = Array.from({ length: NB * NB }, () => []);
+  for (const zn of zonas) {
+    const alc = zn.r + 80, b0x = Math.floor((zn.x - alc + PERIODO / 2) / BAL), b1x = Math.floor((zn.x + alc + PERIODO / 2) / BAL), b0z = Math.floor((zn.z - alc + PERIODO / 2) / BAL), b1z = Math.floor((zn.z + alc + PERIODO / 2) / BAL);
+    for (let bx = b0x; bx <= b1x; bx++) for (let bz = b0z; bz <= b1z; bz++) baldes[((bz % NB + NB) % NB) * NB + ((bx % NB + NB) % NB)].push(zn);
+  }
+  const zonasPerto = (x, z) => baldes[(((Math.floor((z + PERIODO / 2) / BAL)) % NB + NB) % NB) * NB + (((Math.floor((x + PERIODO / 2) / BAL)) % NB + NB) % NB)];
+  const analitica = (x, z) => {
+    // morros + montanhas "de crista" que crescem longe da praca central
+    const h = Math.sin(x * F(20)) * Math.cos(z * F(16)) * 11 + Math.sin(x * F(51) + z * F(30)) * 4 + Math.cos(z * F(68) - x * F(12)) * 2.5;
+    const crista = 1 - Math.abs(Math.sin(x * F(4) + Math.cos(z * F(3)) * 1.7) * Math.cos(z * F(5) - x * F(1)));
+    let longe = 1;
+    for (const zn of zonasPerto(x, z)) { const d = distW(x, z, zn.x, zn.z); if (d > zn.r + 80) continue; const k = suaveC((d - zn.r) / 70); if (k < longe) longe = k; }
+    const montanha = Math.pow(crista, 3) * 120 * suaveC((distW(x, z, 0, 0) - 250) / 400);
     let leito = 0;
     for (const rio of rios) { const d = rio.dist(x, z); if (d < rio.largura * 3) leito = Math.max(leito, 9 * (1 - suaveC(d / (rio.largura * 2.6)))); }
-    return (h + montanha * longe - leito) * longe - (curvaZona + (curva - curvaZona) * longe);
+    return (h + montanha * longe - leito) * longe;
   };
+  const grade = new Float32Array(NG * NG);
+  for (let j = 0; j < NG; j++) for (let i = 0; i < NG; i++) grade[j * NG + i] = analitica(-PERIODO / 2 + i * PASSO_G, -PERIODO / 2 + j * PASSO_G);
+  const idxG = (i, j) => (((j % NG) + NG) % NG) * NG + (((i % NG) + NG) % NG);
+  const g = (i, j) => grade[idxG(i, j)];
+  // rodovias: o terreno debaixo vira um aterro suave (altura media do caminho)
+  const marca = new Uint8Array(NG * NG);   // 1 = estrada (nada nasce em cima)
+  for (const e of estradas) {
+    const P = e.pontos, hs = P.map((p) => grade[idxG(Math.round((p.x + PERIODO / 2) / PASSO_G), Math.round((p.z + PERIODO / 2) / PASSO_G))]);
+    const suav = hs.map((_, i) => { let s = 0, n = 0; for (let k = -8; k <= 8; k++) { const v = hs[Math.max(0, Math.min(hs.length - 1, i + k))]; s += v; n++; } return Math.max(-2, s / n); });
+    const raio = e.largura / 2 + 24;
+    P.forEach((p, i) => {
+      const ci = Math.round((p.x + PERIODO / 2) / PASSO_G), cj = Math.round((p.z + PERIODO / 2) / PASSO_G), nr = Math.ceil(raio / PASSO_G);
+      for (let di = -nr; di <= nr; di++) for (let dj = -nr; dj <= nr; dj++) {
+        const d = Math.hypot(di, dj) * PASSO_G; if (d > raio) continue;
+        const k = 1 - suaveC((d - e.largura / 2) / 24), id = idxG(ci + di, cj + dj);
+        grade[id] = grade[id] * (1 - k) + suav[i] * k;
+        if (d < e.largura / 2 + 6) marca[id] = 1;
+      }
+    });
+  }
+  function alturaChao(x, z) {
+    const fx = (x + PERIODO / 2) / PASSO_G, fz = (z + PERIODO / 2) / PASSO_G;
+    const i = Math.floor(fx), j = Math.floor(fz), u = fx - i, v = fz - j;
+    return (g(i, j) * (1 - u) + g(i + 1, j) * u) * (1 - v) + (g(i, j + 1) * (1 - u) + g(i + 1, j + 1) * u) * v;
+  }
+  alturaChao.noPonto = g;   // valor exato num ponto da grade (malha do chao)
+  // esta perto de uma rodovia? (folga em metros, aproximada pela grade)
+  alturaChao.naEstrada = (x, z, folga = 0) => {
+    const ci = Math.round((x + PERIODO / 2) / PASSO_G), cj = Math.round((z + PERIODO / 2) / PASSO_G), nr = Math.ceil(folga / PASSO_G);
+    for (let di = -nr; di <= nr; di++) for (let dj = -nr; dj <= nr; dj++) if (marca[idxG(ci + di, cj + dj)]) return true;
+    return false;
+  };
+  return alturaChao;
 }
 
 /**
@@ -831,10 +887,23 @@ export function criarSuperficie(cena, planeta, opc = {}) {
   const cor = planeta.cor, ar = planeta.atmosfera !== false;
   const qW2S = opc.qW2S || new THREE.Quaternion();
   const area = STACK[planeta.key] || { techs: [] };
-  const locais = locaisDe(planeta.key, area.techs.length);
-  const rios = riosDe(planeta.key, locais, ar);
-  const alturaChao = criarAltura(locais, rios);
-  const livre = (x, z, folga = 0) => Math.hypot(x, z) > RAIO_PRACA + 15 + folga && locais.every((l) => Math.hypot(x - l.x, z - l.z) > RAIO_LOCAL + 10 + folga);
+  // cada tecnologia e uma cidade (o predio dela fica na praca do centro);
+  // rodovias ligam as cidades e a plataforma
+  const cidades = planejarCidades(planeta.key, area.techs, PERIODO, embrulhar);
+  const locais = cidades.filter((c) => c.tec).sort((a, b) => a.i - b.i).map((c) => ({ x: c.x, z: c.z }));
+  const estradas = planejarEstradas(cidades, embrulhar);
+  const rios = riosDe(planeta.key, cidades, ar);
+  // a grade do relevo e a mesma toda vez: guarda por planeta (entrar de novo e mais rapido)
+  let alturaChao = cacheAltura.get(planeta.key);
+  if (!alturaChao) { alturaChao = criarAltura(cidades.map((c) => ({ x: c.x, z: c.z, r: c.raio + 10 })), rios, estradas); cacheAltura.set(planeta.key, alturaChao); }
+  const sitios = cacheSitios.get(planeta.key) || sitiosDe(planeta.key, cidades, alturaChao.naEstrada); cacheSitios.set(planeta.key, sitios);
+  const livre = (x, z, folga = 0) => distW(x, z, 0, 0) > RAIO_PRACA + 15 + folga && cidades.every((c) => distW(x, z, c.x, c.z) > c.raio + 10 + folga) && sitios.every((s) => distW(x, z, s.x, s.z) > s.r + 6 + folga) && !alturaChao.naEstrada(x, z, Math.max(0, folga));
+  // tudo o que fica no chao vai neste grupo: perto da borda do mapa ele e
+  // desenhado de novo do outro lado (o mundo se repete; ver fantasmas)
+  const conteudo = new THREE.Group(); cena.add(conteudo);
+  cena.userData.superficie = true;
+  // o que nao curva: ceu, astros e o globo de baixo (eles ja sao "redondos")
+  const semCurva = (o) => { o.traverse((x) => { x.userData.semCurva = true; }); return o; };
   const toque = typeof matchMedia !== 'undefined' && matchMedia('(pointer:coarse)').matches;
   const { ceu: ceuCor, chao: corChao } = coresPlaneta(planeta);
   cena.background = ceuCor;
@@ -843,19 +912,19 @@ export function criarSuperficie(cena, planeta, opc = {}) {
 
   // ceu: degrade com atmosfera; sem ela (tipo lua), o mesmo ceu estrelado do
   // espaco, girado
-  const ceu = domoCeu(cor, ar, guarda); ceu.renderOrder = -1; cena.add(ceu);
+  const ceu = domoCeu(cor, ar, guarda); ceu.renderOrder = -1; cena.add(semCurva(ceu));
   let estrelas = null;
-  if (!ar) { estrelas = ceuEstrelado(guarda); estrelas.quaternion.copy(qW2S); cena.add(estrelas); }
+  if (!ar) { estrelas = ceuEstrelado(guarda); estrelas.quaternion.copy(qW2S); cena.add(semCurva(estrelas)); }
 
   // os outros planetas e o sol no ceu, onde estao de verdade no sistema
   // (posicionados a cada quadro em atualizar)
   const ceuAstros = (opc.astros || []).map((a) => {
     const m = montarPlaneta(a.d, a.i, a.d.tam * ESC_TAM, guarda);
     m.corpo.rotation.y = a.rotCorpo || 0; if (m.nuvens) m.nuvens.rotation.y = a.rotNuvens || 0;
-    m.grupo.quaternion.copy(qW2S); cena.add(m.grupo);
+    m.grupo.quaternion.copy(qW2S); cena.add(semCurva(m.grupo));
     return { obj: m.grupo, orig: a.orig };
   });
-  const sol = montarSol(guarda); cena.add(sol);
+  const sol = montarSol(guarda); cena.add(semCurva(sol));
   const luzSol = new THREE.PointLight(0xfff0dd, 3, 0, 0); cena.add(luzSol);
   ceuAstros.push({ obj: sol, orig: new THREE.Vector3() });
 
@@ -866,62 +935,69 @@ export function criarSuperficie(cena, planeta, opc = {}) {
   const gl = montarPlaneta(planeta, iPl, raioPl, guarda);
   gl.grupo.scale.setScalar(R_GLOBO / raioPl); gl.grupo.quaternion.copy(qW2S);
   // 22 m abaixo: os vales do terreno descem ate ~ -15 e o globo aparecia neles
-  gl.grupo.position.y = -R_GLOBO - 22; cena.add(gl.grupo);
+  gl.grupo.position.y = -R_GLOBO - 22; cena.add(semCurva(gl.grupo));   // segue a camera (ver seguir)
   gl.corpo.rotation.y = opc.rotCorpo || 0; if (gl.nuvens) gl.nuvens.rotation.y = opc.rotNuvens || 0;
   gl.atm.visible = false;
   gl.grupo.traverse((o) => { if (o.material && !o.material.isShaderMaterial) o.material.fog = true; });
   if (gl.nuvens) { gl.nuvens.material.side = THREE.DoubleSide; gl.nuvens.material.opacity = .7; gl.nuvens.visible = true; }   // vistas de baixo tambem
 
-  // terreno low-poly (curva junto com o globo: ver alturaChao)
-  const TAM = 4600, SEG = toque ? 170 : 260;
+  // terreno low-poly: uma malha que ACOMPANHA quem joga (o mundo e periodico,
+  // o relevo vem da grade de alturaChao). Vertices de 20 em 20 m, sempre em
+  // cima de pontos da grade: refazer a malha nao muda nada do que se ve.
+  // A cor vem da textura do planeta, repetida no mapa (emenda sem costura).
+  const TAM = 5600, SEG = toque ? 140 : 280, ESP = TAM / SEG;
   const geo = guarda(new THREE.PlaneGeometry(TAM, TAM, SEG, SEG)); geo.rotateX(-Math.PI / 2);
-  const p = geo.attributes.position;
-  for (let i = 0; i < p.count; i++) p.setY(i, alturaChao(p.getX(i), p.getZ(i)));
-  geo.computeVertexNormals();
-  // a cor de cada vertice vem da textura do globo logo abaixo: visto do alto, o
-  // terreno some no planeta (mesmas manchas), sem um "quadrado" de outra cor
-  {
-    const cv = canvasPlaneta(cor, semente(iPl)), W = cv.width, H = cv.height;
-    const px = cv.getContext('2d').getImageData(0, 0, W, H).data;
-    gl.grupo.updateMatrixWorld(true);
-    const inv = gl.corpo.getWorldQuaternion(new THREE.Quaternion()).invert();
-    const cores = new Float32Array(p.count * 3), v = new THREE.Vector3(), c = new THREE.Color();
+  const p = geo.attributes.position, baseX = new Float32Array(p.count), baseZ = new Float32Array(p.count);
+  for (let i = 0; i < p.count; i++) { baseX[i] = p.getX(i); baseZ[i] = p.getZ(i); }
+  const cores = new Float32Array(p.count * 3); geo.setAttribute('color', new THREE.BufferAttribute(cores, 3));
+  const cvP = canvasPlaneta(cor, semente(iPl)), WP = cvP.width, HP = cvP.height, pxP = cvP.getContext('2d').getImageData(0, 0, WP, HP).data;
+  const corLin = new Float32Array(256); for (let i = 0; i < 256; i++) corLin[i] = new THREE.Color().setRGB(i / 255, 0, 0, THREE.SRGBColorSpace).r;
+  let chaoX = null, chaoZ = null;
+  function posicionarChao(px, pz, forcar) {
+    const sx = Math.round(px / ESP) * ESP, sz = Math.round(pz / ESP) * ESP;
+    if (!forcar && chaoX !== null && Math.abs(sx - chaoX) < 100 && Math.abs(sz - chaoZ) < 100) return;
+    chaoX = sx; chaoZ = sz; chao.position.set(sx, 0, sz);
+    const i0 = Math.round((sx + PERIODO / 2) / PASSO_G), j0 = Math.round((sz + PERIODO / 2) / PASSO_G), passoG = ESP / PASSO_G;
     for (let i = 0; i < p.count; i++) {
-      v.set(p.getX(i), p.getY(i) + R_GLOBO + 22, p.getZ(i)).normalize().applyQuaternion(inv);
-      let phi = Math.atan2(v.z, -v.x); if (phi < 0) phi += Math.PI * 2;
-      const col = Math.min(W - 1, Math.floor(phi / (Math.PI * 2) * W)), lin = Math.min(H - 1, Math.floor(Math.acos(Math.max(-1, Math.min(1, v.y))) / Math.PI * H));
-      const o = (lin * W + col) * 4;
-      c.setRGB(px[o] / 255, px[o + 1] / 255, px[o + 2] / 255, THREE.SRGBColorSpace);
-      cores[i * 3] = c.r; cores[i * 3 + 1] = c.g; cores[i * 3 + 2] = c.b;
+      const gi = i0 + Math.round(baseX[i] / ESP) * passoG, gj = j0 + Math.round(baseZ[i] / ESP) * passoG;
+      p.setY(i, alturaChao.noPonto(gi, gj));
+      // cor: a textura do planeta, repetida (em z vai e volta, para emendar)
+      const u = ((gi / NG) % 1 + 1) % 1, tv = ((gj / NG) % 1 + 1) % 1, lat = .2 + .6 * (1 - Math.abs(tv * 2 - 1));
+      const o = (Math.min(HP - 1, Math.floor(lat * HP)) * WP + Math.min(WP - 1, Math.floor(u * WP))) * 4;
+      cores[i * 3] = corLin[pxP[o]]; cores[i * 3 + 1] = corLin[pxP[o + 1]]; cores[i * 3 + 2] = corLin[pxP[o + 2]];
     }
-    geo.setAttribute('color', new THREE.BufferAttribute(cores, 3));
+    p.needsUpdate = true; geo.attributes.color.needsUpdate = true;
+    geo.computeBoundingSphere();
   }
   // mesmo tom e brilho do material do planeta (o do site)
   const chao = new THREE.Mesh(geo, guarda(new THREE.MeshStandardMaterial({ color: gl.corpo.material.color, emissive: gl.corpo.material.emissive, emissiveIntensity: .42, vertexColors: true, roughness: .85, flatShading: true })));
+  chao.frustumCulled = false;
   cena.add(chao);
+  posicionarChao(0, 0, true);
 
   // cristais espalhados (instanciados)
   {
-    const n = 420, cg = guarda(new THREE.OctahedronGeometry(1, 0)); cg.scale(.6, 1.8, .6);
+    const n = 2600, cg = guarda(new THREE.OctahedronGeometry(1, 0)); cg.scale(.6, 1.8, .6);
     const inst = new THREE.InstancedMesh(cg, guarda(new THREE.MeshStandardMaterial({ color: new THREE.Color(`hsl(${(cor + 20) % 360},80%,62%)`), emissive: new THREE.Color(`hsl(${cor},80%,30%)`), roughness: .3, flatShading: true })), n);
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), v = new THREE.Vector3(); const r = rnd(planeta.key.length * 101);
     for (let i = 0; i < n; i++) {
-      let x, z; do { x = (r() - .5) * 3800; z = (r() - .5) * 3800; } while (!livre(x, z));
+      let x, z; do { x = (r() - .5) * PERIODO; z = (r() - .5) * PERIODO; } while (!livre(x, z));
       const k = 1 + r() * 3.5;
       v.set(x, alturaChao(x, z) + k * .8, z); q.setFromAxisAngle(new THREE.Vector3(r() - .5, 1, r() - .5).normalize(), r() * .6); s.setScalar(k);
       inst.setMatrixAt(i, m.compose(v, q, s));
     }
-    cena.add(inst);
+    conteudo.add(inst);
   }
 
   // decoracao com o tema da area (paineis, canos, discos de dados, barras...)
-  const decor = decorar(planeta.key, cor, alturaChao, livre, guarda);
-  if (decor.mesh) cena.add(decor.mesh);
-  // naves caidas, ruinas, rios, barris/caixas e chuva de meteoros
-  const estruturas = criarEstruturas(cena, { planeta, alturaChao, livre, guarda, modeloNave: opc.modeloNave, rios, limite: LIMITE_SUP });
+  const decor = decorar(planeta.key, cor, alturaChao, livre, guarda, PERIODO, 5);
+  if (decor.mesh) conteudo.add(decor.mesh);
+  // naves caidas, ruinas, rios, barris/caixas, cobertura, bunkers, cavernas e
+  // chuva de meteoros (o que fica no chao vai para o conteudo)
+  const estruturas = criarEstruturas(conteudo, { planeta, alturaChao, livre, guarda, modeloNave: opc.modeloNave, rios, limite: LIMITE_SUP, sitios, ceu: cena, cidades, estradas });
 
   // plataforma de pouso
-  const pad = new THREE.Group(); cena.add(pad);
+  const pad = new THREE.Group(); conteudo.add(pad);
   pad.add(new THREE.Mesh(guarda(new THREE.CylinderGeometry(11, 12, .6, 48)), guarda(new THREE.MeshStandardMaterial({ color: 0x23202e, roughness: .6, metalness: .4 }))));
   const anel = new THREE.Mesh(guarda(new THREE.RingGeometry(8.6, 9.2, 64)), guarda(new THREE.MeshBasicMaterial({ color: new THREE.Color(`hsl(${cor},90%,70%)`) })));
   anel.rotation.x = -Math.PI / 2; anel.position.y = .32; pad.add(anel);
@@ -938,7 +1014,7 @@ export function criarSuperficie(cena, planeta, opc = {}) {
   }
   // farol: um feixe vertical para achar a plataforma do alto
   const farol = new THREE.Mesh(guarda(new THREE.CylinderGeometry(.6, 3, 160, 16, 1, true)), guarda(new THREE.MeshBasicMaterial({ color: new THREE.Color(`hsl(${cor},90%,70%)`), transparent: true, opacity: .12, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })));
-  farol.position.y = 80; cena.add(farol);
+  farol.position.y = 80; conteudo.add(farol);
 
   { const luz = new THREE.DirectionalLight(0xfff1e0, 2.2); luz.position.copy(LUZ_SUP).multiplyScalar(400); cena.add(luz); }
   { const l = luzesSuperficie(planeta); cena.add(new THREE.HemisphereLight(l.cima, l.baixo, .9)); }
@@ -1027,7 +1103,7 @@ export function criarSuperficie(cena, planeta, opc = {}) {
     const nomeAlto = new THREE.Sprite(guarda(new THREE.SpriteMaterial({ map: texN, transparent: true, depthWrite: false, fog: false })));
     nomeAlto.position.y = 172; nomeAlto.scale.set(64, 16, 1); g.add(nomeAlto);
     animados.push((t) => { feixe.material.opacity = .13 + Math.sin(t * 1.7 + i) * .04; brilhoTopo.scale.setScalar(24 + Math.sin(t * 2.2 + i) * 4); });
-    cena.add(g);
+    conteudo.add(g);
     const eixoY = new THREE.Vector3(0, 1, 0);
     const portaMundo = new THREE.Vector3(0, 0, P / 2 + 3.2).applyAxisAngle(eixoY, g.rotation.y).add(g.position);
     const padMundo = new THREE.Vector3(0, 0, 19).applyAxisAngle(eixoY, g.rotation.y).add(g.position);
@@ -1050,12 +1126,21 @@ export function criarSuperficie(cena, planeta, opc = {}) {
       const sp = new THREE.Sprite(guarda(new THREE.SpriteMaterial({ map: texNuvem, color: corN, transparent: true, opacity: .28 + r() * .2, depthWrite: false })));
       const a = r() * Math.PI * 2, R = Math.sqrt(r()) * 2300;
       sp.position.set(Math.cos(a) * R, 450 + r() * 300, -300 + Math.sin(a) * R);
+      sp.userData.casa = sp.position.clone();
       sp.scale.setScalar(180 + r() * 260); nuvens.add(sp);
     }
   }
 
   return {
     alturaChao, predios, nuvens, atmosfera: ar, corCeu: ceuCor, corChao, ceuAstros, limite: LIMITE_SUP, corNeon: corNeon.getStyle(), cena, estruturas,
+    periodo: PERIODO, conteudo, sitios, cidades, estradas, curvaK: 1 / (2 * R_GLOBO),
+    /** o que fica em volta de quem joga: chao, globo e nuvens (o mundo se repete) */
+    seguir(px, pz, camera) {
+      posicionarChao(px, pz);
+      gl.grupo.position.x = camera.position.x; gl.grupo.position.z = camera.position.z;
+      // nuvens: cada uma na copia mais perto (periodo das nuvens: 4600)
+      for (const sp of nuvens.children) { const c = sp.userData.casa; if (!c) continue; sp.position.x = c.x + 4600 * Math.round((camera.position.x - c.x) / 4600); sp.position.z = c.z + 4600 * Math.round((camera.position.z - c.z) / 4600); }
+    },
     levantarPoeira(x, z, forca) {
       for (let i = 0; i < NP; i++) {
         if (vidaP[i] > 0 && Math.random() > forca) continue;
@@ -1081,7 +1166,7 @@ export function criarSuperficie(cena, planeta, opc = {}) {
       }
       luzes.forEach((m, k) => m.color.setHex(((k + Math.floor(t * 8)) % 12) < 3 ? 0xffffff : 0xffb13b));
       animados.forEach((f) => f(t)); decor.animar(t);
-      if (camera) estruturas.atualizar(dt, t, camera, extra.efeitos);
+      if (camera) estruturas.atualizar(dt, t, camera, extra.efeitos, extra.quem);
       farol.material.opacity = .08 + Math.sin(t * 2) * .04;
       for (let i = 0; i < NP; i++) {
         if (vidaP[i] <= 0) { pp[i * 3 + 1] = -999; continue; }

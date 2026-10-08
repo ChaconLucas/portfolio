@@ -11,6 +11,7 @@ import { criarInterior, RAIO_SALA } from './interior.js';
 import { emblema } from './predios.js';
 import { criarRoda, desenharSilhueta } from './roda.js';
 import { criarRede } from './rede.js';
+import { CURVA, curvarCena } from './curva.js';
 import { criarVoz } from './voz.js';
 import { sessao, HOST_SALAS } from '../conta.js';
 
@@ -170,6 +171,13 @@ export async function abrirJogo() {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   let cena = new THREE.Scene();          // troca na entrada/saida (a proxima cena e montada antes)
   const camera = new THREE.PerspectiveCamera(62, 1, .4, 45000);
+  // desenha uma cena: na superficie o chao curva em volta da camera (curva.js);
+  // no espaco, no jogo de armas e nas telas de efeito, nada curva
+  const K_CURVA = 1 / (2 * R_GLOBO);
+  function desenhar(c, cam) {
+    CURVA.k.value = c.userData.superficie ? K_CURVA : 0; CURVA.c.value.copy(camera.position);
+    renderer.render(c, cam);
+  }
   function medir() {
     renderer.setSize(innerWidth, innerHeight, false);
     camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
@@ -448,7 +456,7 @@ export async function abrirJogo() {
     // redesenha o quadro anterior e copia a tela (no mesmo instante: o buffer da tela nao e preservado)
     const tam = renderer.getDrawingBufferSize(new THREE.Vector2());
     if (!fotoTex || fotoTex.image.width !== tam.x || fotoTex.image.height !== tam.y) { fotoTex?.dispose(); fotoTex = new THREE.FramebufferTexture(tam.x, tam.y); fotoMat.uniforms.tFoto.value = fotoTex; }
-    renderer.render(cena, camera); renderer.copyFramebufferToTexture(fotoTex); dissolve = 1;
+    desenhar(cena, camera); renderer.copyFramebufferToTexture(fotoTex); dissolve = 1;
     mundo.destruir();
     cena = ent.cenaProx; mundo = ent.mundoProx; ent.cenaProx = ent.mundoProx = null;
     cena.add(nave.raiz, nave.rastro, astro.raiz, astro.fumaca, tiros.grupo, vista1);
@@ -859,7 +867,7 @@ export async function abrirJogo() {
       if (vistaDe !== onde) {
         vistaDe = onde;
         const eu = s.aPe ? pe.pos : s.pos;
-        vista = mundo.planetas ? { zoom: 1, ox: 0, oz: 0 } : { zoom: 1.3, ox: eu.x, oz: eu.z };
+        vista = { zoom: 1, ox: 0, oz: 0 };   // abre mostrando o planeta inteiro (rodinha/pinca aproxima)
       }
     } else { toquesMapa.clear(); arrastoMapa = null; travar(); }
   }
@@ -928,7 +936,10 @@ export async function abrirJogo() {
   function atualizarDestino() {
     const mostrar = destino && !mapaAberto && !s.dentro && (s.modo === 'espaco' || s.modo === 'superficie');
     destUI.classList.toggle('on', !!mostrar); if (!mostrar) return;
-    const eu = s.aPe ? pe.pos : s.pos, dist = Math.max(0, eu.distanceTo(destino.pos) - (destino.sup0 || 0));
+    const eu = s.aPe ? pe.pos : s.pos;
+    // o planeta da a volta: o destino e a copia mais perto
+    if (mundo.periodo) { destino.pos.x = eu.x + embrulharD(destino.pos.x - eu.x); destino.pos.z = eu.z + embrulharD(destino.pos.z - eu.z); }
+    const dist = Math.max(0, eu.distanceTo(destino.pos) - (destino.sup0 || 0));
     if (destino.raioChegada && dist + (destino.sup0 || 0) < destino.raioChegada) { mostrarConquista(`<b>◎ chegou: ${destino.nome}</b><span>destino alcançado</span>`); som.bip(1180, .15); destino = null; destUI.classList.remove('on'); return; }
     _dp.copy(destino.pos).project(camera);
     const atras = _dp.z > 1; let x = _dp.x, y = _dp.y; if (atras) { x = -x; y = -y; }
@@ -968,8 +979,11 @@ export async function abrirJogo() {
         vista, destino: destino && { x: destino.pos.x, z: destino.pos.z, nome: destino.nome },
         modo: 'sup', limite: mundo.limite, cor: mundo.corNeon,
         predios: mundo.predios.map((p) => ({ x: p.pos.x, z: p.pos.z, nome: p.tec.nome, visto: p.visto })),
+        sitios: (mundo.sitios || []).map((st) => ({ x: st.x, z: st.z, tipo: st.tipo })),
+        cidades: (mundo.cidades || []).map((ci) => ({ x: ci.x, z: ci.z, raio: ci.raio, tam: ci.tam, ruina: ci.ruina, visto: ci.tec ? !!mundo.predios.find((p) => p.tec === ci.tec)?.visto : false })),
+        estradas: mundo.estradas || [],
         nave: { x: s.pos.x, z: s.pos.z, rumo: s.rumo }, pe: s.aPe && !s.dentro ? { x: pe.pos.x, z: pe.pos.z, rumo: pe.rumo } : null,
-        titulo: `MAPA · ${s.planeta.nome.toUpperCase()}`, legenda: `${n}/${mundo.predios.length} tecnologias visitadas · os feixes de luz marcam cada local`
+        titulo: `MAPA · ${s.planeta.nome.toUpperCase()}`, legenda: `${n}/${mundo.predios.length} cidades visitadas · ■ caverna ■ módulo ■ hangar ■ posto · o planeta dá a volta: sair por uma borda é entrar pela outra`
       }, tTotal);
     }
   }
@@ -1021,6 +1035,7 @@ export async function abrirJogo() {
     const astros = mundo.planetas.filter((x) => x !== p).map((x) => ({ d: x, i: x.i, orig: x.orig.clone(), rotCorpo: e.rot[x.key][0], rotNuvens: e.rot[x.key][1] }));
     e.cenaProx = new THREE.Scene();
     e.mundoProx = criarSuperficie(e.cenaProx, p, { qW2S: e.qW2S, rotCorpo: e.rot[p.key][0], rotNuvens: e.rot[p.key][1], astros, modeloNave: nave.modeloBase });
+    curvarCena(e.cenaProx);   // o chao curva em volta da camera (antes de compilar)
     if (vistos[p.key]) e.mundoProx.predios.forEach((pr) => { if (vistos[p.key].has(pr.tec.nome)) pr.marcarVisto(); });
     prepararCena(e.cenaProx);
   }
@@ -1059,10 +1074,13 @@ export async function abrirJogo() {
     if (!e.mundoProx) prepararSaida();
     const p = e.mundoProx.planetas.find((x) => x.key === s.planeta.key);
     // a direcao "para fora" no mundo, embaixo de onde a nave esta agora
-    _v.subVectors(s.pos, C_SUP); e.hS = _v.length() - R_GLOBO; e.altS = s.pos.y;
+    // o planeta da a volta (posicao periodica): a saida conta como se a nave
+    // estivesse em cima do ponto de entrada, so a altura importa
+    const posC = V3(0, s.pos.y, 0);
+    _v.subVectors(posC, C_SUP); e.hS = _v.length() - R_GLOBO; e.altS = s.pos.y;
     e.nX.copy(_v.normalize()).applyMatrix4(e.S2W);
     e.qS = e.hS / R_GLOBO;
-    const posS = s.pos.clone(), w = verdadeiroDe(posS, V3());
+    const posS = s.pos.clone(), w = verdadeiroDe(posC, V3());
     // ponto de vista: mesma posicao relativa, girado para o mundo
     const paraMundo = (x) => x.sub(posS).applyMatrix4(e.S2W).add(w);
     paraMundo(camPos); paraMundo(camOlha);
@@ -1134,7 +1152,7 @@ export async function abrirJogo() {
     const dtReal = relogio.getDelta(), dt = Math.min(.05, dtReal);
     ajustarResolucao(dtReal);
     // pausado (mouse solto, menu na tela): o jogo para; so redesenha
-    if (pausado()) { if ((pausaN = (pausaN + 1) % 6) === 0) renderer.render(cena, camera); return; }   // pausado: ~10 quadros/s bastam
+    if (pausado()) { if ((pausaN = (pausaN + 1) % 6) === 0) desenhar(cena, camera); return; }   // pausado: ~10 quadros/s bastam
     passo(roda.aberta ? dt * .25 : dt);
   }
 
@@ -1149,6 +1167,37 @@ export async function abrirJogo() {
     if (fps < 40) novo = Math.max(prMin, pr * (fps < 25 ? .75 : .87));
     else if (fps > 57 && pr < prMax) novo = Math.min(prMax, pr * 1.08);
     if (Math.abs(novo - pr) > .01) { pr = novo; renderer.setPixelRatio(pr); medir(); medirPos(); fpsEspera = 1; }
+  }
+
+  /* ---- o planeta da a volta: passou da borda, aparece do outro lado ---- */
+  const embrulharD = (a) => (mundo.periodo ? a - mundo.periodo * Math.round(a / mundo.periodo) : a);
+  function darAVolta() {
+    const P = mundo.periodo; if (!P) return;
+    const ref = s.aPe ? pe.pos : s.pos;
+    const dx = ref.x > P / 2 ? -P : ref.x < -P / 2 ? P : 0, dz = ref.z > P / 2 ? -P : ref.z < -P / 2 ? P : 0;
+    if (!dx && !dz) return;
+    // tudo junto (nave, astronauta e camera): o mundo e igual do outro lado
+    for (const v of [s.pos, pe.pos, camPos, camOlha]) { v.x += dx; v.z += dz; }
+    camera.position.x += dx; camera.position.z += dz;
+    mundo.seguir?.(ref.x, ref.z, camera);
+  }
+  // perto da borda, o que esta do outro lado e desenhado de novo (sem pular)
+  const _fant = [], _vCeu = new THREE.Vector3(); let curvaT = 0;
+  function desenharFantasmas() {
+    const P = mundo.periodo; if (!P || !mundo.conteudo || (s.modo !== 'superficie' && s.modo !== 'subindo')) return;
+    const cx = camera.position.x, cz = camera.position.z, V = 2600 + Math.max(0, camera.position.y) * 2;
+    const ox = cx > P / 2 - V ? P : cx < -P / 2 + V ? -P : 0, oz = cz > P / 2 - V ? P : cz < -P / 2 + V ? -P : 0;
+    if (!ox && !oz) return;
+    _fant.length = 0;
+    if (ox) _fant.push([ox, 0]); if (oz) _fant.push([0, oz]); if (ox && oz) _fant.push([ox, oz]);
+    // so o conteudo (sem ceu, chao, astros): esconde o resto e desenha por cima
+    const vis = [];
+    for (const o of cena.children) if (o !== mundo.conteudo && !o.isLight) { vis.push([o, o.visible]); o.visible = false; }
+    const fundo = cena.background; cena.background = null; renderer.autoClear = false;
+    for (const [x, z] of _fant) { mundo.conteudo.position.set(x, 0, z); mundo.conteudo.updateMatrixWorld(true); desenhar(cena, camera); }
+    mundo.conteudo.position.set(0, 0, 0); mundo.conteudo.updateMatrixWorld(true);
+    renderer.autoClear = true; cena.background = fundo;
+    for (const [o, v] of vis) o.visible = v;
   }
 
   function voarNave(dt, c, naSuperficie) {
@@ -1291,7 +1340,7 @@ export async function abrirJogo() {
         voarNave(dt, ctl, true);
         const chao = mundo.alturaChao(s.pos.x, s.pos.z) + 1.6;
         if (s.pos.y < chao) { s.pos.y = chao; if (s.vel.y < 0) s.vel.y = 0; }
-        s.pos.x = Math.max(-mundo.limite, Math.min(mundo.limite, s.pos.x)); s.pos.z = Math.max(-mundo.limite, Math.min(mundo.limite, s.pos.z));
+        darAVolta();
         if (s.pos.y > 430) { s.modo = 'subindo'; s.tModo = 0; mostrarAcao(''); prepararSaida(); }
         if (s.pos.y - chao < 14 && acelera + Math.abs(sobe) > 0) mundo.levantarPoeira(s.pos.x, s.pos.z, .04);
         empuxo = Math.max(acelera * (turbo ? 1 : .75), Math.abs(sobe) * .5, Math.abs(lado) * .4, .14);
@@ -1356,7 +1405,8 @@ export async function abrirJogo() {
       // terceira pessoa a pe: atras e acima do astronauta (armado: por cima do ombro direito)
       // dentro do salao a camera fica mais perto e mais alta (cabe a sala)
       const armado = !!ARMAS[armaIdx].id;
-      const R = (s.dentro ? 4.6 : armado ? 4.3 : 6.5) * zoom * (1 - mirarK * .45), el = Math.max(s.dentro ? .2 : -.15, Math.min(1, (armado ? .12 : .22) - s.alvoMira));
+      const abrigo = !s.dentro && mundo.estruturas ? mundo.estruturas.dentroDe(pe.pos.x, pe.pos.z) : null;
+      const R = (s.dentro || abrigo ? 4.6 : armado ? 4.3 : 6.5) * zoom * (1 - mirarK * .45), el = Math.max(s.dentro ? .2 : -.15, Math.min(1, (armado ? .12 : .22) - s.alvoMira));
       _m.copy(pe.pos); _m.y += armado ? 1.7 : 1.6;
       if (armado || mirarK > .01) { const om = .75 * Math.max(armado ? 1 : 0, mirarK); _m.x -= Math.cos(s.alvoRumo) * om; _m.z += Math.sin(s.alvoRumo) * om; }
       _v.set(_m.x - Math.sin(s.alvoRumo) * Math.cos(el) * R, _m.y + Math.sin(el) * R, _m.z - Math.cos(s.alvoRumo) * Math.cos(el) * R);
@@ -1365,7 +1415,23 @@ export async function abrirJogo() {
         const dx = _v.x - BASE_INT.x, dz = _v.z - BASE_INT.z, d = Math.hypot(dx, dz), lim = RAIO_SALA - .7;
         if (d > lim) { _v.x = BASE_INT.x + dx * lim / d; _v.z = BASE_INT.z + dz * lim / d; }
         _v.y = Math.max(BASE_INT.y + .6, Math.min(BASE_INT.y + 8.3, _v.y));
-      } else { const chaoCam = mundo.alturaChao(_v.x, _v.z) + .5; if (_v.y < chaoCam) _v.y = chaoCam; }
+      } else {
+        if (abrigo) {
+          // dentro de bunker/galpao/caverna: a camera nao atravessa parede nem teto
+          const ax = pe.pos.x + embrulharD(abrigo.x - pe.pos.x), az = pe.pos.z + embrulharD(abrigo.z - pe.pos.z);
+          if (abrigo.tipo === 'caverna') {
+            const dx = _v.x - ax, dz = _v.z - az, d = Math.hypot(dx, dz), lim = abrigo.raio - 1;
+            if (d > lim) { _v.x = ax + dx * lim / d; _v.z = az + dz * lim / d; }
+          } else {
+            const c = Math.cos(abrigo.rot), sn = Math.sin(abrigo.rot), dx = _v.x - ax, dz = _v.z - az;
+            let lx = dx * c - dz * sn, lz = dx * sn + dz * c;
+            lx = Math.max(-abrigo.w / 2 + .9, Math.min(abrigo.w / 2 - .9, lx)); lz = Math.max(-abrigo.d / 2 + .9, Math.min(abrigo.d / 2 - .9, lz));
+            _v.x = ax + lx * c + lz * sn; _v.z = az - lx * sn + lz * c;
+          }
+          _v.y = Math.min(_v.y, mundo.alturaChao(ax, az) + abrigo.h - .6);
+        }
+        const chaoCam = mundo.alturaChao(_v.x, _v.z) + .5; if (_v.y < chaoCam) _v.y = chaoCam;
+      }
       camPos.lerp(_v, 1 - Math.exp(-dt * 10));
       if (armado) _m.addScaledVector(FRENTE, 12); else { _m.x += Math.sin(s.alvoRumo) * 1.5; _m.z += Math.cos(s.alvoRumo) * 1.5; }
     } else if (s.pousado) {
@@ -1411,7 +1477,12 @@ export async function abrirJogo() {
 
     // superficie: ceu/neblina pela camera, e os outros planetas onde estao de verdade
     const naSup = !mundo.planetas;
-    mundo.atualizar(dt, t, camera, naSup ? { verdadeiro: verdadeiroDe(camera.position, ent.ver), W2S: ent.W2S, m: 2, efeitos: { impacto: (q) => { const d = q.distanceTo(camera.position); if (d < 1500) { som.explosao(Math.max(.1, .6 - d / 2500)); abalo = Math.max(abalo, Math.max(0, .5 - d / 2500)); } } } } : { vel: s.vel, dobra: s.dobra });
+    // superficie: chao, globo e nuvens acompanham quem joga (o planeta da a volta)
+    if (naSup && mundo.seguir) mundo.seguir((s.aPe ? pe.pos : s.pos).x, (s.aPe ? pe.pos : s.pos).z, camera);
+    // a cada segundo, materiais novos na cena (outros jogadores, tiros...) ganham a curva
+    if (naSup && (curvaT -= dt) <= 0) { curvaT = 1; curvarCena(cena); }
+    // o ceu (sol e planetas) e calculado como se a camera estivesse em cima do ponto de entrada
+    mundo.atualizar(dt, t, camera, naSup ? { quem: s.aPe ? pe.pos : s.pos, verdadeiro: verdadeiroDe(_vCeu.set(0, camera.position.y, 0), ent.ver), W2S: ent.W2S, m: 2, efeitos: { impacto: (q) => { const d = q.distanceTo(camera.position); if (d < 1500) { som.explosao(Math.max(.1, .6 - d / 2500)); abalo = Math.max(abalo, Math.max(0, .5 - d / 2500)); } } } } : { vel: s.vel, dobra: s.dobra });
     atualizarHUD(veloc);
     som.atualizar({
       empuxo: s.aPe || s.pousado ? 0 : empuxo, vel: s.aPe ? 0 : veloc, jet: jetAgora, ligado: !s.pousado,
@@ -1420,7 +1491,7 @@ export async function abrirJogo() {
     raiz.classList.toggle('a-pe', !!s.aPe);
     if (rede) {
       rede.estado({ p: s.aPe ? pe.pos : s.pos, r: s.aPe ? pe.rumo : s.rumo, modo: cinema || morto ? 'cinema' : s.aPe ? 'pe' : 'nave', arma: s.aPe ? ARMAS[armaIdx].id : NAVE_ARMAS[navArmaIdx].id, esc: s.aPe ? 1 : +nave.raiz.scale.x.toFixed(2) });
-      rede.atualizar(dt, cena, s.aPe ? pe.pos : s.pos);
+      rede.atualizar(dt, cena, s.aPe ? pe.pos : s.pos, mundo.periodo || 0);
       if (voz) {
         voz.atualizar(volumeVoz);
         vozT -= dt; if (vozSuja || vozT <= 0) { vozSuja = false; vozT = .3; desenharVoz(); }
@@ -1437,10 +1508,10 @@ export async function abrirJogo() {
     if (renderer.toneMappingExposure !== expo) renderer.toneMappingExposure = expo;
     if (s.dobra > .02) {
       // dobra: cena na textura, depois a distorcao em volta
-      renderer.setRenderTarget(rt); renderer.render(cena, camera); renderer.setRenderTarget(null);
+      renderer.setRenderTarget(rt); desenhar(cena, camera); renderer.setRenderTarget(null);
       posMat.uniforms.forca.value = s.dobra; posMat.uniforms.tempo.value = t;
       renderer.render(posCena, posCam);
-    } else renderer.render(cena, camera);
+    } else { desenhar(cena, camera); desenharFantasmas(); }
     if (dissolve > 0) {
       fotoMat.uniforms.alfa.value = suave(dissolve);
       renderer.autoClear = false; renderer.render(fotoCena, posCam); renderer.autoClear = true;
@@ -1502,7 +1573,7 @@ export async function abrirJogo() {
     renderer.autoClear = false; renderer.setScissorTest(true);
     renderer.setScissor(r.left, innerHeight - r.bottom, r.width, r.height); renderer.setViewport(r.left, innerHeight - r.bottom, r.width, r.height);
     const corAnt = renderer.getClearColor(new THREE.Color()); renderer.setClearColor(0x0d0a1a); renderer.clear(true, true, false); renderer.setClearColor(corAnt);
-    renderer.render(mini.cena, mini.cam);
+    CURVA.k.value = 0; renderer.render(mini.cena, mini.cam);
     renderer.setScissorTest(false); renderer.setViewport(_ret); renderer.autoClear = true;
   }
 
@@ -1566,11 +1637,17 @@ export async function abrirJogo() {
       }
       if (mundo.estruturas) for (const c of mundo.estruturas.colisores) {
         if (pe.pos.y > c.h) continue;
-        const dx = pe.pos.x - c.x, dz = pe.pos.z - c.z, d = Math.hypot(dx, dz);
-        if (d < c.r) { pe.pos.x = c.x + dx * c.r / Math.max(d, .001); pe.pos.z = c.z + dz * c.r / Math.max(d, .001); }
+        const dx = embrulharD(pe.pos.x - c.x), dz = embrulharD(pe.pos.z - c.z), d = Math.hypot(dx, dz);
+        if (d < c.r) { pe.pos.x += dx * (c.r / Math.max(d, .001) - 1); pe.pos.z += dz * (c.r / Math.max(d, .001) - 1); }
       }
       _v.set(pe.pos.x - s.pos.x, 0, pe.pos.z - s.pos.z); { const d = _v.length(), r = 4.3; if (d < r && pe.pos.y < s.pos.y + 2) { _v.multiplyScalar(r / Math.max(d, .001)); pe.pos.x = s.pos.x + _v.x; pe.pos.z = s.pos.z + _v.z; } }
-      pe.pos.x = Math.max(-mundo.limite, Math.min(mundo.limite, pe.pos.x)); pe.pos.z = Math.max(-mundo.limite, Math.min(mundo.limite, pe.pos.z));
+      // paredes (bunkers, galpoes, cavernas, conteineres, sacos de areia...)
+      if (mundo.estruturas) for (const w of mundo.estruturas.paredes) {
+        if (pe.pos.y > w.h) continue;
+        const raio = w.esp + .45, q = mundo.estruturas.distParede(pe.pos.x, pe.pos.z, w);
+        if (q.d < raio) { const k = raio / Math.max(q.d, .001); pe.pos.x = q.qx + (pe.pos.x - q.qx) * k; pe.pos.z = q.qz + (pe.pos.z - q.qz) * k; }
+      }
+      darAVolta();
       chao = mundo.alturaChao(pe.pos.x, pe.pos.z); teto = chao + 160;
     }
     // gravidade, pulo e pouso (no chao, acompanha a descida do morro sem "voar")
@@ -1727,18 +1804,23 @@ export async function abrirJogo() {
       c.translate(quem.x * esc, quem.z * esc);
     } else if (mundo.predios) {
       // superficie: a praca (predios em anel) e a nave
-      const esc = 140 / 1700;
+      // centrado em mim; o planeta da a volta, entao tudo e "pelo lado curto"
+      const esc = 140 / 2200;
       if (s.aPe) { quem = pe.pos; rumo = pe.rumo; }
+      const rel = (x, z) => { let dx = embrulharD(x - quem.x) * esc, dz = embrulharD(z - quem.z) * esc; const d = Math.hypot(dx, dz); if (d > 136) { dx *= 136 / d; dz *= 136 / d; } return [dx, dz]; };
+      // cavernas, bunkers, galpoes e bases (losangos pequenos)
+      const corSitio = { caverna: '#c9a27a', bunker: '#9aa3b5', galpao: '#7fb0d8', base: '#d8c06a' };
+      for (const st of mundo.sitios || []) { const [x, z] = rel(st.x, st.z); c.fillStyle = corSitio[st.tipo] || '#aaa'; c.save(); c.translate(x, z); c.rotate(Math.PI / 4); c.fillRect(-3.5, -3.5, 7, 7); c.restore(); }
       mundo.predios.forEach((p) => {
+        const [x, z] = rel(p.pos.x, p.pos.z);
         c.fillStyle = p.visto ? '#2bff8f' : `hsl(${s.planeta.cor},85%,68%)`;
-        c.fillRect(p.pos.x * esc - 5, p.pos.z * esc - 5, 10, 10);
+        c.fillRect(x - 5, z - 5, 10, 10);
       });
-      if (s.aPe) { c.fillStyle = '#fff'; c.beginPath(); c.arc(s.pos.x * esc, s.pos.z * esc, 7, 0, Math.PI * 2); c.fill(); }
-      c.translate(Math.max(-140, Math.min(140, quem.x * esc)), Math.max(-140, Math.min(140, quem.z * esc)));
+      if (s.aPe) { const [x, z] = rel(s.pos.x, s.pos.z); c.fillStyle = '#fff'; c.beginPath(); c.arc(x, z, 7, 0, Math.PI * 2); c.fill(); }
     }
     // outros jogadores: ponto na cor de cada um (na borda, se estiver longe)
     if (rede && (mundo.planetas || mundo.predios)) {
-      const esc = mundo.planetas ? 140 / LIMITE_ESPACO : 140 / 1700;
+      const esc = mundo.planetas ? 140 / LIMITE_ESPACO : 140 / 2200;
       c.save();   // a origem ja esta em mim
       for (const r of rede.remotos.values()) {
         if (!r.obj || !r.vivo) continue;
@@ -1757,7 +1839,7 @@ export async function abrirJogo() {
   raf(quadro);
   // modo de teste (?debugjogo): avanca a simulacao sem depender do rAF
   if (/debugjogo/.test(location.search)) { semTrava = true; raiz.classList.add('sem-trava'); }   // teste: sem convite de clique
-  if (/debugjogo/.test(location.search)) window.__jogo = { s, pe, tecla, mouse: (x, y) => { mdx += x; mdy += y; }, passo: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) passo(dt); }, interagir, get alvo() { return alvoPerto; }, get mundo() { return mundo; }, get predioPerto() { return predioPerto; }, get mapaInfo() { return mapaInfo; }, get destino() { return destino; }, get tiros() { return tiros; }, camera, get nave() { return nave; }, get voz() { return voz; }, get rede() { return rede; } };
+  if (/debugjogo/.test(location.search)) window.__jogo = { s, pe, tecla, mouse: (x, y) => { mdx += x; mdy += y; }, passo: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) passo(dt); }, interagir, get alvo() { return alvoPerto; }, get mundo() { return mundo; }, get predioPerto() { return predioPerto; }, get mapaInfo() { return mapaInfo; }, get destino() { return destino; }, get tiros() { return tiros; }, camera, get nave() { return nave; }, get voz() { return voz; }, get rede() { return rede; }, renderer };
 
   function fechar() {
     rodando = false;
