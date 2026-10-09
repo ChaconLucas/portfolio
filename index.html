@@ -6640,7 +6640,7 @@ if(mount){
  scene.add(new THREE.AmbientLight(0x201a2f,0.92));
 
  const domains=[
-  ['frontend','Frontend',4.15,.25,.67,275,1.02],['backend','Backend',7.25,1.15,.50,257,.88],['mobile','Mobile',6.15,2.35,.48,292,.76],['data','Data',5.25,3.12,.51,236,.72],['security','Security',6.9,3.82,.56,281,.82],['infra','Infra',4.95,4.55,.44,221,.64],['tooling','Tooling',7.75,5.0,.57,265,.91],['analytics','Analytics',8.6,5.75,.46,244,.72],['ai','AI Workflow',5.95,6.2,.52,286,.79]
+  ['frontend','Frontend',4.15,.25,.67,275,1.02],['backend','Backend',7.25,1.15,.50,257,.88],['mobile','Mobile',6.15,2.35,.48,292,.76],['data','Data',5.25,3.12,.51,236,.72],['security','Security',6.9,3.82,.56,281,.82],['infra','Infra',4.95,4.55,.44,221,.64],['tooling','Tooling',7.75,5.0,.57,265,.91],['analytics','Analytics',8.6,5.75,.46,244,.72],['ai','AI Workflow',5.95,5.5,.52,286,.79]
  ];
  const stackData={
   frontend:['Interfaces, componentes, estados e experiências responsivas.',['React','Next.js','TypeScript','Tailwind','HTML5','CSS3','JavaScript','Bootstrap']],
@@ -6666,7 +6666,7 @@ if(mount){
   const atm=new THREE.Mesh(new THREE.SphereGeometry(size*1.055,56,56),new THREE.MeshBasicMaterial({color:new THREE.Color(`hsl(${hue},76%,70%)`),transparent:true,opacity:.085,side:THREE.BackSide,blending:THREE.AdditiveBlending}));group.add(atm);
   const shade=new THREE.Mesh(new THREE.SphereGeometry(size*1.006,48,48),new THREE.MeshBasicMaterial({transparent:true,opacity:.06,color:0xffffff,side:THREE.FrontSide}));shade.position.x=size*.03;group.add(shade);
   if(key==='tooling'){const ring=new THREE.Mesh(new THREE.RingGeometry(size*1.25,size*1.85,96),new THREE.MeshBasicMaterial({color:0x9a78ff,transparent:true,opacity:.28,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,depthWrite:false}));ring.rotation.x=Math.PI/2.55;ring.rotation.y=.35;group.add(ring)}
-  group.userData={r,a,speed:.018+speed*.012};planetMeshes.push(mesh);
+  group.userData={r,a,speed:.024};   // todos na mesma velocidade: um nunca alcanca o outro (antes Data e Infra se atravessavam)planetMeshes.push(mesh);
   const label=document.createElement('button');label.className='three-planet-label';label.textContent=name;label.dataset.key=key;labelsRoot.appendChild(label);labels.push(label);label.onclick=()=>selectPlanet(mesh);mesh.userData.group=group;
  });
 

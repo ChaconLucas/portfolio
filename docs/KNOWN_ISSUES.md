@@ -971,3 +971,12 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - No **Chrome/Edge**, ele pede o Esc para si (`navigator.keyboard.lock(['Escape'])`): um toque no Esc só pausa, e para sair da tela cheia se **segura** o Esc (o próprio Chrome avisa).
   - No **Firefox/Safari** (sem essa API) o Esc ainda tira a tela cheia, mas ao clicar em Continuar (ou no jogo) ela volta sozinha.
   - Ao fechar o jogo, a trava do Esc é solta e a tela cheia sai.
+
+## Stack Universe: planetas se atravessando (09/10/2026)
+- No site, cada planeta girava numa velocidade um pouco diferente (0,023 a 0,026 rad/s) e as órbitas vizinhas são próximas (Data 5,25 e Infra 4,95, raios ~0,5). Um alcançava o outro e as esferas se atravessavam.
+- **Tentativa descartada:** um sobe e o outro desce. Falha quando um planeta fica entre dois (Mobile entre AI e Security é empurrado para os dois lados).
+- **Solução:**
+  - todos na **mesma velocidade angular** (0,024 rad/s), então ninguém alcança ninguém;
+  - o ângulo inicial de **AI Workflow** passou de 6,2 para **5,5**, porque com 6,2 ficava encostando em Frontend.
+- **Simulado numa volta inteira:** a menor distância entre dois planetas é 1,45× a soma dos raios.
+- **No jogo** (mesma tabela, planetas parados): 1,7×.

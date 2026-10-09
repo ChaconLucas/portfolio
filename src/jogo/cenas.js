@@ -28,7 +28,7 @@ export const PLANETAS = [
   { key: 'infra', nome: 'Infra', orbita: 4.95, ang: 4.55, tam: .64, cor: 221, atmosfera: false },
   { key: 'tooling', nome: 'Tooling', orbita: 7.75, ang: 5.0, tam: .91, cor: 265, atmosfera: false },
   { key: 'analytics', nome: 'Analytics', orbita: 8.6, ang: 5.75, tam: .72, cor: 244, atmosfera: true },
-  { key: 'ai', nome: 'AI Workflow', orbita: 5.95, ang: 6.2, tam: .79, cor: 286, atmosfera: false }
+  { key: 'ai', nome: 'AI Workflow', orbita: 5.95, ang: 5.5, tam: .79, cor: 286, atmosfera: false }
 ];
 // escala do sistema: planetas e distancias grandes o bastante para a nave
 // parecer pequena e o Shift (dobra) fazer sentido
