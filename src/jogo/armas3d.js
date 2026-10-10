@@ -321,6 +321,17 @@ export function montarArma(tipo) {
       g.quaternion.copy(baseQ).multiply(_qr.setFromEuler(_er.set(x0 + (x1 - x0) * u, y0 + (y1 - y0) * u, z0 + (z1 - z0) * u)));
       g.userData.brilhoGolpe?.(k > .18 && k < .5 ? 1 : 0);
     },
+    /** inspecao 0..1 (-1 = parada): vira mostrando o lado esquerdo, depois o
+     *  direito, e volta (sobe um pouco na frente de quem segura) */
+    inspecionar(k) {
+      if (k < 0) { g.quaternion.copy(baseQ); g.position.copy(baseP); return; }
+      const ch = [[0, 0, 0, 0], [.2, -.3, .75, .95], [.45, -.2, .65, .85], [.6, .05, -.55, -.7], [.82, .02, -.5, -.6], [1, 0, 0, 0]];
+      let i = 1; while (i < ch.length - 1 && k > ch[i][0]) i++;
+      const [k0, x0, y0, z0] = ch[i - 1], [k1, x1, y1, z1] = ch[i], u = suave(Math.min(1, (k - k0) / (k1 - k0)));
+      g.quaternion.copy(baseQ).multiply(_qr.setFromEuler(_er.set(x0 + (x1 - x0) * u, y0 + (y1 - y0) * u, z0 + (z1 - z0) * u)));
+      const e = Math.sin(Math.PI * k);
+      g.position.copy(baseP).add(_v.set(0, .04 * e, -.03 * e).applyQuaternion(baseQ).multiply(g.scale));
+    },
     /** recarga 0..1 (-1 = parada) */
     recarga(k) {
       if (!cel) return;

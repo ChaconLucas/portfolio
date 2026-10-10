@@ -221,7 +221,7 @@ export async function criarAstronauta(cena) {
   }
   // andamento da recarga de cada arma (0..1), guardado aqui para o desenho
   const recarga = { blaster: -1, rifle: -1, canhao: -1 };   // -1 = sem recarregar; 0..1 = andamento
-  let golpeT = -1;
+  let golpeT = -1, inspT = -1;
 
   /* ---- jetpack ---- */
   const jet = new THREE.Group();
@@ -273,7 +273,10 @@ export async function criarAstronauta(cena) {
     gesto(n) { const a = acao[n]; if (!a) return; a.reset(); a.setEffectiveWeight(1); a.fadeIn(.12); a.play(); gesto = a; },
     get gesticulando() { return !!(gesto && gesto.isRunning()); },
     /** arma na mao: null, 'blaster', 'rifle' ou 'canhao' */
-    arma(t) { armaAtual = t && armas[t] ? t : null; for (const k in armas) armas[k].visible = k === armaAtual; },
+    arma(t) { if (inspT >= 0) { inspT = -1; for (const k in armas) armas[k].userData.inspecionar(-1); } armaAtual = t && armas[t] ? t : null; for (const k in armas) armas[k].visible = k === armaAtual; },
+    /** F: inspeciona a arma na mao (~2,4 s) */
+    inspecionar() { if (armaAtual && inspT < 0 && golpeT < 0 && !(armaAtual in recarga && recarga[armaAtual] >= 0)) inspT = 0; },
+    get inspecionando() { return inspT >= 0; },
     get armaAtual() { return armaAtual; },
     /** posicao da boca da arma no mundo (de onde sai o tiro) */
     boca(out) { const a = armas[armaAtual]; if (!a) return out.copy(raiz.position).setY(raiz.position.y + 1.3); raiz.updateMatrixWorld(true); return a.userData.boca.getWorldPosition(out); },
@@ -411,6 +414,7 @@ export async function criarAstronauta(cena) {
         }
       }
       for (const k in recarga) armas[k]?.userData.recarga(recarga[k]);
+      if (inspT >= 0 && armas[armaAtual]) { inspT += dt / 2.4; if (inspT >= 1) { inspT = -1; armas[armaAtual].userData.inspecionar(-1); } else armas[armaAtual].userData.inspecionar(inspT); }
       if (ikPeso > .01 && armas[armaAtual]) {
         fecharDedos(ikPeso); modelo.updateMatrixWorld(true);
         const ar = armas[armaAtual];

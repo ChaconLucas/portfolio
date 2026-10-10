@@ -143,7 +143,7 @@ export async function abrirJogo() {
   const AJUDA = {
     nave: `<span><kbd>W</kbd><kbd>S</kbd> acelerar / frear</span><span><kbd>A</kbd><kbd>D</kbd> para os lados</span>
       <span><kbd>Espaço</kbd><kbd>Ctrl</kbd> subir / descer</span><span><kbd>Shift</kbd>+<kbd>W</kbd> velocidade da luz</span><span><kbd>E</kbd> interagir</span><span><kbd>Mouse</kbd> visão / direção · rodinha = zoom</span><span><kbd>Botão dir.</kbd> mirar (zoom)</span><span><kbd>V</kbd> cabine (primeira pessoa)</span><span><kbd>T</kbd> voz perto · <kbd>Y</kbd> rádio</span>`,
-    pe: `<span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> andar</span><span><kbd>Shift</kbd> correr · <kbd>Espaço</kbd> pular · <kbd>C</kbd> rolar</span><span><kbd>Botão dir.</kbd> mirar</span><span><kbd>V</kbd> primeira pessoa</span><span><kbd>R</kbd> recarregar · <kbd>G</kbd> granada · <kbd>Q</kbd> escudo</span><span><kbd>T</kbd> voz perto · <kbd>Y</kbd> rádio</span>
+    pe: `<span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> andar</span><span><kbd>Shift</kbd> correr · <kbd>Espaço</kbd> pular · <kbd>C</kbd> rolar</span><span><kbd>Botão dir.</kbd> mirar</span><span><kbd>V</kbd> primeira pessoa</span><span><kbd>F</kbd> inspecionar a arma</span><span><kbd>R</kbd> recarregar · <kbd>G</kbd> granada · <kbd>Q</kbd> escudo</span><span><kbd>T</kbd> voz perto · <kbd>Y</kbd> rádio</span>
       <span><kbd>Espaço</kbd> no ar = jetpack · <kbd>Espaço</kbd>/<kbd>Ctrl</kbd> sobe/desce · <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> voa</span>
       <span><kbd>E</kbd> entrar no prédio / embarcar</span><span><kbd>Mouse</kbd> câmera · rodinha = zoom</span>`
   };
@@ -199,6 +199,7 @@ export async function abrirJogo() {
   // RECUADA cujo plano de corte esconde ombros e costas: aparecem antebracos,
   // maos e arma, bem a frente na tela (o truque das armas de jogo de tiro)
   const camVM = new THREE.PerspectiveCamera(); camVM.layers.set(1);
+  const _ndc = new THREE.Vector3();
   let FOV_ARMA = 40;   // fechado (teleobjetiva) e a camera mais recuada: a arma e os bracos perto da tela nao esticam
   const _eVM = new THREE.Vector3(), _pVM = new THREE.Vector3(), _fVM = new THREE.Vector3(), _oVM = new THREE.Vector3(), _v2VM = new THREE.Vector3(), _vY1 = new THREE.Vector3(0, 1, 0), _qY = new THREE.Quaternion();
     function desenhar(c, cam) {
@@ -316,6 +317,7 @@ export async function abrirJogo() {
     if (e.code === 'KeyP' && !e.repeat) alternarPvp();
     if (e.code === 'KeyH' && !e.repeat) alternarAjuda();
     if (e.code === 'KeyG' && !e.repeat) { granadaSegura = true; lancarGranada(); }
+    if (e.code === 'KeyF' && !e.repeat && s?.aPe && pe.noChao && ARMAS[armaIdx].id && !recarregando) { astro.inspecionar(); som.mecanico('encaixa'); }   // F no chao: inspeciona a arma (no ar, F desce)
     if (e.code === 'KeyR' && !e.repeat) recarregar();
     if (e.code === 'KeyQ' && !e.repeat) ligarEscudo();
     // voz: T segurado fala para quem esta perto; Y segurado fala no radio (todos)
@@ -835,8 +837,12 @@ export async function abrirJogo() {
     // pente: municao infinita, mas acabou o pente tem que recarregar
     if (recarregando) return;
     if (pente[a.id] <= 0) { recarregar(); return; }
+    if (astro.inspecionando) astro.arma(a.id);   // atirar interrompe a inspecao
     pente[a.id]--; ultimoTiro = tTotal;
     astro.boca(_bc);
+    // primeira pessoa: a arma e desenhada pela camera dela (outra posicao e FOV):
+    // o laser nasce no ponto do mundo que aparece EXATAMENTE onde a boca esta na tela
+    if (s.fp) { const d = _bc.distanceTo(camVM.position); _ndc.copy(_bc).project(camVM); _ndc.z = .5; _ndc.unproject(camera).sub(camera.position).normalize(); _bc.copy(camera.position).addScaledVector(_ndc, d * .9); }
     pontoDaMira(_mira); miraAbre = Math.min(1, miraAbre + (a.id === 'rifle' ? .25 : .6));
     mdy -= a.id === 'canhao' ? 26 : a.id === 'blaster' ? 9 : 4;   // coice: a mira sobe um pouco
     const dir = _dirC.subVectors(_mira, _bc).normalize();
@@ -2147,7 +2153,7 @@ export async function abrirJogo() {
   raf(quadro);
   // modo de teste (?debugjogo): avanca a simulacao sem depender do rAF
   if (/debugjogo/.test(location.search)) { semTrava = true; raiz.classList.add('sem-trava'); }   // teste: sem convite de clique
-  if (/debugjogo/.test(location.search)) window.__jogo = { s, pe, tecla, mouse: (x, y) => { mdx += x; mdy += y; }, passo: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) passo(dt); }, interagir, get alvo() { return alvoPerto; }, get mundo() { return mundo; }, get predioPerto() { return predioPerto; }, get mapaInfo() { return mapaInfo; }, get destino() { return destino; }, get tiros() { return tiros; }, camera, get nave() { return nave; }, get voz() { return voz; }, get rede() { return rede; }, renderer, cena, get astro() { return astro; }, cabine: (v) => { s.fp = v; }, granada: () => lancarGranada(), golpear: () => golpear(), recarregar: () => recarregar(), atirar: () => atirarAPe(), atirarNave: () => atirarNave(), escolherArma: (i) => escolherArma(i), alternarPrimeiraPessoa, camVM, fovArma: (v) => { FOV_ARMA = v; }, cabine3d: cabine, ajustarFP: (id, o) => { FP[id] = { ...FP[id], ...o }; } };
+  if (/debugjogo/.test(location.search)) window.__jogo = { s, pe, tecla, mouse: (x, y) => { mdx += x; mdy += y; }, passo: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) passo(dt); }, interagir, get alvo() { return alvoPerto; }, get mundo() { return mundo; }, get predioPerto() { return predioPerto; }, get mapaInfo() { return mapaInfo; }, get destino() { return destino; }, get tiros() { return tiros; }, camera, get nave() { return nave; }, get voz() { return voz; }, get rede() { return rede; }, renderer, cena, get astro() { return astro; }, cabine: (v) => { s.fp = v; }, granada: () => lancarGranada(), golpear: () => golpear(), inspecionar: () => astro.inspecionar(), recarregar: () => recarregar(), atirar: () => atirarAPe(), atirarNave: () => atirarNave(), escolherArma: (i) => escolherArma(i), alternarPrimeiraPessoa, camVM, fovArma: (v) => { FOV_ARMA = v; }, cabine3d: cabine, ajustarFP: (id, o) => { FP[id] = { ...FP[id], ...o }; } };
 
   function fechar() {
     rodando = false;

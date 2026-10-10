@@ -1210,3 +1210,5 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - a pé 55° (terceira e primeira pessoa);
   - nave 56° + até 5° pela velocidade + 8° na dobra (antes 62 + 10 + 14, chegando a ~86°, mais de 120° na horizontal);
   - teto de ~95° na horizontal para qualquer proporção de tela (ultrawide incluso).
+- **Tiro saindo da boca na primeira pessoa (10/10):** a arma é desenhada pela câmera dela (outra posição e outro FOV), e o laser saía da posição real no mundo. Agora o laser nasce no ponto do mundo que aparece exatamente onde a boca está na tela: projeta com `camVM` e desprojeta com a câmera do mundo, na mesma distância.
+- **F inspeciona a arma** (no chão, armado, sem recarregar nem golpear): ela vira mostrando o lado esquerdo, depois o direito, e volta (`inspecionar(k)` em `armas3d.js`, ~2,4 s). Atirar ou trocar de arma interrompe. No ar, F continua descendo.
