@@ -45,7 +45,7 @@ function planWalk(to) {
 }
 
 function updatePlayer(dt) {
-  if (!playerOn || !data || trophyView) return;
+  if (!playerOn || !data || trophyView) { placePlayerTag(); return; }
   if (!me.ready || me.y > H) { Object.assign(me, { x: CX - 8, y: H - 24, ready: true }); }
   let dx = 0, dy = 0;
   const k = c => keysDown.has(c);
@@ -53,7 +53,7 @@ function updatePlayer(dt) {
   me.moving = false;
   if (dx || dy) {
     me.path = [];
-    const len = Math.hypot(dx, dy), step = PLAYER_SPEED * dt, nx = me.x + dx / len * step, ny = me.y + dy / len * step;
+    const len = Math.hypot(dx, dy), step = PLAYER_SPEED * (keysDown.has('Shift') ? 2 : 1) * dt, nx = me.x + dx / len * step, ny = me.y + dy / len * step;
     // slide along walls: try both axes, then each one
     if (!blocked(me, { x: nx, y: ny })) { me.x = nx; me.y = ny; me.moving = true; }
     else if (!blocked(me, { x: nx, y: me.y })) { me.x = nx; me.moving = true; }
@@ -93,11 +93,12 @@ function nearThing() {
   for (const cell of layout) {
     const a = cell.actor; if (!a) continue;
     const ax = (a.mode === 'desk' ? cell.chair.x : a.x) + 8, ay = (a.mode === 'desk' ? cell.chair.y : a.y) + 12;
-    if (near(ax, ay)) return { label: T.walk.talk(cell.p.name), run: () => (cell.p.state === 'needs_you' || cell.p.state === 'waiting' ? openTalk(cell.p.id) : showPerson(cell.p.id)) };
+    if (near(ax, ay)) return { label: T.walk.talk(cell.p.name), run: () => (achBump('talks'), cell.p.state === 'needs_you' || cell.p.state === 'waiting' ? openTalk(cell.p.id) : showPerson(cell.p.id)) };
   }
   for (const g of gameHits) if (near(g.x + g.w / 2, g.y + g.h, 24)) return { label: g.title, run: () => { const m = /data-tab="(\w+)"/.exec(g.attr); if (m) openReport(m[1]); else if (/trophyroom/.test(g.attr)) setTrophyView(true); } };
   if (radioBox && near(radioBox.x + 7, radioBox.y + 20, 26)) return { label: radioOn ? T.radio.on : T.radio.off, run: () => setRadio(!radioOn) };
   if (catBox && near(cat.x + 6, cat.y + 6, 18)) return { label: T.walk.pet, run: petCat };
+  if (elevatorBox && near(elevatorBox.x + 14, elevatorBox.y + 30, 22)) return { label: T.elevator.title, run: openElevator };
   if (clockBox && near(clockBox.x + 5, clockBox.y + 14, 24)) return { label: T.clockIn, run: () => document.querySelector('[data-clock]') && document.querySelector('[data-clock]').click() };
   return null;
 }
@@ -123,6 +124,7 @@ document.addEventListener('keydown', e => {
   if (document.querySelector('.talk:not([hidden])')) return;
   const tag = (e.target.tagName || '').toLowerCase(); if (tag === 'input' || tag === 'textarea') return;
   const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  if (key === 'Shift') { if (!keysDown.has('Shift') && !e.repeat) achBump('sprints'); keysDown.add('Shift'); }
   if (key.startsWith('Arrow') || (!e.metaKey && !e.ctrlKey && !e.altKey && 'wasd'.includes(key) && key.length === 1)) {
     keysDown.add(key); e.preventDefault(); e.stopImmediatePropagation(); if (!e.repeat) achBump('steps');
   }

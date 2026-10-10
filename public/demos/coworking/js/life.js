@@ -50,7 +50,8 @@ function drawCooler(x, y, t) {
 function drawAquarium(x, y, t, glows) {
   r(x - 1, y - 1, 32, 22, PAL.ink); r(x, y, 30, 20, '#1e6fa8'); r(x, y, 30, 3, '#4fa3d8'); r(x, y + 16, 30, 4, '#c9a86b');
   for (let k = 0; k < 3; k++) r(x + 4 + k * 9, y + 10, 1, 6, '#2f8f46'), r(x + 5 + k * 9, y + 12, 1, 4, '#3a8f46');
-  const owned = typeof prog !== 'undefined' ? achCount('fishFed') : 0;
+  const owned = owns('bigtank') ? 3 : 0;
+  if (owns('bigtank')) { r(x + 20, y + 10, 6, 6, '#8b9bb4'); r(x + 20, y + 8, 2, 2, '#8b9bb4'); r(x + 24, y + 8, 2, 2, '#8b9bb4'); r(x + 22, y + 13, 2, 3, '#1e6fa8'); }
   for (let i = 0; i < 3 + Math.min(3, owned); i++) { const fx = x + 2 + Math.round((Math.sin(t / (900 + i * 170) + i) + 1) * 12), fy = y + 4 + (i * 3) % 10, dir = Math.cos(t / (900 + i * 170) + i) > 0; r(fx, fy, 3, 2, ['#feae34', '#ff6ec7', '#ffd84d', '#ffffff', '#e43b44', '#63c74d'][i]); r(dir ? fx - 1 : fx + 3, fy, 1, 2, '#f77622'); }
   if (((t / 400) | 0) % 5 === 0) r(x + 22, y + 3 + ((t / 100) | 0) % 10, 1, 1, '#ffffffaa');
   r(x + 2, y + 21, 26, 6, '#6b4a33'); r(x + 2, y + 21, 26, 1, '#8f6a4a');
@@ -128,8 +129,10 @@ function drawElevator(t) {
   r(cx - 1, cy - 1, 10, 13, PAL.ink); r(cx, cy, 8, 11, '#8b9bb4'); r(cx + 1, cy + 1, 6, 4, '#0c1410'); r(cx + 2, cy + 2, 1, 1, '#62ff7a'); r(cx + 4, cy + 2, 2, 1, '#62ff7a');
   r(cx + 2, cy + 7, 4, 3, '#f4ecd8');
   clockBox = { x: cx - 1, y: cy - 1, w: 10, h: 13 };
+  elevatorBox = { x: x - 2, y: y - 4, w: 28, h: 30 };
+  drawIndoorWeather(x - 16, y + 4);
 }
-let clockBox = null;
+let clockBox = null, elevatorBox = null;
 
 // ---- night janitor and the Friday pizza: walkers added to the frame ----
 function extraWalkers(t) {
@@ -186,17 +189,27 @@ function refreshBoardFiles() {
   fetch('api/report').then(r => r.json()).then(j => { boardFiles = (j.topFiles || []).slice(0, 4); boardRows = j.rows || []; }).catch(() => {});
 }
 function drawNoticeBoard(x, y) {
+  // a cork board: a calendar page with today's date, a note with how many files were edited today, and a
+  // few pinned papers (the file names are in the tooltip; a click opens the daily report)
   refreshBoardFiles();
-  r(x - 1, y - 1, 46, 30, PAL.ink); r(x, y, 44, 28, '#b97c48'); r(x + 1, y + 1, 42, 26, '#c98f5a');
-  const cols = ['#ffd84d', '#ff9ccf', '#9fe3a0', '#9fd3ff'];
-  boardFiles.forEach((f, i) => {
-    const px = x + 2 + (i % 2) * 21, py = y + 2 + Math.floor(i / 2) * 13;
-    r(px, py, 19, 11, cols[i]); r(px + 8, py, 3, 1, '#e43b44');
-    const name = String(f.rel || '').split('/').pop().replace(/\.[^.]+$/, '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
-    pixText(px + 2, py + 4, name || '?', '#2a1d27');
+  r(x - 2, y - 2, 48, 32, '#6b4a33'); r(x - 1, y - 1, 46, 30, '#8f6a4a'); r(x, y, 44, 28, '#c98f5a');
+  for (let k = 0; k < 40; k++) { const h = hash('cork' + k); r(x + h % 44, y + (h >>> 8) % 28, 1, 1, '#b97c48'); }
+  // calendar page
+  const d = new Date();
+  r(x + 2, y + 3, 15, 18, PAL.ink); r(x + 3, y + 4, 13, 16, '#ffffff'); r(x + 3, y + 4, 13, 5, '#e43b44');
+  const day = String(d.getDate()); pixText(x + 10 - day.length * 2, y + 12, day, '#2a1d27');
+  r(x + 9, y + 2, 1, 2, '#c0cbdc');
+  // the note: files edited today
+  const n = boardRows.reduce((m, r2) => m + (r2.files || 0), 0);
+  r(x + 20, y + 4, 13, 12, '#ffd84d'); r(x + 25, y + 3, 2, 2, '#e43b44'); const ns = String(Math.min(999, n)); pixText(x + 27 - ns.length * 2, y + 8, ns, '#2a1d27');
+  // pinned papers with scribbles, one per top file
+  boardFiles.slice(0, 3).forEach((f, i) => {
+    const px = x + 34 + (i % 2) * 4, py = y + 3 + i * 8, c = ['#ffffff', '#9fd3ff', '#9fe3a0'][i];
+    r(px, py, 8, 7, c); r(px + 3, py - 1, 2, 2, ['#3b5dc9', '#63c74d', '#ff6ec7'][i]);
+    r(px + 1, py + 2, 5, 1, '#8a7a6a'); r(px + 1, py + 4, 4, 1, '#8a7a6a');
   });
-  if (!boardFiles.length) pixText(x + 14, y + 11, '...', '#6b4a33');
-  noticeBox = { x: x - 1, y: y - 1, w: 46, h: 30 };
+  r(x + 20, y + 18, 12, 7, '#ff9ccf'); r(x + 25, y + 17, 2, 2, '#ffd84d'); r(x + 21, y + 20, 8, 1, '#a0507a'); r(x + 21, y + 22, 6, 1, '#a0507a');
+  noticeBox = { x: x - 2, y: y - 2, w: 48, h: 32 };
 }
 let noticeBox = null;
 

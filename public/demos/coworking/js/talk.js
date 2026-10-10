@@ -34,9 +34,9 @@ function openTalk(id) {
       ? `<div class="opts">${p.doing.options.map((o, i) => `<button class="opt" data-choice="${i + 1}"><b>${i + 1}</b><span>${esc(o.label)}${o.description ? `<small>${esc(o.description)}</small>` : ''}</span></button>`).join('')}</div>
          <div class="talk-btns"><button class="hb" data-talk="goto">›_ ${goto}</button><button class="hb" data-talk="see">${esc(T.help.see)}</button></div><p class="note talk-msg">${esc(T.talk.pickHint)}</p>`
       : `<p class="note">${esc(T.talk.approveThere)}</p><div class="talk-btns"><button class="btn" data-talk="goto">›_ ${goto}</button><button class="hb" data-talk="see">${esc(T.help.see)}</button></div>`)
-    : `<p class="note talk-why">${esc(T.talk.yourTurnWhy)}</p><textarea rows="3" maxlength="4000" placeholder="${esc(T.talk.placeholder)}"></textarea>
-       <div class="talk-btns">${canType() && p.agent === 'claude' && p.pid && p.entrypoint !== 'claude-desktop' ? `<button class="btn" data-talk="send">➤ ${esc(T.talk.send)}</button>` : ''}<button class="hb" data-talk="copygo">${esc(T.talk.copyGo)}</button><button class="hb" data-talk="see">${esc(T.help.see)}</button></div>
-       <p class="note talk-msg">${esc(p.entrypoint === 'claude-desktop' ? T.talk.desktopHint : p.agent === 'claude' && p.pid ? T.talk.sendHint : T.talk.pasteHint)}</p>`;
+    : `<p class="note talk-why">${esc(T.talk.yourTurnWhy)}</p>${quickReplies()}<textarea rows="3" maxlength="4000" placeholder="${esc(T.talk.placeholder)}"></textarea>
+       <div class="talk-btns">${canType() && ['claude', 'codex'].includes(p.agent) && p.pid && p.entrypoint !== 'claude-desktop' ? `<button class="btn" data-talk="send">➤ ${esc(T.talk.send)}</button>` : ''}<button class="hb" data-talk="copygo">${esc(p.entrypoint === 'codex-desktop' ? T.talk.copyGoApp : T.talk.copyGo)}</button><button class="hb" data-talk="see">${esc(T.help.see)}</button></div>
+       <p class="note talk-msg">${esc(p.entrypoint === 'claude-desktop' ? T.talk.desktopHint : ['claude', 'codex'].includes(p.agent) && p.pid ? T.talk.sendHint : p.entrypoint === 'codex-desktop' ? T.talk.pasteHintApp : T.talk.pasteHint)}</p>`;
   talkEl.hidden = false; document.body.classList.add('talk-open');
   const ta = talkEl.querySelector('textarea');
   if (ta) setTimeout(() => ta.focus(), 30);
@@ -52,7 +52,7 @@ function drawTalk() {
   const p = data && data.people.find(x => x.id === talkFor);
   if (!p) return closeTalk();
   const t = performance.now(), f = (t / 150) | 0, W = 200, H = 96;
-  const hr = new Date().getHours() + new Date().getMinutes() / 60, sky = Art.skyFor(qs.get('hour') ? Number(qs.get('hour')) : hr);
+  const hr = new Date().getHours() + new Date().getMinutes() / 60, sky = Art.skyFor(styleHour(qs.get('hour') ? Number(qs.get('hour')) : hr));
   const prev = ctx; ctx = talkCtx; Art.setCtx(talkCtx);
   try {
     r(0, 0, W, H, '#2a2333');
