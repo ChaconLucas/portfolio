@@ -1189,3 +1189,10 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
 - **FOV e distância:**
   - a primeira pessoa voltou a 66° (o 76° esticava a tela) e o da arma a 50°;
   - a distância ficou intermediária. Recuar demais mostrava a arma por trás e os cortes do braço.
+- **Braços novos também na cabine (10/10):**
+  - os mesmos braços de `bracos.js` seguram o acelerador e o manche (na cena normal, camada 0); o astronauta não é mais desenhado lá dentro;
+  - saíram `astro.pilotar` e o assento ajustável.
+- **Pegada ajustada numa vitrine de perto:**
+  - o sentido de fechar dos dedos está certo nas duas mãos;
+  - a mão é deslocada para o lado da palma (`LADO_PALMA` −0,035 na direita, +0,035 na esquerda), para o cabo ficar DENTRO do punho; antes os dedos fechavam ao lado dele.
+- **FOV da primeira pessoa: 58° vertical.** O FOV do Three.js é o vertical: em tela 16:9, 66° viravam mais de 100° na horizontal e esticavam a imagem; 58° dá ~90°, o padrão de jogos de tiro.

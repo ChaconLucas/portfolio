@@ -163,7 +163,7 @@ export async function criarAstronauta(cena) {
   // armas grandes descem na diagonal na frente do corpo, com as duas maos
   const pequena = (t) => t === 'blaster' || t === 'espada';
   // (na primeira pessoa a pose e mais contida, para a arma continuar na tela)
-  let fp = false, fpVM = true, pilotandoAte = -1;
+  let fp = false, fpVM = true;
   // primeira pessoa: o que fica numa esfera em volta do peito e dos ombros some
   // (o shader descarta), sobrando antebracos, maos e arma — sem o "toco" do
   // ombro cortado aparecendo embaixo da tela
@@ -269,7 +269,7 @@ export async function criarAstronauta(cena) {
     gesto(n) { const a = acao[n]; if (!a) return; a.reset(); a.setEffectiveWeight(1); a.fadeIn(.12); a.play(); gesto = a; },
     get gesticulando() { return !!(gesto && gesto.isRunning()); },
     /** arma na mao: null, 'blaster', 'rifle' ou 'canhao' */
-    arma(t) { armaAtual = t && armas[t] ? t : null; for (const k in armas) armas[k].visible = k === armaAtual && tempo >= pilotandoAte; },
+    arma(t) { armaAtual = t && armas[t] ? t : null; for (const k in armas) armas[k].visible = k === armaAtual; },
     get armaAtual() { return armaAtual; },
     /** posicao da boca da arma no mundo (de onde sai o tiro) */
     boca(out) { const a = armas[armaAtual]; if (!a) return out.copy(raiz.position).setY(raiz.position.y + 1.3); raiz.updateMatrixWorld(true); return a.userData.boca.getWorldPosition(out); },
@@ -287,15 +287,6 @@ export async function criarAstronauta(cena) {
     segurarGranada(v) { arremSegura = v; },
     /** onde esta a mao esquerda agora (de onde a granada sai) */
     maoEsqPos(out) { return (braco.pulso ? braco.pulso.getWorldPosition(out) : out.copy(raiz.position).setY(raiz.position.y + 1.6)); },
-    /** na cabine (chamar depois de atualizar, com raiz ja no assento): as maos
-     *  seguram o acelerador (esquerda) e o manche (direita), punhos fechados */
-    pilotar(esqW, dirW) {
-      pilotandoAte = tempo + .15;
-      for (const k in armas) armas[k].visible = false;
-      raiz.updateMatrixWorld(true); fecharDedos(1); modelo.updateMatrixWorld(true);
-      _eixoA.set(0, 1, 0).transformDirection(raiz.matrixWorld); _frA.set(0, 0, 1).transformDirection(raiz.matrixWorld);   // cabos em pe, maos para a frente
-      empunhar(braco, dedosE, esqW, _eixoA, _frA, 1); empunhar(bracoR, dedosD, dirW, _eixoA, _frA, 1);
-    },
     /** para os bracos da primeira pessoa: onde cada mao segura (meio do punho), o
      *  eixo do cabo e a "frente" da mao, a partir da arma na mao do astronauta */
     alvosMaos() {
@@ -342,7 +333,6 @@ export async function criarAstronauta(cena) {
     },
     atualizar(dt, { frente = 0, lado = 0, noChao = true, jet: j = 0, mira = 0, corrida = 0 }) {
       tempo += dt; miraBraco = mira;
-      if (pilotandoAte > 0 && tempo >= pilotandoAte) { pilotandoAte = -1; for (const k in armas) armas[k].visible = k === armaAtual; }   // saiu da cabine: a arma volta
       if (claraoT > 0) { claraoT -= dt; if (claraoT <= 0) for (const k in armas) armas[k].userData.clarao.material.opacity = 0; }
       // sabre tambem usa a pose armada: as duas maos no cabo, lamina em guarda
       // correndo com arma pequena: corpo de corrida normal (braco esquerdo solto)

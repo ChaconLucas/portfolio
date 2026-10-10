@@ -72,10 +72,14 @@ export async function criarBracos() {
   }
   const _f = new THREE.Vector3(), _s = new THREE.Vector3(), _h = new THREE.Vector3(), _a1 = new THREE.Vector3(), _b1 = new THREE.Vector3(), _e = new THREE.Vector3(), _cima = new THREE.Vector3(), _q = new THREE.Quaternion();
   const PALMA = .085;   // do pulso ao meio da mao fechada
+  let LADO_PALMA = -.035, LADO_PALMA_E = .035; const _pn = new THREE.Vector3();
   function empunhar(l, alvo) {
     // frente perpendicular ao cabo; o pulso fica PALMA atras do ponto do cabo
     _f.copy(alvo.frente).addScaledVector(alvo.eixo, -alvo.frente.dot(alvo.eixo)).normalize();
-    _T.copy(alvo.pos).addScaledVector(_f, -PALMA);
+    // e um pouco para o lado da palma: o cabo fica DENTRO do punho fechado
+    // (a palma olha para o cabo: normal = eixo x frente, com o sinal da mao)
+    _pn.crossVectors(alvo.eixo, _f).normalize().multiplyScalar(l === lados.R ? LADO_PALMA : LADO_PALMA_E);
+    _T.copy(alvo.pos).addScaledVector(_f, -PALMA).add(_pn);
     ik(l, _T.clone());
     // a mao (presa num controle a parte) vai para a ponta do antebraco
     l.ponta.getWorldPosition(_h); l.ctrl.parent.worldToLocal(_h); l.ctrl.position.copy(_h); l.ctrl.updateWorldMatrix(false, true);
@@ -100,11 +104,16 @@ export async function criarBracos() {
   }
 
   const OMBROS = new THREE.Vector3(0, -.27, -.02);   // a raiz do rig (entre os ombros) no espaco da camera da arma
-  let sinalDedos = -1;
+  const sinalDedos = { R: -1, L: -1 }; let camadaAtual = 1;
   return {
     grupo,
+    /** camada de desenho: 1 = passada da arma (a pe), 0 = cena normal (cabine) */
+    camada(n) { if (n === camadaAtual) return; camadaAtual = n; grupo.traverse((o) => o.layers.set(n)); },
     /** inverte o sentido do fechar dos dedos (ajuste) */
-    set sinal(v) { sinalDedos = v; },
+    set sinal(v) { sinalDedos.R = v; },
+    set sinalEsq(v) { sinalDedos.L = v; },
+    set ladoPalma(v) { LADO_PALMA = v; },
+    set ladoPalmaEsq(v) { LADO_PALMA_E = v; },
     posar(camera, alvos) {
       if (!grupo.visible) return;
       grupo.position.copy(OMBROS).applyQuaternion(camera.quaternion).add(camera.position);
@@ -117,7 +126,7 @@ export async function criarBracos() {
         const l = lados[L];
         if (!alvo) continue;
         empunhar(l, alvo);
-        fechar(l, alvo.fecha ?? 1, sinalDedos);
+        fechar(l, alvo.fecha ?? 1, sinalDedos[L]);
       }
     }
   };
