@@ -128,6 +128,7 @@ export async function abrirJogo() {
       <small>PAUSADO</small>
       <button type="button" class="jp-continuar">▶ continuar</button>
       <div class="jp-opcoes"><button type="button" class="jp-opcao" data-op="pvp">⚔ PvP <kbd>P</kbd></button><button type="button" class="jp-opcao" data-op="mapa">🗺 mapa <kbd>M</kbd></button><button type="button" class="jp-opcao" data-op="som">🔊 som <kbd>N</kbd></button></div>
+      <div class="jp-ajustes"><label>campo de visão <input type="range" class="jp-fov" min="40" max="80" step="1"><b class="jp-fov-v"></b></label><label>tamanho da arma <input type="range" class="jp-arma" min="0" max="100" step="1"><b class="jp-arma-v"></b></label></div>
       <button type="button" class="jp-sair">✕ sair do jogo</button>
       <span>o mouse fica preso ao jogo e vira a mira · <kbd>Esc</kbd> pausa · <kbd>Esc</kbd> de novo sai</span>
     </div>
@@ -200,7 +201,7 @@ export async function abrirJogo() {
   // maos e arma, bem a frente na tela (o truque das armas de jogo de tiro)
   const camVM = new THREE.PerspectiveCamera(); camVM.layers.set(1);
   const _ndc = new THREE.Vector3();
-  let FOV_ARMA = 40;   // fechado (teleobjetiva) e a camera mais recuada: a arma e os bracos perto da tela nao esticam
+  let FOV_ARMA = 42;   // fechado (teleobjetiva) e a camera mais recuada: a arma e os bracos perto da tela nao esticam
   const _eVM = new THREE.Vector3(), _pVM = new THREE.Vector3(), _fVM = new THREE.Vector3(), _oVM = new THREE.Vector3(), _v2VM = new THREE.Vector3(), _vY1 = new THREE.Vector3(0, 1, 0), _qY = new THREE.Quaternion();
     function desenhar(c, cam) {
     CURVA.k.value = c.userData.superficie ? K_CURVA : 0; CURVA.c.value.copy(camera.position);
@@ -369,11 +370,23 @@ export async function abrirJogo() {
   canvas.addEventListener('click', travar);
   // pausado (Esc) o mouse fica livre: as opcoes ficam aqui (no jogo, as teclas)
   $('.jogo-pausa').addEventListener('click', (e) => {
+    if (e.target.closest('.jp-ajustes')) { e.stopPropagation(); return; }   // mexer nos ajustes nao volta ao jogo
     const op = e.target.closest('.jp-opcao');
     if (op) { e.stopPropagation(); if (op.dataset.op === 'pvp') alternarPvp(); else if (op.dataset.op === 'som') alternarSom(); else if (op.dataset.op === 'mapa') alternarMapa(true); atualizarOpcoesPausa(); return; }
     if (!e.target.closest('.jp-sair')) travar();
   });
+  // ajustes de visao (salvos): campo de visao do mundo e tamanho da arma na primeira pessoa
+  const lerAjuste = (k, p) => { try { const v = +localStorage.getItem(k); return v || p; } catch (e) { return p; } };
+  let FOV_BASE = lerAjuste('jogo-fov', 55), TAM_ARMA = lerAjuste('jogo-arma', 50);
+  const aplicarArma = () => { FOV_ARMA = 52 - TAM_ARMA * .2; };   // maior "tamanho" = FOV da arma mais fechado
+  aplicarArma();
+  const elFov = $('.jp-fov'), elArma = $('.jp-arma');
+  function mostrarAjustes() { elFov.value = FOV_BASE; elArma.value = TAM_ARMA; $('.jp-fov-v').textContent = FOV_BASE + '°'; $('.jp-arma-v').textContent = TAM_ARMA + '%'; }
+  mostrarAjustes();
+  elFov.addEventListener('input', () => { FOV_BASE = +elFov.value; try { localStorage.setItem('jogo-fov', FOV_BASE); } catch (e) { /* */ } mostrarAjustes(); });
+  elArma.addEventListener('input', () => { TAM_ARMA = +elArma.value || 1; try { localStorage.setItem('jogo-arma', TAM_ARMA); } catch (e) { /* */ } aplicarArma(); mostrarAjustes(); });
   function atualizarOpcoesPausa() {
+    mostrarAjustes();
     const q = (op) => $(`.jp-opcao[data-op="${op}"]`);
     q('pvp').classList.toggle('ligado', meuPvp); q('pvp').innerHTML = `⚔ PvP ${meuPvp ? 'ligado' : 'desligado'} <kbd>P</kbd>`;
     q('som').innerHTML = `${som.mudo ? '🔇 som desligado' : '🔊 som ligado'} <kbd>N</kbd>`;
@@ -1770,7 +1783,7 @@ export async function abrirJogo() {
     // FOV (vertical) contido: o do three.js e o vertical, e em tela larga ele
     // abre muito na horizontal (62 + velocidade + dobra chegava a ~86 graus, mais
     // de 120 na horizontal: tudo esticado). Teto: ~95 graus na horizontal
-    let fov = s.aPe ? 55 : 56 + Math.min(1, veloc / 150) * 5 + s.dobra * 8 + (s.modo === 'entrando' ? tremor * 4 + (ent.gas || 0) * 5 : 0);
+    let fov = s.aPe ? FOV_BASE : FOV_BASE + 1 + Math.min(1, veloc / 150) * 5 + s.dobra * 8 + (s.modo === 'entrando' ? tremor * 4 + (ent.gas || 0) * 5 : 0);
     fov = Math.min(fov, 2 * Math.atan(Math.tan(47.5 * Math.PI / 180) / Math.max(.5, camera.aspect)) * 180 / Math.PI);
     fov *= 1 - mirarK * (s.aPe ? .32 : .45);   // mirando: a pe aproxima um pouco, na nave da o zoom
     if (Math.abs(camera.fov - fov) > .05) { camera.fov += (fov - camera.fov) * (1 - Math.exp(-dt * 14)); camera.updateProjectionMatrix(); }
