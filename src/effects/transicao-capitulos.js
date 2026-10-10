@@ -19,7 +19,13 @@
  *           metades saem girando e revelam a balada;
  *  - FLASH: veu vermelho que queima em ruido com borda incandescente (ref.
  *           Noise Dissolve Reveal, 21st), mostra o cachorro e "FLASH", e se
- *           desfaz queimando.
+ *           desfaz queimando;
+ *  - Coworking Agents: a tela se monta em pixels como o escritorio do app
+ *           (parede de tijolo, piso de taco, mesas). Um terminal roda
+ *           `npx coworking-agents` e lista as sessoes; enquanto isso os agentes
+ *           entram andando, sentam e cada um ganha o seu estado (codigo,
+ *           terminal, "!", "?"), com pulsos subindo das telas. O nome aparece
+ *           e o escritorio se desfaz em pixels.
  */
 
 export function montarTransicaoCapitulos() {
@@ -70,14 +76,32 @@ export function montarTransicaoCapitulos() {
       <canvas class="v-flash-veu"></canvas>
       <img class="v-flash-cachorro" src="/assets/projects/flash-cachorro.png" alt="">
       <span class="v-flash-nome">FLASH</span>
+    </div>
+    <div class="vinheta v-cw">
+      <canvas class="v-cw-pix"></canvas>
+      <div class="v-cw-term">
+        <div class="v-cw-barra"><i></i><i></i><i></i><span>~ — zsh</span></div>
+        <p><span><b class="c-cmd">$</b> npx coworking-agents</span></p>
+        <p><span><b class="c-dim">▸</b> lendo ~/.claude e ~/.codex…</span></p>
+        <p><span><b class="c-ok">●</b> ada&nbsp;&nbsp;&nbsp;&nbsp;api&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;editando</span></p>
+        <p><span><b class="c-ok">●</b> linus&nbsp;&nbsp;api&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;terminal</span></p>
+        <p><span><b class="c-err">!</b> dennis&nbsp;web-app&nbsp;precisa de você</span></p>
+        <p><span><b class="c-warn">?</b> grace&nbsp;&nbsp;mobile&nbsp;&nbsp;aguardando aprovação</span></p>
+        <p><span><b class="c-ok">✓</b> 6 agentes no escritório · 127.0.0.1:4777</span></p>
+      </div>
+      <span class="v-cw-nome">COWORKING<br>AGENTS</span>
+      <span class="v-cw-sub">CADA SESSÃO DE IA, UMA PESSOA NUMA MESA</span>
     </div>`;
   document.body.appendChild(raiz);
   const V = {
     gatecheck: raiz.querySelector('.v-gate'),
     wsl: raiz.querySelector('.v-wsl'),
     rare7: raiz.querySelector('.v-rare'),
-    flash: raiz.querySelector('.v-flash')
+    flash: raiz.querySelector('.v-flash'),
+    coworking: raiz.querySelector('.v-cw')
   };
+  const pix = criarEscritorioPixel(raiz.querySelector('.v-cw-pix'));
+  const linhasTerm = [...raiz.querySelectorAll('.v-cw-term p span')].map((el) => ({ el, n: el.textContent.length }));
   const veu = criarVeu(raiz.querySelector('.v-flash-veu'));
 
   const clamp = (v) => Math.max(0, Math.min(1, v));
@@ -159,6 +183,25 @@ export function montarTransicaoCapitulos() {
       const n = el.querySelector('.v-flash-nome');
       n.style.opacity = meio.toFixed(3);
       n.style.transform = `translate(-50%,0) scale(${.94 + q * .12})`;
+    },
+    coworking(el, q) {
+      const { ent, sai } = fases(q);
+      pix.desenhar(q, q < .5 ? ent : 1 - sai, q < .5);
+      // o terminal digita linha a linha (largura em ch: a fonte e mono)
+      const term = el.querySelector('.v-cw-term');
+      linhasTerm.forEach(({ el: l, n }, i) => {
+        const t0 = .14 + i * .04, dur = i === 0 ? .06 : .03;
+        l.style.maxWidth = `${Math.round(clamp((q - t0) / dur) * n)}ch`;
+        l.parentElement.style.opacity = q >= t0 ? '1' : '0';
+      });
+      const vt = clamp((q - .1) / .04) * (1 - clamp((q - .47) / .05));
+      term.style.opacity = vt.toFixed(3);
+      term.style.transform = `translate(-50%,0) translateY(${((1 - clamp((q - .1) / .06)) * 16).toFixed(1)}px)`;
+      // e da lugar ao nome, que sai junto com os pixels
+      const meio = clamp((q - .47) / .06) * (1 - clamp((q - .64) / .08));
+      const n = el.querySelector('.v-cw-nome'), sub = el.querySelector('.v-cw-sub');
+      n.style.opacity = sub.style.opacity = meio.toFixed(3);
+      n.style.transform = `translate(-50%,-50%) scale(${(Math.round((.92 + q * .16) * 40) / 40).toFixed(3)})`;
     }
   };
 
@@ -272,5 +315,131 @@ function criarVeu(canvas) {
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     },
     esconder() { canvas.style.opacity = '0'; }
+  };
+}
+
+/* Escritorio em pixel art da vinheta do Coworking Agents. Um canvas pequeno
+   (1 px logico = 4 px de tela) esticado com image-rendering: pixelated.
+   A cena inteira e desenhada a cada quadro e depois as celulas ainda nao
+   reveladas sao apagadas: entra e sai em blocos, com os agentes junto. */
+function criarEscritorioPixel(canvas) {
+  const ESC = 4, CEL = 11;
+  const ctx = canvas.getContext('2d');
+  let W = 0, H = 0, cols = 0, lins = 0, ordemE = null, ordemS = null, tijolos = null, tacos = null;
+  const AG = [
+    { pele: '#e0a77f', cabelo: '#2b1a12', camisa: '#e8804a', estado: 'codigo' },
+    { pele: '#8a5a3c', cabelo: '#141018', camisa: '#4fa3d9', estado: 'terminal' },
+    { pele: '#f1c9a5', cabelo: '#d8a03a', camisa: '#5bbf6a', estado: 'pergunta' },
+    { pele: '#c98a62', cabelo: '#6b2f1f', camisa: '#c75fa8', estado: 'aprovacao' },
+    { pele: '#e8b894', cabelo: '#3a3a44', camisa: '#e8c84a', estado: 'pensando' },
+    { pele: '#e0a77f', cabelo: '#141018', camisa: '#7ec8e3', estado: 'codigo' },
+    { pele: '#8a5a3c', cabelo: '#d8a03a', camisa: '#e84a4a', estado: 'terminal' }
+  ];
+  const sorte = (i) => { const v = Math.sin(i * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); };
+  function medir() {
+    const w = Math.ceil(innerWidth / ESC), h = Math.ceil(innerHeight / ESC);
+    if (w === W && h === H) return;
+    W = w; H = h; canvas.width = W; canvas.height = H;
+    cols = Math.ceil(W / CEL); lins = Math.ceil(H / CEL);
+    const n = cols * lins;
+    ordemE = new Float32Array(n); ordemS = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const y = (i / cols) | 0;
+      ordemE[i] = Math.min(.999, (1 - y / lins) * .5 + sorte(i) * .5);   // sobe do chao
+      ordemS[i] = sorte(i + 999);
+    }
+    tijolos = []; for (let k = 0; k < 400; k++) tijolos.push(sorte(k + 50));
+    tacos = []; for (let k = 0; k < 400; k++) tacos.push(sorte(k + 500));
+  }
+  const px = (x, y, w, h, cor) => { ctx.fillStyle = cor; ctx.fillRect(Math.round(x), Math.round(y), w, h); };
+  function pessoa(x, y, a, sentado, passo) {
+    // 16 x 24, x/y = canto de cima
+    px(x + 4, y + 1, 8, 3, a.cabelo); px(x + 3, y + 2, 1, 5, a.cabelo); px(x + 12, y + 2, 1, 5, a.cabelo);
+    px(x + 4, y + 4, 8, 5, a.pele); px(x + 6, y + 6, 1, 1, '#1a1020'); px(x + 9, y + 6, 1, 1, '#1a1020');
+    px(x + 3, y + 10, 10, 7, a.camisa); px(x + 2, y + 11, 1, 5, a.camisa); px(x + 13, y + 11, 1, 5, a.camisa);
+    if (sentado) return;
+    const p = passo ? 1 : 0;
+    px(x + 4, y + 17, 3, 4 + p, '#2c3550'); px(x + 9, y + 17, 3, 5 - p, '#2c3550');
+    px(x + 4 - p, y + 21 + p, 3, 2, '#1c1820'); px(x + 9 + p, y + 22 - p, 3, 2, '#1c1820');
+  }
+  function tela(x, y, estado, f) {
+    px(x - 1, y - 1, 20, 14, '#1c1a22');
+    px(x, y, 18, 12, estado === 'terminal' ? '#07090a' : '#14101c');
+    if (estado === 'codigo') { const cs = ['#e8804a', '#7ec8e3', '#c79bff', '#9fd67a']; for (let i = 0; i < 4; i++) px(x + 2 + ((i + f) % 3), y + 2 + i * 2.5, 4 + ((i * 7 + f * 3) % 10), 1, cs[(i + f) % 4]); }
+    else if (estado === 'terminal') { for (let i = 0; i <= (f % 4); i++) px(x + 2, y + 2 + i * 2.5, 4 + ((i * 5) % 9), 1, '#5bff8a'); }
+    else if (estado === 'pensando') { for (let i = 0; i <= f % 3; i++) px(x + 4 + i * 4, y + 5, 2, 2, '#c79bff'); }
+    else { const c = estado === 'pergunta' ? '#e84a4a' : '#e8b44a'; px(x + 2, y + 2, 14, 8, c); px(x + 3, y + 3, 12, 6, '#14101c'); px(x + 8, y + 4, 2, 3, f % 2 ? c : '#fff'); px(x + 8, y + 8, 2, 1, f % 2 ? c : '#fff'); }
+  }
+  function balao(x, y, estado, f) {
+    const c = { pergunta: '#e84a4a', aprovacao: '#e8b44a', pensando: '#f3ece4' }[estado];
+    if (!c) return;
+    if (estado === 'pergunta' && f % 2) return;   // pisca
+    px(x, y, 10, 8, '#1a1020'); px(x + 1, y + 1, 8, 6, c); px(x + 4, y + 8, 2, 2, '#1a1020');
+    const b = estado === 'pensando' ? '#6a5a70' : '#fff';
+    if (estado === 'pensando') { px(x + 2, y + 3, 1, 1, b); px(x + 4, y + 3, 1, 1, b); px(x + 6, y + 3, 1, 1, b); }
+    else { px(x + 4, y + 2, 2, 3, b); px(x + 4, y + 6, 2, 1, b); }
+  }
+  function cena(q) {
+    const chaoY = Math.round(H * .58);
+    // parede de tijolo
+    px(0, 0, W, chaoY, '#1e1416');
+    const cores = ['#5b2e26', '#4e2a24', '#63352b', '#552d27', '#48261f'];
+    let k = 0;
+    for (let y = 0, l = 0; y < chaoY; y += 6, l++) for (let x = -(l % 2) * 6; x < W; x += 12) px(x + 1, y + 1, 11, 5, cores[(tijolos[k++ % 400] * 5) | 0]);
+    // janelas com a cidade
+    const nj = Math.max(1, Math.floor(W / 120));
+    for (let j = 0; j < nj; j++) {
+      const jx = Math.round((j + .5) * W / nj) - 20, jy = Math.round(chaoY * .2);
+      px(jx - 2, jy - 2, 44, 34, '#15121a'); px(jx, jy, 40, 30, '#14122a');
+      for (let b = 0; b < 6; b++) { const bh = 8 + ((tacos[b + j * 7] * 18) | 0); px(jx + b * 7, jy + 30 - bh, 6, bh, '#0f0d1c'); if ((b + j + Math.floor(q * 30)) % 3) px(jx + b * 7 + 2, jy + 32 - bh, 1, 1, '#ffd9a0'); }
+      px(jx + 19, jy, 2, 30, '#15121a');
+    }
+    // piso de taco
+    for (let y = chaoY, l = 0; y < H; y += 5, l++) for (let x = -(l % 3) * 8; x < W; x += 24) px(x, y, 23, 4, ['#8a5a3a', '#7a4e32', '#94633f', '#835536'][(tacos[(l * 7 + x) & 255] * 4) | 0]);
+    px(0, chaoY, W, 2, '#2a1c18');
+    // tapete da sala, na cor do repositorio (como no app)
+    const altTapete = Math.min(H * .2, 44);
+    px(W * .04, H * .72 - 10, W * .92, altTapete, '#3a3f66'); px(W * .04, H * .72 - 10, W * .92, 1, '#5a5f8a');
+    // mesas: os agentes entram andando e sentam
+    const n = Math.max(3, Math.min(AG.length, Math.floor(W / 46)));
+    const mesaY = Math.round(H * .72), f = Math.floor(q * 40);
+    const passo = Math.floor(q * 160) % 2;
+    for (let i = 0; i < n; i++) {
+      const a = AG[i];
+      const mx = Math.round((i + .5) * W / n);
+      const t0 = .08 + i * .035, t1 = t0 + .2;
+      const k2 = Math.max(0, Math.min(1, (q - t0) / (t1 - t0)));
+      const sentou = q >= t1 && q < 1.5;
+      if (sentou) {
+        pessoa(mx - 8, mesaY - 22, a, true, 0);
+        // pulso de estado subindo da tela (o SSE)
+        const sobe = ((q * 3 + i * .37) % 1);
+        px(mx - 1, mesaY - 16 - sobe * mesaY * .6, 2, 3, ['#5bff8a', '#7ec8e3', '#ff5a4a', '#ffc84a', '#c79bff'][i % 5]);
+      }
+      tela(mx - 9, mesaY - 13, sentou ? a.estado : 'pensando', f + i);
+      px(mx - 20, mesaY, 40, 3, '#b07a4e'); px(mx - 20, mesaY + 3, 40, 1, '#7a5236');
+      px(mx - 18, mesaY + 4, 2, 14, '#1c1a22'); px(mx + 16, mesaY + 4, 2, 14, '#1c1a22');
+      px(mx - 2, mesaY - 1, 4, 1, '#1c1a22');
+      if (sentou) balao(mx + 6, mesaY - 34, a.estado, f + i);
+      else if (q >= t0) {
+        // anda pela frente das mesas, vindo de fora da tela
+        const de = i % 2 ? W + 20 : -36;
+        const x = de + (mx - 8 - de) * (1 - (1 - k2) * (1 - k2));
+        pessoa(x, mesaY + 22, a, false, passo);
+      }
+    }
+    // o gato
+    const gx = ((q * 1.6) % 1) * (W + 40) - 20, gy = H - 8;
+    px(gx + 3, gy + 2, 9, 4, '#e8954a'); px(gx + 11, gy, 4, 4, '#e8954a'); px(gx, gy + 1, 3, 1, '#e8954a');
+    px(gx + 4, gy + 6, 1, 2, '#c8743a'); px(gx + 10, gy + 6, 1, 2, '#c8743a');
+  }
+  return {
+    desenhar(q, cobre, entrando) {
+      medir();
+      ctx.clearRect(0, 0, W, H);
+      cena(q);
+      const ordem = entrando ? ordemE : ordemS;
+      for (let i = 0; i < ordem.length; i++) if (ordem[i] >= cobre) ctx.clearRect((i % cols) * CEL, ((i / cols) | 0) * CEL, CEL, CEL);
+    }
   };
 }

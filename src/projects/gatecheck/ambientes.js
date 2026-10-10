@@ -494,3 +494,497 @@ export function criarEstadioRare() {
     destruir() { descartar(raiz); }
   };
 }
+
+/* ======================================================= COWORKING (05) == */
+/* Coworking Agents: a mesa vira um posto num coworking a noite — o mesmo
+   escritorio que o projeto desenha, so que em 3D. Parede de tijolo com
+   janelas para a cidade, piso de taco, neon com o nome na fonte do projeto,
+   e outras mesas com agentes em pixel art (sprites, como no app) em estados
+   diferentes: editando, no terminal, pensando, pedindo algo (!) e esperando
+   aprovacao (?). O gato do escritorio passeia pelo chao. O monitor principal
+   mostra o escritorio de verdade, ao vivo (ver telaViva em index.js). */
+function texPixel(w, h, desenhar) {
+  const t = tex(w, h, desenhar);
+  t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
+  return t;
+}
+const AGENTES = [
+  { x: .35, z: -1.05, estado: 'codigo', pele: '#e0a77f', cabelo: '#2b1a12', camisa: '#e8804a', calca: '#2c3550' },
+  { x: 1.65, z: -1.05, estado: 'pergunta', pele: '#8a5a3c', cabelo: '#141018', camisa: '#4fa3d9', calca: '#3a2f45' },
+  { x: .35, z: -2.05, estado: 'terminal', pele: '#f1c9a5', cabelo: '#d8a03a', camisa: '#5bbf6a', calca: '#2c3550' },
+  { x: 1.65, z: -2.05, estado: 'aprovacao', pele: '#c98a62', cabelo: '#6b2f1f', camisa: '#c75fa8', calca: '#2b2b33' },
+  { x: 2.95, z: -1.55, estado: 'pensando', pele: '#e8b894', cabelo: '#3a3a44', camisa: '#e8c84a', calca: '#3a2f45' }
+];
+// vista DE COSTAS: a pessoa olha para o monitor dela, que fica de frente
+// para a camera — vemos a nuca e a tela por cima do ombro
+function spritePessoa({ pele, cabelo, camisa }) {
+  return texPixel(16, 20, (c) => {
+    const px = (x, y, w, h, cor) => { c.fillStyle = cor; c.fillRect(x, y, w, h); };
+    px(4, 1, 8, 7, cabelo); px(3, 2, 1, 5, cabelo); px(12, 2, 1, 5, cabelo);
+    px(3, 4, 1, 2, pele); px(12, 4, 1, 2, pele); px(6, 8, 4, 1, pele);
+    px(3, 9, 10, 8, camisa); px(2, 10, 1, 6, camisa); px(13, 10, 1, 6, camisa);
+    px(5, 10, 6, 1, 'rgba(0,0,0,.18)');
+    // encosto da cadeira na frente das costas
+    px(4, 13, 8, 6, '#2a2630'); px(5, 14, 6, 4, '#e8804a');
+  });
+}
+function balaoEstado(estado) {
+  if (estado === 'cafe' || estado === 'sono') {
+    return texPixel(16, 16, (c) => {
+      const px = (x, y, w, h, cor) => { c.fillStyle = cor; c.fillRect(x, y, w, h); };
+      if (estado === 'sono') {
+        px(3, 3, 6, 1, '#c8d8ff'); px(7, 4, 1, 1, '#c8d8ff'); px(6, 5, 1, 1, '#c8d8ff'); px(5, 6, 1, 1, '#c8d8ff'); px(4, 7, 1, 1, '#c8d8ff'); px(3, 8, 6, 1, '#c8d8ff');
+        px(10, 9, 4, 1, '#9fb4ef'); px(12, 10, 1, 1, '#9fb4ef'); px(11, 11, 1, 1, '#9fb4ef'); px(10, 12, 4, 1, '#9fb4ef');
+      } else {
+        px(1, 1, 14, 11, '#1a1020'); px(6, 12, 3, 2, '#1a1020'); px(2, 2, 12, 9, '#4f7fd9'); px(7, 11, 1, 2, '#4f7fd9');
+        px(5, 5, 5, 4, '#fff'); px(10, 6, 1, 2, '#fff'); px(6, 3, 1, 1, '#dde'); px(8, 3, 1, 1, '#dde');
+      }
+    });
+  }
+  const cor = { pergunta: '#e84a4a', aprovacao: '#e8b44a', pensando: '#f3ece4' }[estado];
+  if (!cor) return null;
+  return texPixel(16, 16, (c) => {
+    c.fillStyle = '#1a1020'; c.fillRect(1, 1, 14, 11); c.fillRect(6, 12, 3, 2);
+    c.fillStyle = cor; c.fillRect(2, 2, 12, 9); c.fillRect(7, 11, 1, 2);
+    c.fillStyle = estado === 'pensando' ? '#6a5a70' : '#fff';
+    if (estado === 'pergunta') { c.fillRect(7, 3, 2, 5); c.fillRect(7, 9, 2, 1); }
+    else if (estado === 'aprovacao') { c.fillRect(6, 3, 4, 1); c.fillRect(9, 4, 1, 2); c.fillRect(7, 6, 2, 1); c.fillRect(7, 7, 1, 1); c.fillRect(7, 9, 1, 1); }
+    else { c.fillRect(4, 6, 2, 2); c.fillRect(7, 6, 2, 2); c.fillRect(10, 6, 2, 2); }
+  });
+}
+// tela de cada mesa: desenhada de novo a cada passo, com o estado do agente
+function telaAgente(estado) {
+  let passo = 0;
+  const t = texPixel(64, 40, (c, w, h) => {
+    const bg = estado === 'terminal' ? '#07090a' : '#14101c';
+    c.fillStyle = bg; c.fillRect(0, 0, w, h);
+    if (estado === 'codigo') {
+      const cores = ['#e8804a', '#7ec8e3', '#c79bff', '#9fd67a', '#f3ece4'];
+      for (let i = 0; i < 8; i++) {
+        const k = i + passo;
+        c.fillStyle = cores[(k * 7) % cores.length];
+        c.fillRect(3 + (k % 3) * 3, 3 + i * 4.5, 12 + ((k * 13) % 30), 2);
+      }
+      c.fillStyle = '#fff'; if (passo % 2) c.fillRect(3 + 30, 3 + 7 * 4.5, 2, 3);
+    } else if (estado === 'terminal') {
+      c.fillStyle = '#5bff8a';
+      const n = 1 + (passo % 8);
+      for (let i = 0; i < n; i++) c.fillRect(3, 3 + i * 4.5, 6 + ((i * 17) % 40), 2);
+    } else if (estado === 'pensando') {
+      c.fillStyle = '#c79bff'; for (let i = 0; i < 3; i++) if (i <= passo % 3) c.fillRect(22 + i * 8, 18, 4, 4);
+    } else {
+      const cor = estado === 'pergunta' ? '#e84a4a' : '#e8b44a';
+      c.fillStyle = cor; c.fillRect(6, 8, 52, 24);
+      c.fillStyle = '#14101c'; c.fillRect(8, 10, 48, 20);
+      c.fillStyle = passo % 2 ? cor : '#f3ece4'; c.fillRect(30, 13, 4, 9); c.fillRect(30, 24, 4, 3);
+    }
+  });
+  t.userData.passo = () => { passo++; t.userData.redesenhar(); };
+  return t;
+}
+function ceuCidade() {
+  let semente = 1;
+  const t = tex(512, 256, (c, w, h) => {
+    const g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#0a0b1e'); g.addColorStop(.7, '#2a1838'); g.addColorStop(1, '#4a2430');
+    c.fillStyle = g; c.fillRect(0, 0, w, h);
+    let s = 7; const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
+    for (let i = 0; i < 60; i++) { c.fillStyle = `rgba(255,255,255,${.2 + rnd() * .5})`; c.fillRect(rnd() * w, rnd() * h * .5, 1, 1); }
+    let x = 0;
+    while (x < w) {
+      const bw = 26 + rnd() * 50, bh = 60 + rnd() * 150;
+      c.fillStyle = `rgb(${14 + rnd() * 12},${12 + rnd() * 10},${24 + rnd() * 16})`; c.fillRect(x, h - bh, bw, bh);
+      for (let yy = h - bh + 6; yy < h - 4; yy += 9) for (let xx = x + 4; xx < x + bw - 5; xx += 8) {
+        // `semente` muda a cada redesenho: algumas janelas acendem e apagam
+        const v = (Math.sin(xx * 12.9898 + yy * 78.233 + semente * 3.1) * 43758.5453) % 1;
+        if (Math.abs(v) > .62) { c.fillStyle = Math.abs(v) > .9 ? '#ffd9a0' : '#e8a060'; c.fillRect(xx, yy, 3, 4); }
+      }
+      x += bw + 2;
+    }
+  });
+  t.userData.piscar = () => { semente++; t.userData.redesenhar(); };
+  return t;
+}
+
+// vista DE FRENTE (quem anda, joga, conversa): dois quadros de perna
+function spriteFrente({ pele, cabelo, camisa, calca }, quadro = 0, cracha = false) {
+  return texPixel(16, 24, (c) => {
+    const px = (x, y, w, h, cor) => { c.fillStyle = cor; c.fillRect(x, y, w, h); };
+    px(4, 1, 8, 3, cabelo); px(3, 2, 1, 5, cabelo); px(12, 2, 1, 5, cabelo);
+    px(4, 4, 8, 5, pele); px(6, 6, 1, 1, '#1a1020'); px(9, 6, 1, 1, '#1a1020'); px(7, 8, 2, 1, '#a8483a');
+    px(3, 10, 10, 7, camisa); px(2, 11, 1, 5, camisa); px(13, 11, 1, 5, camisa);
+    px(2, 16, 1, 1, pele); px(13, 16, 1, 1, pele); px(7, 10, 2, 1, pele);
+    if (cracha) { px(9, 12, 3, 3, '#f3ece4'); px(10, 13, 1, 1, '#e8804a'); }
+    if (quadro === 0) { px(4, 17, 3, 5, calca); px(9, 17, 3, 5, calca); px(4, 22, 3, 2, '#1c1820'); px(9, 22, 3, 2, '#1c1820'); }
+    else { px(4, 17, 3, 4, calca); px(9, 17, 3, 5, calca); px(3, 21, 3, 2, '#1c1820'); px(10, 22, 3, 2, '#1c1820'); }
+  });
+}
+const sprite = (map, w, h, x, y, z) => {
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map, transparent: true }));
+  sp.scale.set(w, h, 1); sp.position.set(x, y, z); return sp;
+};
+function placaTexto(w, h, desenhar) {
+  const t = tex(w, h, desenhar);
+  return new THREE.MeshBasicMaterial({ map: t, transparent: true, toneMapped: false, depthWrite: false });
+}
+
+/* Planta do coworking (metros; a mesa principal fica na origem, a camera
+   chega por +z):
+     pod "api"        x 1..3,4   z -0,8..-2,4   cinco mesas com agentes
+     sala de reuniao  x 4,2..6,2 z -0,8..-3,2   vidro, quem delega + estagiarios
+     cozinha          x 1,2..4,8 z -4,4..-5,2   bancada, cafe, geladeira, sofa
+     ping-pong        x -0,6..1  z -3,9         dois agentes jogando
+     soneca           x -2,4..-0,8 z -4,3       pufes, alguem dormindo (zZ)
+     servidor         x 5,7      z -4,7
+   Nos dutos do teto, pulsos de luz correm das mesas ate o monitor principal:
+   e o "estado de todos por SSE" do projeto, visto de fora. */
+export function criarCoworking() {
+  const raiz = new THREE.Group(); raiz.name = 'coworking';
+  const Z = -5.2, XD = 6.2;   // parede do fundo e parede da direita
+  const animados = [];        // (t) => void
+
+  /* ---------------------------------------------------------- casca -- */
+  const taco = tex(512, 512, (c, w, h) => {
+    const cores = ['#5a3d2b', '#4b3326', '#634330', '#553a29'];
+    for (let y = 0; y < h; y += 32) {
+      let x = -((y / 32) % 2) * 64;
+      while (x < w) {
+        c.fillStyle = cores[(Math.random() * cores.length) | 0]; c.fillRect(x, y, 128, 32);
+        c.fillStyle = 'rgba(0,0,0,.28)'; c.fillRect(x, y, 128, 2); c.fillRect(x, y, 2, 32);
+        c.fillStyle = 'rgba(255,220,180,.05)'; for (let i = 0; i < 4; i++) c.fillRect(x + 6, y + 6 + i * 6, 110, 1);
+        x += 128;
+      }
+    }
+  });
+  taco.wrapS = taco.wrapT = THREE.RepeatWrapping; taco.repeat.set(10, 7);
+  const chao = new THREE.Mesh(new THREE.PlaneGeometry(20, 14), new THREE.MeshStandardMaterial({ map: taco, roughness: .5, metalness: .05 }));
+  chao.rotation.x = -Math.PI / 2; chao.position.set(1, 0, -1); chao.receiveShadow = true; raiz.add(chao);
+
+  const tijolo = tex(512, 256, (c, w, h) => {
+    c.fillStyle = '#1e1416'; c.fillRect(0, 0, w, h);
+    const cores = ['#5b2e26', '#4e2a24', '#63352b', '#552d27', '#48261f'];
+    for (let y = 0, l = 0; y < h; y += 32, l++) for (let x = -(l % 2) * 32; x < w; x += 64) {
+      c.fillStyle = cores[(Math.random() * cores.length) | 0]; c.fillRect(x + 2, y + 2, 60, 28);
+      c.fillStyle = 'rgba(255,255,255,.04)'; c.fillRect(x + 2, y + 2, 60, 3);
+    }
+  });
+  tijolo.wrapS = tijolo.wrapT = THREE.RepeatWrapping; tijolo.repeat.set(6, 3);
+  const matTijolo = new THREE.MeshStandardMaterial({ map: tijolo, roughness: .92 });
+  const fundo = new THREE.Mesh(new THREE.PlaneGeometry(18, 5), matTijolo);
+  fundo.position.set(1, 2.5, Z); fundo.receiveShadow = true; raiz.add(fundo);
+  const tijolo2 = tijolo.clone(); tijolo2.repeat.set(3, 3); tijolo2.needsUpdate = true;
+  const direita = new THREE.Mesh(new THREE.PlaneGeometry(9, 5), new THREE.MeshStandardMaterial({ map: tijolo2, roughness: .92 }));
+  direita.rotation.y = -Math.PI / 2; direita.position.set(XD, 2.5, -.7); direita.receiveShadow = true; raiz.add(direita);
+  const madeiraEscura = new THREE.MeshStandardMaterial({ color: 0x2a1c18, roughness: .6 });
+  raiz.add(peca(new THREE.BoxGeometry(18, .12, .04), madeiraEscura, 1, .06, Z + .02));
+
+  const madeira = new THREE.MeshStandardMaterial({ color: 0xb07a4e, roughness: .55 });
+  const grafite = new THREE.MeshStandardMaterial({ color: 0x1c1a22, roughness: .5, metalness: .4 });
+
+  /* ------------------------------------------------ parede do fundo -- */
+  const ceu = ceuCidade();
+  const vidroCeu = new THREE.MeshBasicMaterial({ map: ceu, toneMapped: false, color: 0xbbbbbb });
+  const caixilho = new THREE.MeshStandardMaterial({ color: 0x15121a, roughness: .4, metalness: .6 });
+  [-1.7, .9, 3.5].forEach((x) => {
+    const j = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.3), vidroCeu); j.position.set(x, 2.05, Z + .01); raiz.add(j);
+    [[0, .68, 1.62, .08], [0, -.68, 1.62, .08], [-.77, 0, .08, 1.44], [.77, 0, .08, 1.44], [0, 0, .04, 1.3], [0, .1, 1.5, .04]]
+      .forEach(([dx, dy, l, a]) => raiz.add(peca(new THREE.BoxGeometry(l, a, .06), caixilho, x + dx, 2.05 + dy, Z + .04)));
+  });
+  const FONTE = '700 96px Silkscreen';
+  const neon = tex(1024, 256, (c, w, h) => {
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.shadowColor = '#ff7a3a'; c.shadowBlur = 28; c.fillStyle = '#ffe2c8';
+    c.font = `${FONTE}, ui-monospace, monospace`; c.fillText('COWORKING·AGENTS', w / 2, h * .42);
+    c.shadowColor = '#5bbf6a'; c.fillStyle = '#b8f5c0'; c.font = '700 34px Silkscreen, ui-monospace, monospace';
+    c.fillText('● 8 TRABALHANDO   ● 2 PRECISAM DE VOCÊ', w / 2, h * .82);
+  });
+  quandoFonte(FONTE, neon);
+  const placa = new THREE.Mesh(new THREE.PlaneGeometry(3.4, .85), new THREE.MeshBasicMaterial({ map: neon, transparent: true, toneMapped: false, depthWrite: false }));
+  placa.position.set(.9, 3.3, Z + .05); raiz.add(placa);
+  const luzNeon = new THREE.PointLight(0xff8a4a, 2.2, 6, 1.8); luzNeon.position.set(.9, 3.1, Z + .6); raiz.add(luzNeon);
+  // ON AIR: acende quando quase todo mundo esta trabalhando (como no app)
+  const onAir = placaTexto(256, 96, (c, w, h) => {
+    c.fillStyle = '#2a0d0d'; c.fillRect(0, 0, w, h); c.strokeStyle = '#ff4a4a'; c.lineWidth = 6; c.strokeRect(6, 6, w - 12, h - 12);
+    c.shadowColor = '#ff3a3a'; c.shadowBlur = 18; c.fillStyle = '#ff6a6a'; c.font = '700 54px Silkscreen, monospace';
+    c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('ON AIR', w / 2, h / 2 + 2);
+  });
+  quandoFonte('700 54px Silkscreen', onAir.map);
+  const placaAr = new THREE.Mesh(new THREE.PlaneGeometry(.8, .3), onAir); placaAr.position.set(5.2, 3.0, Z + .04); raiz.add(placaAr);
+  animados.push((t) => { onAir.opacity = Math.sin(t * 1.3) > -.85 ? 1 : .4; });
+
+  /* ---------------------------------------------- pod de mesas (api) -- */
+  const tapete = new THREE.Mesh(new THREE.PlaneGeometry(4.1, 2.1), new THREE.MeshStandardMaterial({ color: 0x3a3f66, roughness: .95 }));
+  tapete.rotation.x = -Math.PI / 2; tapete.position.set(1.4, .003, -1.6); tapete.receiveShadow = true; raiz.add(tapete);
+  const placaSala = placaTexto(256, 64, (c, w, h) => {
+    c.fillStyle = '#1a1020'; c.fillRect(0, 0, w, h); c.fillStyle = '#f0a070'; c.fillRect(0, 0, w, 4);
+    c.fillStyle = '#ffe2c8'; c.font = '700 28px Silkscreen, monospace'; c.textBaseline = 'middle'; c.fillText('API', 14, h / 2 + 2);
+    c.fillStyle = '#e8b44a'; c.fillText('●3', 92, h / 2 + 2); c.fillStyle = '#7ec8e3'; c.fillText('↑2', 160, h / 2 + 2);
+  });
+  quandoFonte('700 28px Silkscreen', placaSala.map);
+  const ps = new THREE.Mesh(new THREE.PlaneGeometry(.9, .22), placaSala); ps.rotation.x = -Math.PI / 2; ps.position.set(1.4, .006, -.45); raiz.add(ps);
+
+  const telas = [], baloes = [], pessoas = [];
+  AGENTES.forEach((a, i) => {
+    const g = new THREE.Group(); g.position.set(a.x, 0, a.z); raiz.add(g);
+    g.add(peca(caixa(1.1, .045, .58, .01), madeira, 0, .74, 0));
+    [[-.5, -.24], [.5, -.24], [-.5, .24], [.5, .24]].forEach(([x, z]) => g.add(peca(new THREE.BoxGeometry(.04, .72, .04), grafite, x, .36, z)));
+    g.add(peca(caixa(.5, .32, .03, .008), grafite, 0, 1.0, -.16));
+    g.add(peca(new THREE.BoxGeometry(.04, .18, .04), grafite, 0, .84, -.18));
+    const tt = telaAgente(a.estado);
+    const tela = new THREE.Mesh(new THREE.PlaneGeometry(.46, .28), new THREE.MeshBasicMaterial({ map: tt, toneMapped: false }));
+    tela.position.set(0, 1.0, -.144); g.add(tela); telas.push({ tex: tt, ritmo: a.estado === 'codigo' ? .18 : a.estado === 'terminal' ? .35 : .5, prox: i * .1 });
+    // caneca e plantinha em algumas mesas
+    if (i % 2 === 0) g.add(peca(new THREE.CylinderGeometry(.035, .03, .09, 10), new THREE.MeshStandardMaterial({ color: [0xe8804a, 0x4f7fd9, 0x5bbf6a][i % 3], roughness: .5 }), .38, .81, .1));
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: spritePessoa(a), transparent: true }));
+    sp.scale.set(.4, .5, 1); sp.position.set(a.x - .2, .95, a.z + .48); sp.renderOrder = 1; raiz.add(sp);
+    pessoas.push({ sp, y: .95, fase: i * 1.7, estado: a.estado });
+    raiz.add(peca(caixa(.42, .06, .42, .02), grafite, a.x - .2, .48, a.z + .55));
+    const bt = balaoEstado(a.estado);
+    if (bt) {
+      const b = new THREE.Sprite(new THREE.SpriteMaterial({ map: bt, transparent: true, depthTest: false }));
+      b.scale.set(.22, .22, 1); b.position.set(a.x - .05, 1.42, a.z + .48); b.renderOrder = 2; raiz.add(b);
+      baloes.push({ b, fase: i, estado: a.estado, y: 1.42 });
+    }
+    if (i < 2) { const l = new THREE.PointLight(a.estado === 'pergunta' ? 0xff6a5a : 0x9fc8ff, .9, 1.6, 2); l.position.set(a.x, 1.05, a.z + .1); raiz.add(l); }
+  });
+
+  /* ------------------------------------------- sala de reuniao (vidro) -- */
+  const vidro = new THREE.MeshPhysicalMaterial({ color: 0xa8d8ff, transparent: true, opacity: .14, roughness: .05, metalness: 0, depthWrite: false, side: THREE.DoubleSide });
+  const perfil = new THREE.MeshStandardMaterial({ color: 0x2a2833, roughness: .35, metalness: .7 });
+  const XS = 4.2, ZF = -.8, ZT = -3.2, H = 2.4;
+  const painel = (l, x, z, rotY) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(l, H), vidro); m.position.set(x, H / 2, z); m.rotation.y = rotY; raiz.add(m);
+  };
+  painel(1.15, XS + .575, ZF, 0); painel(.55, XD - .275, ZF, 0);      // frente com a porta aberta no meio
+  painel(ZF - ZT, XS, (ZF + ZT) / 2, Math.PI / 2);                    // lateral
+  [[XS, ZF], [XS + 1.15, ZF], [XD - .55, ZF], [XS, ZT]].forEach(([x, z]) => raiz.add(peca(new THREE.BoxGeometry(.05, H, .05), perfil, x, H / 2, z)));
+  raiz.add(peca(new THREE.BoxGeometry(XD - XS, .05, .05), perfil, (XS + XD) / 2, H, ZF));
+  raiz.add(peca(new THREE.BoxGeometry(.05, .05, ZF - ZT), perfil, XS, H, (ZF + ZT) / 2));
+  // adesivo no vidro: quantos subagentes estao trabalhando
+  const adesivo = placaTexto(512, 128, (c, w, h) => {
+    c.fillStyle = 'rgba(26,16,32,.85)'; c.fillRect(0, 0, w, h); c.fillStyle = '#e8b44a'; c.fillRect(0, 0, 8, h);
+    c.font = '700 44px Silkscreen, monospace'; c.textBaseline = 'middle'; c.fillStyle = '#ffd88a'; c.fillText('3 SUBAGENTES', 28, 44);
+    c.font = '700 26px Silkscreen, monospace'; c.fillStyle = '#c8bcd8'; c.fillText('SALA DE REUNIÃO · PLANO', 28, 96);
+  });
+  quandoFonte('700 44px Silkscreen', adesivo.map);
+  const ad = new THREE.Mesh(new THREE.PlaneGeometry(1.0, .25), adesivo); ad.position.set(XS + .58, 1.55, ZF + .01); raiz.add(ad);
+  raiz.add(peca(caixa(1.3, .05, .7, .02), new THREE.MeshStandardMaterial({ color: 0xe8e2d8, roughness: .3 }), 5.2, .74, -2.0));
+  raiz.add(peca(new THREE.CylinderGeometry(.06, .2, .72, 12), grafite, 5.2, .36, -2.0));
+  // TV na parede da sala com o plano da conversa
+  let passoPlano = 0;
+  const plano = tex(256, 144, (c, w, h) => {
+    c.fillStyle = '#0d1018'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#e8b44a'; c.font = '700 16px Silkscreen, monospace'; c.fillText('PLANO', 12, 22);
+    const itens = ['mapear chamadas', 'rodar testes', 'migrar schema', 'revisar PR'];
+    itens.forEach((it, i) => {
+      const feito = i < (passoPlano % 5);
+      c.fillStyle = feito ? '#5bbf6a' : '#3a3f55'; c.fillRect(12, 40 + i * 24, 12, 12);
+      c.fillStyle = feito ? '#9fd67a' : '#c8bcd8'; c.font = '13px ui-monospace, monospace'; c.fillText(it, 32, 51 + i * 24);
+    });
+  });
+  const tv = new THREE.Mesh(new THREE.PlaneGeometry(1.1, .62), new THREE.MeshBasicMaterial({ map: plano, toneMapped: false }));
+  tv.rotation.y = -Math.PI / 2; tv.position.set(XD - .03, 1.55, -2.0); raiz.add(tv);
+  raiz.add(peca(new THREE.BoxGeometry(.04, .68, 1.16), grafite, XD - .01, 1.55, -2.0));
+  let proxPlano = 0;
+  animados.push((t) => { if (t >= proxPlano) { proxPlano = t + 1.4; passoPlano++; plano.userData.redesenhar(); } });
+  // quem delega e os estagiarios em volta da mesa
+  const chefe = sprite(spriteFrente({ pele: '#e0a77f', cabelo: '#6b2f1f', camisa: '#c75fa8', calca: '#2b2b33' }), .66, 1.0, 5.2, .5, -2.6);
+  raiz.add(chefe);
+  const estagiarios = [];
+  [[4.65, -1.75, '#4fa3d9'], [5.2, -1.45, '#5bbf6a'], [5.75, -1.75, '#e8c84a']].forEach(([x, z, cam], k) => {
+    const e = sprite(spriteFrente({ pele: ['#f1c9a5', '#8a5a3c', '#e8b894'][k], cabelo: ['#d8a03a', '#141018', '#3a3a44'][k], camisa: cam, calca: '#3a2f45' }, 0, true), .5, .75, x, .375, z);
+    raiz.add(e); estagiarios.push({ e, fase: k * 1.3 });
+  });
+  const luzSala = new THREE.PointLight(0x9fc8ff, 1.4, 4, 1.8); luzSala.position.set(5.2, 2.1, -2.0); raiz.add(luzSala);
+  animados.push((t) => {
+    estagiarios.forEach(({ e, fase }) => { e.position.y = .375 + Math.abs(Math.sin(t * 2.2 + fase)) * .02; });
+    chefe.position.y = .5 + Math.sin(t * 1.6) * .012;
+  });
+
+  /* ----------------------------------------------------------- cozinha -- */
+  const bancada = new THREE.MeshStandardMaterial({ color: 0xe8e2d8, roughness: .35 });
+  raiz.add(peca(caixa(3.0, .86, .6, .02), new THREE.MeshStandardMaterial({ color: 0x2e4a5a, roughness: .6 }), 2.7, .43, Z + .32));
+  raiz.add(peca(caixa(3.04, .05, .64, .01), bancada, 2.7, .885, Z + .32));
+  // cafeteira com a luz vermelha e vapor
+  raiz.add(peca(caixa(.32, .42, .3, .03), new THREE.MeshStandardMaterial({ color: 0x1c1a22, roughness: .3, metalness: .6 }), 1.6, 1.12, Z + .3));
+  const ledCafe = new THREE.Mesh(new THREE.SphereGeometry(.015, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff3a3a, toneMapped: false }));
+  ledCafe.position.set(1.6, 1.25, Z + .46); raiz.add(ledCafe);
+  const vapor = [];
+  const matVapor = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .25, depthWrite: false });
+  for (let k = 0; k < 4; k++) { const v = new THREE.Mesh(new THREE.SphereGeometry(.03, 8, 6), matVapor.clone()); raiz.add(v); vapor.push({ v, fase: k / 4 }); }
+  animados.push((t) => vapor.forEach(({ v, fase }) => {
+    const k = (t * .5 + fase) % 1; v.position.set(1.6 + Math.sin(k * 9 + fase * 6) * .03, 1.36 + k * .45, Z + .3); v.material.opacity = .28 * (1 - k); v.scale.setScalar(.8 + k * 1.6);
+  }));
+  // canecas, micro-ondas, geladeira
+  [[2.1, 0xe8804a], [2.25, 0x4f7fd9], [2.4, 0xf3ece4]].forEach(([x, cor]) => raiz.add(peca(new THREE.CylinderGeometry(.04, .035, .1, 10), new THREE.MeshStandardMaterial({ color: cor, roughness: .5 }), x, .96, Z + .4)));
+  raiz.add(peca(caixa(.5, .3, .36, .02), new THREE.MeshStandardMaterial({ color: 0xd8d4cc, roughness: .4 }), 3.4, 1.06, Z + .28));
+  raiz.add(peca(caixa(.7, 1.95, .66, .04), new THREE.MeshStandardMaterial({ color: 0xe8e4dc, roughness: .3, metalness: .2 }), 4.6, .975, Z + .36));
+  raiz.add(peca(new THREE.BoxGeometry(.03, .5, .03), grafite, 4.32, 1.35, Z + .7));
+  // armario alto
+  raiz.add(peca(caixa(3.0, .6, .36, .02), new THREE.MeshStandardMaterial({ color: 0x2e4a5a, roughness: .6 }), 2.7, 2.6, Z + .2));
+  // placa da cozinha
+  const placaCoz = placaTexto(256, 64, (c, w, h) => {
+    c.fillStyle = '#1a1020'; c.fillRect(0, 0, w, h); c.fillStyle = '#4f7fd9'; c.fillRect(0, 0, w, 4);
+    c.fillStyle = '#c8d8ff'; c.font = '700 26px Silkscreen, monospace'; c.textBaseline = 'middle'; c.fillText('COZINHA · SUA VEZ', 12, h / 2 + 2);
+  });
+  quandoFonte('700 26px Silkscreen', placaCoz.map);
+  const pc = new THREE.Mesh(new THREE.PlaneGeometry(1.1, .28), placaCoz); pc.position.set(2.7, 3.05, Z + .04); raiz.add(pc);
+  // sofa (o turquesa do app), de costas para a bancada, com quem terminou a vez
+  const tecido = new THREE.MeshStandardMaterial({ color: 0x2a7f86, roughness: .9 });
+  raiz.add(peca(caixa(1.8, .42, .8, .08), tecido, 2.7, .26, -3.75));
+  raiz.add(peca(caixa(1.8, .5, .2, .08), tecido, 2.7, .62, -4.1));
+  [-.95, .95].forEach((dx) => raiz.add(peca(caixa(.18, .55, .8, .06), tecido, 2.7 + dx, .4, -3.75)));
+  const tapeteSofa = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.4), new THREE.MeshStandardMaterial({ color: 0x8a3f6e, roughness: .95 }));
+  tapeteSofa.rotation.x = -Math.PI / 2; tapeteSofa.position.set(2.7, .004, -3.4); raiz.add(tapeteSofa);
+  const naVez = sprite(spriteFrente({ pele: '#c98a62', cabelo: '#141018', camisa: '#4f7fd9', calca: '#2c3550' }), .55, .82, 2.4, .8, -3.6);
+  raiz.add(naVez);
+  const balaoCafe = new THREE.Sprite(new THREE.SpriteMaterial({ map: balaoEstado('cafe'), transparent: true, depthTest: false }));
+  balaoCafe.scale.set(.22, .22, 1); balaoCafe.position.set(2.62, 1.38, -3.6); balaoCafe.renderOrder = 2; raiz.add(balaoCafe);
+  baloes.push({ b: balaoCafe, fase: 2, estado: 'cafe', y: 1.38 });
+  const luzCoz = new THREE.PointLight(0xffc890, 1.6, 4.5, 1.8); luzCoz.position.set(2.7, 2.2, -4.2); raiz.add(luzCoz);
+
+  /* --------------------------------------------------------- ping-pong -- */
+  const mesaPP = new THREE.MeshStandardMaterial({ color: 0x1f6a46, roughness: .45 });
+  raiz.add(peca(caixa(1.5, .04, .84, .01), mesaPP, .2, .76, -3.95));
+  const linha = new THREE.MeshBasicMaterial({ color: 0xf3ece4 });
+  [[0, .02, -3.95, 1.5, .003, .02], [0, .02, -3.95, .02, .003, .84]].forEach(([dx, dy, z, l, a, p]) => raiz.add(peca(new THREE.BoxGeometry(l, a, p), linha, .2 + dx, .76 + dy, z)));
+  raiz.add(peca(new THREE.BoxGeometry(.02, .12, .88), new THREE.MeshStandardMaterial({ color: 0xe8e2d8, roughness: .8, transparent: true, opacity: .8 }), .2, .84, -3.95));
+  [[-.45, -.3], [.85, -.3], [-.45, .3], [.85, .3]].forEach(([x, z]) => raiz.add(peca(new THREE.BoxGeometry(.04, .74, .04), grafite, x, .37, -3.95 + z)));
+  const jogA = sprite(spriteFrente({ pele: '#f1c9a5', cabelo: '#d8a03a', camisa: '#e8804a', calca: '#2c3550' }), .66, 1.0, -.85, .5, -3.95);
+  const jogB = sprite(spriteFrente({ pele: '#8a5a3c', cabelo: '#2b1a12', camisa: '#5bbf6a', calca: '#3a2f45' }), .66, 1.0, 1.25, .5, -3.95);
+  raiz.add(jogA, jogB);
+  const bola = new THREE.Mesh(new THREE.SphereGeometry(.025, 10, 8), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x444444 }));
+  raiz.add(bola);
+  animados.push((t) => {
+    const ida = (t * .9) % 2, k = ida < 1 ? ida : 2 - ida;           // vai e volta
+    bola.position.set(-.45 + k * 1.3, .8 + Math.abs(Math.sin(k * Math.PI * 2)) * .22, -3.95 + Math.sin(t * 1.7) * .2);
+    jogA.position.y = .5 + (k < .15 ? .04 : 0); jogB.position.y = .5 + (k > .85 ? .04 : 0);
+  });
+
+  /* ------------------------------------------------------------ soneca -- */
+  const pufe = (x, z, cor) => { const m = peca(new THREE.SphereGeometry(.38, 18, 12), new THREE.MeshStandardMaterial({ color: cor, roughness: .95 }), x, .2, z); m.scale.set(1, .52, 1); raiz.add(m); };
+  pufe(-1.8, -4.3, 0x6b3fa0); pufe(-1.0, -4.5, 0xe8804a);
+  const dorminhoco = sprite(spriteFrente({ pele: '#e8b894', cabelo: '#3a3a44', camisa: '#e8c84a', calca: '#3a2f45' }), .42, .63, -1.8, .5, -4.2);
+  dorminhoco.material.rotation = Math.PI / 2; raiz.add(dorminhoco);
+  const zz = new THREE.Sprite(new THREE.SpriteMaterial({ map: balaoEstado('sono'), transparent: true, depthTest: false }));
+  zz.scale.set(.24, .24, 1); zz.renderOrder = 2; raiz.add(zz);
+  animados.push((t) => { const k = (t * .35) % 1; zz.position.set(-1.65 + k * .15, .85 + k * .45, -4.2); zz.material.opacity = 1 - k; });
+  const abajur = new THREE.PointLight(0x8a7bff, .8, 2.5, 2); abajur.position.set(-1.4, .9, -4.0); raiz.add(abajur);
+
+  /* ---------------------------------------------------------- servidor -- */
+  raiz.add(peca(caixa(.62, 2.0, .6, .02), new THREE.MeshStandardMaterial({ color: 0x15141a, roughness: .35, metalness: .7 }), 5.75, 1.0, -4.75));
+  const leds = [];
+  for (let r = 0; r < 9; r++) for (let k = 0; k < 4; k++) {
+    const m = new THREE.MeshBasicMaterial({ color: 0x5bff8a, toneMapped: false });
+    const l = new THREE.Mesh(new THREE.PlaneGeometry(.025, .015), m); l.position.set(5.55 + k * .05, .35 + r * .18, -4.44); raiz.add(l); leds.push(m);
+  }
+  animados.push((t) => leds.forEach((m, i) => { const v = Math.sin(t * (3 + (i % 5)) + i * 1.7); m.color.setHex(v > .6 ? 0x5bff8a : v > -.2 ? 0x1f6a46 : (i % 7 === 0 ? 0xe8b44a : 0x0d2a1a)); }));
+
+  /* ------------------------------------------ dutos e pulsos de estado -- */
+  // da sala de reuniao e do pod ate o monitor principal: cada pulso e um
+  // evento de estado chegando (o SSE do projeto)
+  const rotas = [
+    [[5.2, 2.75, -2.0], [2.0, 2.75, -1.6], [0, 2.75, -.2], [0, 1.6, -.2]],
+    [[2.7, 2.75, -4.3], [2.0, 2.75, -1.6]],
+    [[.2, 2.75, -3.9], [0, 2.75, -.2]]
+  ].map((pts) => pts.map((p) => new THREE.Vector3(...p)));
+  const duto = new THREE.MeshStandardMaterial({ color: 0x2a2833, roughness: .5, metalness: .6 });
+  rotas.forEach((pts) => {
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], b = pts[i + 1], len = a.distanceTo(b);
+      const m = new THREE.Mesh(new THREE.BoxGeometry(.08, .04, len), duto);
+      m.position.copy(a).lerp(b, .5); m.lookAt(b); raiz.add(m);
+    }
+  });
+  const coresPulso = [0x5bff8a, 0xff5a4a, 0xffc84a, 0x7ec8e3, 0xff9a5a];
+  const pulsos = [];
+  for (let k = 0; k < 14; k++) {
+    const rota = rotas[k % rotas.length];
+    const comp = []; let tot = 0;
+    for (let i = 0; i < rota.length - 1; i++) { const d = rota[i].distanceTo(rota[i + 1]); comp.push(d); tot += d; }
+    const m = new THREE.Mesh(new THREE.BoxGeometry(.06, .06, .14), new THREE.MeshBasicMaterial({ color: coresPulso[k % coresPulso.length], toneMapped: false, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    raiz.add(m); pulsos.push({ m, rota, comp, tot, fase: k / 14, vel: .16 + (k % 3) * .04 });
+  }
+  const _p = new THREE.Vector3();
+  animados.push((t) => pulsos.forEach((p) => {
+    let d = ((t * p.vel + p.fase) % 1) * p.tot, i = 0;
+    while (i < p.comp.length - 1 && d > p.comp[i]) { d -= p.comp[i]; i++; }
+    _p.copy(p.rota[i]).lerp(p.rota[i + 1], Math.min(1, d / p.comp[i]));
+    p.m.position.copy(_p); p.m.lookAt(p.rota[i + 1]);
+  }));
+
+  /* ---------------------------------------------- luminarias e plantas -- */
+  const cupula = new THREE.MeshStandardMaterial({ color: 0x1e1a22, roughness: .4, metalness: .5, side: THREE.DoubleSide });
+  const lampada = new THREE.MeshBasicMaterial({ color: 0xffd9a0, toneMapped: false });
+  [[.35, -1.6], [1.65, -1.6], [2.95, -1.55], [2.7, -3.7], [.2, -3.95]].forEach(([x, z]) => {
+    raiz.add(peca(new THREE.CylinderGeometry(.005, .005, 1.6), grafite, x, 3.2, z));
+    raiz.add(peca(new THREE.ConeGeometry(.22, .2, 20, 1, true), cupula, x, 2.32, z));
+    const lp = new THREE.Mesh(new THREE.SphereGeometry(.05, 12, 8), lampada); lp.position.set(x, 2.25, z); raiz.add(lp);
+  });
+  const quente = new THREE.PointLight(0xffb070, 2.2, 5.5, 1.6); quente.position.set(1.4, 2.1, -1.6); raiz.add(quente);
+
+  const vaso = new THREE.MeshStandardMaterial({ color: 0xc75f30, roughness: .7 });
+  const folha = new THREE.MeshStandardMaterial({ color: 0x3f8a4a, roughness: .7 });
+  [[-.75, -2.35, 1], [3.8, -2.6, 1.3], [4.0, -4.6, 1], [-2.6, -4.8, 1.4], [5.9, -.4, 1.2]].forEach(([x, z, e]) => {
+    raiz.add(peca(new THREE.CylinderGeometry(.16 * e, .12 * e, .34 * e, 16), vaso, x, .17 * e, z));
+    for (let k = 0; k < 8; k++) {
+      const f = peca(new THREE.ConeGeometry(.06 * e, (.55 + (k % 3) * .12) * e, 6), folha, x + Math.cos(k) * .07 * e, .55 * e, z + Math.sin(k) * .07 * e);
+      f.rotation.set(Math.sin(k * 2.3) * .45, 0, Math.cos(k * 1.7) * .45); raiz.add(f);
+    }
+  });
+
+  // quadro com o grafico de status (o do app), entre as janelas
+  let qPasso = 0;
+  const grafico = tex(256, 160, (c, w, h) => {
+    c.fillStyle = '#f3efe8'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#2a2430'; c.font = '700 14px Silkscreen, monospace'; c.fillText('AGORA', 12, 22);
+    const vals = [5 + (qPasso % 3), 2, 1 + ((qPasso >> 1) % 2), 1];
+    ['#5bbf6a', '#e84a4a', '#4f7fd9', '#8a8494'].forEach((cor, i) => { c.fillStyle = cor; const bh = vals[i] * 14; c.fillRect(24 + i * 56, h - 18 - bh, 36, bh); });
+    c.fillStyle = '#2a2430'; c.fillRect(14, h - 18, w - 28, 2);
+  });
+  const quadro = new THREE.Mesh(new THREE.PlaneGeometry(1.0, .62), new THREE.MeshStandardMaterial({ map: grafico, roughness: .35 }));
+  quadro.position.set(-.4, 1.95, Z + .03); raiz.add(quadro);
+  raiz.add(peca(new THREE.BoxGeometry(1.06, .68, .02), grafite, -.4, 1.95, Z + .015));
+  let proxQuadro = 0;
+  animados.push((t) => { if (t >= proxQuadro) { proxQuadro = t + 3; qPasso++; grafico.userData.redesenhar(); } });
+
+  /* ------------------------------------------------ quem anda e o gato -- */
+  const cor = { pele: '#e0a77f', cabelo: '#141018', camisa: '#c75fa8', calca: '#2c3550' };
+  const passos = [spriteFrente(cor, 0), spriteFrente(cor, 1)];
+  const andando = sprite(passos[0], .66, 1.0, 1, .5, -2.95);
+  raiz.add(andando);
+  animados.push((t) => {
+    const ida = (t * .07) % 2, k = ida < 1 ? ida : 2 - ida;
+    andando.position.x = .6 + k * 3.2; andando.position.y = .5 + Math.abs(Math.sin(t * 8)) * .015;
+    andando.material.map = passos[Math.floor(t * 4) % 2];
+    andando.scale.x = ida < 1 ? .66 : -.66;
+  });
+  const gatoTex = texPixel(16, 10, (c) => {
+    const px = (x, y, w, h, cr) => { c.fillStyle = cr; c.fillRect(x, y, w, h); };
+    px(3, 3, 9, 4, '#e8954a'); px(11, 1, 4, 4, '#e8954a'); px(11, 0, 1, 1, '#e8954a'); px(14, 0, 1, 1, '#e8954a');
+    px(12, 2, 1, 1, '#1a1020'); px(14, 2, 1, 1, '#1a1020'); px(0, 2, 3, 1, '#e8954a'); px(0, 1, 1, 1, '#e8954a');
+    px(4, 7, 1, 2, '#c8743a'); px(10, 7, 1, 2, '#c8743a'); px(5, 4, 1, 3, '#c8743a'); px(8, 4, 1, 3, '#c8743a');
+  });
+  const gato = sprite(gatoTex, .32, .2, 1.5, .1, -.42); raiz.add(gato);
+  animados.push((t) => {
+    const ida = (t * .12) % 2, k = ida < 1 ? ida : 2 - ida;
+    gato.position.x = .8 + k * 2.6; gato.position.y = .1 + Math.abs(Math.sin(t * 8)) * .01;
+    gato.scale.x = ida < 1 ? .32 : -.32;
+  });
+
+  let proxCeu = 0;
+  return {
+    raiz,
+    atualizar(t) {
+      telas.forEach((s) => { if (t >= s.prox) { s.prox = t + s.ritmo; s.tex.userData.passo(); } });
+      baloes.forEach(({ b, fase, estado, y }) => {
+        b.position.y = y + Math.abs(Math.sin(t * 3 + fase)) * .05;
+        b.material.opacity = estado === 'pergunta' ? (Math.sin(t * 6) > -.3 ? 1 : .35) : 1;
+      });
+      pessoas.forEach((p) => { p.sp.position.y = p.y + (p.estado === 'codigo' || p.estado === 'terminal' ? Math.abs(Math.sin(t * 9 + p.fase)) * .008 : 0); });
+      animados.forEach((f) => f(t));
+      if (t >= proxCeu) { proxCeu = t + 1.6; ceu.userData.piscar(); }
+      luzNeon.intensity = 2.1 + (Math.sin(t * 23) > .97 ? -1 : 0);
+    },
+    destruir() { descartar(raiz); }
+  };
+}

@@ -323,6 +323,7 @@
 .capitulos-portal .project-chapter-wsl{z-index:2}
 .capitulos-portal .project-chapter-rare{z-index:3}
 .capitulos-portal .project-chapter-flash{z-index:4}
+.capitulos-portal .project-chapter-coworking{z-index:5}
 @media(max-width:900px){
   .capitulos-portal .project-chapter{--revelacao:60vh}
   .capitulos-portal .project-chapter + .project-chapter{height:calc(300vh + var(--revelacao))!important}
@@ -395,8 +396,31 @@
 .v-flash-nome{position:absolute;left:50%;bottom:10vh;opacity:0;white-space:nowrap;
   font:400 12vw/1 "Rubik Dirt",Impact,sans-serif;color:#fff;letter-spacing:.02em;
   text-shadow:0 0 30px rgba(120,0,10,.6)}
+/* Coworking Agents: pixels e o nome na fonte do proprio projeto */
+@font-face{font-family:"Silkscreen";font-weight:700;font-display:swap;src:url(/demos/coworking/fonts/silkscreen-700.woff2) format("woff2")}
+.v-cw-pix{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated}
+.v-cw-term{position:absolute;left:50%;top:13vh;width:min(560px,88vw);opacity:0;border-radius:10px;overflow:hidden;
+  background:rgba(10,8,14,.94);box-shadow:0 0 0 2px #1a1020,0 0 0 4px #e8804a,0 18px 50px rgba(0,0,0,.55);
+  font:600 clamp(11px,1.15vw,15px)/1.75 ui-monospace,Menlo,Consolas,monospace;color:#e8e0f0}
+.v-cw-barra{display:flex;align-items:center;gap:6px;padding:8px 12px;background:#1d1824;font-size:11px;color:#8a8098}
+.v-cw-barra i{width:9px;height:9px;border-radius:50%;background:#e8604a}
+.v-cw-barra i:nth-child(2){background:#e8b44a}.v-cw-barra i:nth-child(3){background:#5bbf6a}
+.v-cw-barra span{margin-left:8px}
+.v-cw-term p{margin:0;padding:0 16px;opacity:0}
+.v-cw-term p:nth-of-type(1){padding-top:10px}.v-cw-term p:last-child{padding-bottom:12px}
+.v-cw-term p span{display:inline-block;max-width:0;overflow:hidden;white-space:nowrap;vertical-align:bottom}
+.v-cw-term b{font-weight:700}
+.c-cmd{color:#f0a070}.c-dim{color:#8a8098}.c-ok{color:#5bff8a}.c-err{color:#ff5a4a}.c-warn{color:#ffc84a}
+.v-cw-nome{position:absolute;left:50%;top:30%;opacity:0;text-align:center;white-space:nowrap;
+  font:700 8.5vw/.95 Silkscreen,ui-monospace,monospace;color:#fff3e6;letter-spacing:.02em;
+  text-shadow:.06em .06em 0 #c75f30,0 0 40px rgba(232,128,74,.35)}
+.v-cw-sub{position:absolute;left:50%;top:calc(30% + 10vw);transform:translateX(-50%);opacity:0;white-space:nowrap;
+  font:700 1.2vw/1 Silkscreen,ui-monospace,monospace;letter-spacing:.2em;color:#f0a070}
 @media(max-width:900px){
   .v-wsl-titulo{font-size:22vw;left:30vw}
+  .v-cw-nome{font-size:10.5vw}
+  .v-cw-sub{font-size:2.3vw;letter-spacing:.12em;top:calc(30% + 12vw)}
+  .v-cw-term{top:11vh}
   .v-wsl-sub{font-size:4.6vw;top:calc(34vh + 20vw)}
   .v-rare-marca{font-size:17vw}
   .v-rare-sub{font-size:2.6vw;top:calc(48% + 11vw)}

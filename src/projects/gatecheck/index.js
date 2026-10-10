@@ -7,7 +7,7 @@ import { criarPersonagem, animarPersonagem, pousarMaos } from './character.js';
 import { carregarPersonagem } from './character-glb.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { criarRigCamera } from './camera-rig.js';
-import { criarBalada, criarEstadioRare } from './ambientes.js';
+import { criarBalada, criarEstadioRare, criarCoworking } from './ambientes.js';
 import { descartarMateriais } from './materials.js';
 
 /**
@@ -52,7 +52,9 @@ function suportaWebGL() {
  * @param {HTMLElement} container
  * @param {object} [opcoes]
  * @param {string[]} [opcoes.telas]  screenshots para o monitor
- * @param {string}   [opcoes.ambiente]  'balada' (GateCheck, padrao) ou 'estadio' (Rare7) — src/projects/gatecheck/ambientes.js
+ * @param {string}   [opcoes.ambiente]  'balada' (GateCheck, padrao), 'estadio' (Rare7) ou 'coworking' — src/projects/gatecheck/ambientes.js
+ * @param {() => HTMLCanvasElement|null} [opcoes.telaViva]  canvas que roda AO VIVO no monitor; entra
+ *        no lugar de cada item 'vivo' da lista de telas (Coworking Agents: o escritorio de verdade)
  *
  * A cena e a MESMA para o GateCheck e para o Rare7 — mesma estacao, mesma
  * camera, mesmo personagem. O que muda e o que roda no monitor, entao a unica
@@ -123,14 +125,22 @@ export function montarCenaGatecheck(container, opcoes = {}) {
     { p: 0.22, pos: [2.40, 2.00, 2.50], alvo: [-0.5, 1.25, -1.4] },
     ...CHAVES_ESTADIO.slice(2)
   ];
-  const rig = criarRigCamera(camera, { chaves: opcoes.ambiente === 'estadio' ? CHAVES_ESTADIO : CHAVES_BALADA });
+  // Coworking: abre alto, da frente e da direita, varrendo o escritorio
+  // inteiro (pod, sala de reuniao, cozinha) antes de descer para a mesa. O
+  // escritorio fica no lado direito do quadro: o esquerdo e da coluna de texto.
+  const CHAVES_COWORKING = [
+    { p: 0.00, pos: [6.6, 3.3, 4.2], alvo: [2.5, 1.35, -3.0] },
+    { p: 0.20, pos: [3.9, 2.7, 2.9], alvo: [.4, 1.1, -2.0] },
+    ...CHAVES_ESTADIO.slice(2)
+  ];
+  const rig = criarRigCamera(camera, { chaves: opcoes.ambiente === 'estadio' ? CHAVES_ESTADIO : opcoes.ambiente === 'coworking' ? CHAVES_COWORKING : CHAVES_BALADA });
 
   const estacao = criarEstacao();
   scene.add(estacao.raiz);
   // O ambiente todo e do projeto: a entrada da balada com o check-in (GateCheck)
   // ou o estadio atras do gol (o Rare7 reusa esta cena e pede 'estadio').
   const estadio = opcoes.ambiente === 'estadio';
-  const ambienteCena = (estadio ? criarEstadioRare : criarBalada)();
+  const ambienteCena = (estadio ? criarEstadioRare : opcoes.ambiente === 'coworking' ? criarCoworking : criarBalada)();
   // o estadio vai a ~130 m: a camera padrao so enxerga 60
   /* O estadio vai a ~70 m e a camera padrao so enxerga 60. near sobe junto: o
      monitor tem pecas a milimetros (tela, moldura, vidro) e com far 260 e
@@ -220,7 +230,7 @@ export function montarCenaGatecheck(container, opcoes = {}) {
            So o encosto vai de rosa. Pintar `__1` tambem deixava a cadeira
            inteira rosa, porque ele cobre da roda ate o assento. */
         const encosto = /__2$/.test(mm.name || '');
-        mm.color.set(encosto ? 0xff5fa2 : 0xf0f0f3);
+        mm.color.set(encosto ? (opcoes.ambiente === 'coworking' ? 0xe8804a : 0xff5fa2) : 0xf0f0f3);
         mm.roughness = encosto ? 0.66 : 0.38;
         mm.metalness = 0.02;
       });
@@ -398,6 +408,7 @@ export function montarCenaGatecheck(container, opcoes = {}) {
   const proporcaoTela = 1.218 / 0.583; // proporcao do painel do monitor
 
   TELAS.forEach((src, i) => {
+    if (src === 'vivo') return;
     carregador.load(src, (tex) => {
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
@@ -418,9 +429,35 @@ export function montarCenaGatecheck(container, opcoes = {}) {
 
   const proporcoes = [];
   let telaAtual = 0;
+  /* Tela ao vivo: o canvas vira textura e sobe para a placa a cada dois
+     quadros. Pixel art: sem suavizar na ampliacao. Recorte de "cover", preso
+     ao topo (as salas ficam no alto do escritorio). */
+  let texViva = null, cvVivo = null, quadroVivo = 0, wViva = 0, hViva = 0;
+  function atualizarViva() {
+    const cv = opcoes.telaViva && opcoes.telaViva();
+    if (!cv || !cv.width || !cv.height) return null;
+    /* textura nova tambem quando o canvas muda de tamanho: a do three e
+       alocada uma vez (texStorage) e as atualizacoes seguintes so copiam por
+       cima — com o canvas maior a copia estoura e a tela fica preta */
+    if (cv !== cvVivo || cv.width !== wViva || cv.height !== hViva) {
+      wViva = cv.width; hViva = cv.height;
+      if (texViva) texViva.dispose();
+      cvVivo = cv;
+      texViva = new THREE.CanvasTexture(cv);
+      texViva.colorSpace = THREE.SRGBColorSpace;
+      texViva.magFilter = THREE.NearestFilter;
+      texViva.generateMipmaps = false;
+      texViva.minFilter = THREE.LinearFilter;
+    }
+    const rr = cv.width / cv.height, pp = 1.218 / 0.583;
+    if (rr > pp) { texViva.repeat.set(pp / rr, 1); texViva.offset.set((1 - pp / rr) / 2, 0); }
+    else { texViva.repeat.set(1, rr / pp); texViva.offset.set(0, 1 - rr / pp); }
+    texViva.needsUpdate = true;
+    return texViva;
+  }
   function aplicarTela(i) {
     telaAtual = i;
-    const tex = texturas[i];
+    const tex = TELAS[i] === 'vivo' ? atualizarViva() : texturas[i];
     if (!tex) return;
     estacao.tela.scale.set(1, 1, 1);
     estacao.tela.material.map = tex;
@@ -600,6 +637,11 @@ export function montarCenaGatecheck(container, opcoes = {}) {
       }
     }
 
+    if (TELAS[telaAtual] === 'vivo' && (quadroVivo++ & 1) === 0) {
+      const tv = atualizarViva();
+      if (tv && estacao.tela.material.map !== tv) aplicarTela(telaAtual);
+    }
+
     rig.atualizar(progCamera, dt);
     renderer.render(scene, camera);
   }
@@ -619,6 +661,7 @@ export function montarCenaGatecheck(container, opcoes = {}) {
     });
     ambienteCena.destruir();
     texturas.forEach((t) => t && t.dispose());
+    if (texViva) texViva.dispose();
     descartarMateriais();
     ambiente.texture.dispose();
     pmrem.dispose();

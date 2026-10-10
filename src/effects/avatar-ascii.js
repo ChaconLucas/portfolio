@@ -100,7 +100,8 @@ const PROJETOS = [
   ['gatecheck', 'GateCheck', 'ingressos, QR Code e check-in em tempo real', '#project-gatecheck'],
   ['wsl', 'WSL Games', 'experiência interativa do campeonato de surf', '#project-wsl'],
   ['rare7', 'Rare7', 'loja de moda esportiva premium', '#project-rare7'],
-  ['flash', 'FLASH', 'delivery de materiais de tatuagem', '#project-flash']
+  ['flash', 'FLASH', 'delivery de materiais de tatuagem', '#project-flash'],
+  ['coworking', 'Coworking Agents', 'escritório em pixel art para agentes de IA', '#project-coworking']
 ];
 const CONTATO = [
   ['email', 'lucaschacon79@gmail.com', 'mailto:lucaschacon79@gmail.com'],

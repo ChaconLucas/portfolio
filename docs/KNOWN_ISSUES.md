@@ -1216,3 +1216,47 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - **campo de visão** de 40° a 80° (padrão 55°, base para a pé e para a nave);
   - **tamanho da arma** na primeira pessoa, que mexe no FOV da câmera da arma (52° − 0,2 × valor; padrão 50% = 42°).
   - Foi feito porque na tela do usuário a imagem parecia alargada, sem reprodução aqui (proporção do canvas e da câmera conferidas).
+
+## Capítulo 05 — Coworking Agents (10/10/2026)
+
+- **O que é:** o quinto projeto (`#project-coworking`), o escritório em pixel art para agentes de IA ([repositório](https://github.com/ChaconLucas/coworking-agents), MIT, do próprio Lucas).
+- **Demo ao vivo sem servidor e sem tokens:** `public/demos/coworking/` é o `public/` do projeto, copiado como está, mais um `demo-navegador.js` que faz o papel do servidor dentro do navegador:
+  - o gerador do `--demo` do projeto (`src/demo.js` + `prices.js` + `util.js`) roda no navegador, com `fs`/`path`/`os` falsos;
+  - `EventSource('events')` recebe um retrato novo por segundo, como o SSE do servidor real;
+  - `fetch('api/...')` responde uso, relatório e progresso. As ações que mexem em sessões de verdade (responder, ir para o terminal, compactar) devolvem `{ ok: false }`;
+  - a geolocalização do clima é desligada, para quem visita não receber pedido de permissão.
+- **Para atualizar a demo:** clone o repositório e rode `node scripts/montar-demo-coworking.mjs <clone>`. A pasta é recriada do zero. Não edite `demo-navegador.js` à mão.
+- **Cena 3D, como nos outros capítulos:** é a mesma estação do GateCheck/Rare7 (`montarCenaGatecheck`), com `ambiente: 'coworking'` (`criarCoworking` em `ambientes.js`). A planta segue as zonas do app:
+  - **pod "api":** cinco mesas com agentes em pixel art, de costas, olhando a tela. Cada um está num estado: código rolando, terminal, pensando, "!" piscando e "?";
+  - **sala de reunião de vidro:** quem delega, de pé, mais três estagiários (subagentes) com crachá. Tem um adesivo "3 SUBAGENTES" e uma TV com o plano sendo ticado;
+  - **cozinha:**
+    - bancada com cafeteira soltando vapor, canecas, micro-ondas, geladeira e armário;
+    - sofá turquesa com quem está na "sua vez" (balão de café);
+  - **jogos e descanso:**
+    - ping-pong com dois agentes e a bola indo e voltando;
+    - canto da soneca com pufes e alguém dormindo (zZ);
+  - **paredes:**
+    - parede de tijolo com janelas para a cidade (as janelas dos prédios acendem e apagam);
+    - neon COWORKING·AGENTS;
+    - ON AIR piscando;
+    - quadro com o gráfico de status;
+    - servidor com LEDs;
+  - **teto:** dutos com pulsos coloridos correndo das mesas e da sala até o monitor principal. São os eventos de estado (o SSE do projeto);
+  - **quem circula:** um agente andando entre o pod e a cozinha, e o gato.
+- **Câmera própria (`CHAVES_COWORKING`):** abre alta, da frente e da direita, mostrando o escritório inteiro no lado direito do quadro (o esquerdo é da coluna de texto). Depois passa por cima do pod e desce para o trilho comum até o monitor.
+- **Monitor ao vivo:** a primeira tela é `'vivo'`, o canvas `#cv` da demo rodando num iframe invisível (`opcoes.telaViva`). O iframe fica na tela com opacidade 0, para o navegador não pausar a animação. Ele é criado e removido junto com a cena.
+  - A textura é recriada quando o canvas muda de tamanho. O three aloca a textura uma vez, e copiar um canvas maior por cima dava `Offset overflows texture dimensions` e deixava a tela preta.
+  - Depois que a câmera chega no monitor (55%), passam as telas do app: conversa, painel, uso, prédio e noite. O rótulo segue o monitor.
+- **No capítulo (sem WebGL, ou antes de a cena carregar):**
+  - o palco é uma janela de navegador com seis prints (do `docs/` do projeto, em webp) passando com o scroll, pelo driver genérico dos capítulos (`coworking` em `routeMap` e `labelMap`);
+  - **▶ RODAR AQUI** (também com a cena 3D) abre a demo num iframe, por cima da cena. Ela só existe enquanto está ligada e desliga sozinha quando o capítulo sai de vista;
+  - **ABRIR DEMO AO VIVO** abre `/demos/coworking/index.html` (com o `index.html` explícito: no `vite dev`, `/demos/coworking/` cai no index do portfólio).
+- **Vinheta FLASH → Coworking (`criarEscritorioPixel` em `transicao-capitulos.js`):**
+  - a tela se monta em blocos como o escritório do app: tijolo, janelas, taco, tapete azul e mesas;
+  - ao mesmo tempo, um terminal digita `npx coworking-agents` e lista as sessões (editando, terminal, "!", "?");
+  - os agentes entram andando, sentam e ganham o balão e a tela do seu estado, com pulsos subindo das telas; o gato passa;
+  - no meio, o terminal dá lugar ao nome e, na saída, tudo se desfaz em blocos;
+  - as linhas do terminal são digitadas por `max-width` em `ch` (fonte mono), sem trocar o texto.
+  - O capítulo precisa de `z-index: 5` em `efeitos.css`, para cobrir o FLASH, que fica parado por baixo.
+- **No celular:** o "como funciona" e o rótulo da tela somem, porque texto e palco dividem a mesma tela.
+- Contagens passaram para `/ 05`. Também foram atualizados: ticker, descrições og/twitter, dicionário EN, projetos do terminal (`avatar-ascii.js`) e "projetos relacionados" do Node.js, Claude Code e Codex.

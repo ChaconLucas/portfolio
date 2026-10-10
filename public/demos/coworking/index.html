@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>coworking-agents</title>
+<link rel="icon" href="favicon.ico?v=4" sizes="any">
+<link rel="icon" href="favicon.png?v=4" type="image/png" sizes="64x64">
+<link rel="icon" href="favicon.svg?v=4" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="bar">
+  <div class="hud">
+  <div class="brand">
+    <img class="logo" src="logo.svg?v=2" alt="" width="32" height="32">
+    <div><b>coworking<span>·</span>agents</b><small id="host"></small></div>
+  </div>
+  <div class="counts" id="counts"></div>
+  </div>
+  <div class="tools">
+    <button id="btn-menu" class="icon-btn menu" aria-expanded="false" aria-controls="tools-menu"><svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M2 3h12v2H2zM2 7h12v2H2zM2 11h12v2H2z"/></svg><span class="sr"></span><i class="menu-dot" hidden></i></button>
+    <div id="tools-menu" class="tools-menu" hidden>
+    <button id="btn-notify" class="icon-btn" aria-pressed="false"><svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M7 1h2v1h2v1h1v5h1v2h1v2H2v-2h1V8h1V3h1V2h2zM6 13h4v1H9v1H7v-1H6z"/></svg><span class="sr"></span></button>
+    <button id="btn-sound" class="icon-btn" aria-pressed="false"><svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M2 6h3l4-4h1v12H9l-4-4H2zM12 5h1v1h1v4h-1v1h-1V5z"/></svg><span class="sr"></span></button>
+    <button id="btn-focus" class="icon-btn" aria-pressed="false"><svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M6 1h4v1h2v1h1v2h1v6h-1v2h-1v1h-2v1H6v-1H4v-1H3v-2H2V5h1V3h1V2h2zm0 3v1H5v1H4v4h1v1h1v1h4v-1h1v-1h1V6h-1V5h-1V4zm1 2h2v1h1v2H9v1H7V9H6V7h1z"/></svg><span class="sr"></span><em class="focus-left" hidden></em></button>
+    <button id="btn-walk" class="icon-btn" aria-pressed="true"><svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M7 1h2v3H7zM5 5h6v5h-1v5H8v-4H8v4H6v-5H5z"/></svg><span class="sr"></span></button>
+    <button id="btn-radio" class="icon-btn" aria-pressed="false"><svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M11 1h2v2h-2v2h3v10H2V5h7V3h2zM4 7v6h4V7zm6 1v1h2V8zm0 3v1h2v-1z"/></svg><span class="sr"></span></button>
+    <button id="btn-replay" class="icon-btn"><svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M6 1h4v1h2v1h1v2h1v6h-1v2h-1v1h-2v1H6v-1H4v-1H3v-2H2V9h2v2h1v1h1v1h4v-1h1v-1h1V5h-1V4h-1V3H6v1H5v1H4v1h2v2H1V3h2v1h1V3h1V2h1zM7 5h2v3h2v2H7z"/></svg><span class="sr"></span></button>
+    <button id="btn-search" class="icon-btn"><svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M5 1h4v1h1v1h1v4h-1v1H9v1H5V8H4V7H3V3h1V2h1zm0 2v4h4V3zM10 9h1v1h1v1h1v1h1v1h-1v1h-1v-1h-1v-1h-1v-1H9v-1h1z"/></svg><span class="sr"></span></button>
+    <button id="btn-photo" class="icon-btn"><svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M5 2h6v2h3v10H2V4h3zm3 4H7v1H6v3h1v1h2v-1h1V7H9V6z"/></svg><span class="sr"></span></button>
+    <button id="btn-office" class="icon-btn"><svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M7 1h2v2h2v1h2v2h-1v2h1v2h-2v2h-1v1H9v2H7v-2H5v-1H4v-2H3V8h1V6H3V4h2V3h2zm0 5v1H6v2h1v1h2V9h1V7H9V6z"/></svg><span class="sr"></span></button>
+    <button id="btn-lang" class="icon-btn lang"></button>
+    </div>
+  </div>
+</header>
+<div id="clashes" class="clashes" hidden></div>
+<main id="stage">
+  <div id="office">
+    <canvas id="cv"></canvas>
+    <div id="overlay"></div>
+  </div>
+  <p id="empty" class="empty" hidden></p>
+</main>
+<aside id="panel" class="panel" hidden aria-live="polite">
+  <button id="panel-close" class="close" aria-label="Close"><svg viewBox="0 0 10 10" width="12" height="12" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M1 1h2v1h1v1h2V2h1V1h2v2H8v1H7v2h1v1h1v2H7V8H6V7H4v1H3v1H1V7h1V6h1V4H2V3H1z"/></svg></button>
+  <div id="panel-body"></div>
+</aside>
+<div id="offline" class="offline" hidden></div>
+<script src="demo-navegador.js"></script>
+<script src="art.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/progress.js"></script>
+<script src="js/palette.js"></script>
+<script src="js/floorplan.js"></script>
+<script src="js/building.js"></script>
+<script src="js/actors.js"></script>
+<script src="js/scene.js"></script>
+<script src="js/overlay.js"></script>
+<script src="js/panel.js"></script>
+<script src="js/help.js"></script>
+<script src="js/talk.js"></script>
+<script src="js/alerts.js"></script>
+<script src="js/weather.js"></script>
+<script src="js/report.js"></script>
+<script src="js/topbar.js"></script>
+<script src="js/replay.js"></script>
+<script src="js/keys.js"></script>
+<script src="js/achievements.js"></script>
+<script src="js/fun.js"></script>
+<script src="js/ambient.js"></script>
+<script src="js/life.js"></script>
+<script src="js/collection.js"></script>
+<script src="js/personal.js"></script>
+<script src="js/rooms.js"></script>
+<script src="js/player.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
