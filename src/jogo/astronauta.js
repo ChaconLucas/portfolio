@@ -58,7 +58,8 @@ export async function criarAstronauta(cena) {
      frente (IK de dois ossos: ombro e cotovelo) e os dedos fecham ---- */
   const osso = (n) => modelo.getObjectByName(n);
   const braco = { clavicula: osso('ShoulderL'), ombro: osso('UpperArmL'), cotovelo: osso('LowerArmL'), pulso: osso('WristL') };
-  const dedos = ['Index1L', 'Index2L', 'Index3L', 'Index1R', 'Index2R', 'Index3R'].map(osso).filter(Boolean);
+  const dedos = ['Index', 'Middle', 'Ring', 'Pinky'].flatMap((d) => ['1L', '2L', '3L', '1R', '2R', '3R'].map((n) => d + n)).map(osso).filter(Boolean);
+  const bracoR = { ombro: osso('UpperArmR'), cotovelo: osso('LowerArmR'), pulso: osso('WristR') };
   const polegares = ['Thumb1L', 'Thumb2L', 'Thumb1R', 'Thumb2R'].map(osso).filter(Boolean);
   // pose de repouso dos dedos: volta a ela antes da animacao (algumas animacoes
   // nao mexem nos dedos, e a curva se acumularia quadro a quadro)
@@ -107,7 +108,27 @@ export async function criarAstronauta(cena) {
     _qd.setFromAxisAngle(new THREE.Vector3(0, 0, 1), .45 * k);
     for (const o of polegares) o.quaternion.multiply(_qd);
   }
-  // calor de cada arma (0..1), guardado aqui para o desenho
+  // sabre em guarda: cotovelo direito dobrado e baixo, antebraco cruzando na
+  // frente do corpo (a lamina sobe na diagonal; a esquerda segura o pomo pelo IK)
+  const _f = new THREE.Vector3(), _l = new THREE.Vector3(), _d = new THREE.Vector3();
+  function guardaSabre(k) {
+    const { ombro, cotovelo, pulso } = bracoR; if (!ombro || !cotovelo || !pulso || k < .01) return;
+    _f.set(0, 0, 1).transformDirection(raiz.matrixWorld); _l.set(1, 0, 0).transformDirection(raiz.matrixWorld);
+    ombro.getWorldPosition(_S); cotovelo.getWorldPosition(_E);
+    _d.set(0, -.8, 0).addScaledVector(_f, .45).addScaledVector(_l, .12).normalize();
+    girar(ombro, _E.clone().sub(_S), _d.clone(), k);
+    cotovelo.getWorldPosition(_E); pulso.getWorldPosition(_W);
+    _d.set(0, .3, 0).addScaledVector(_f, .8).addScaledVector(_l, .5).normalize();
+    girar(cotovelo, _W.clone().sub(_E), _d.clone(), k);
+  }
+  let guardaPeso = 0;
+  // gira um osso em volta do "para cima" do mundo (o tronco no golpe)
+  const _up = new THREE.Vector3();
+  function torcer(o, ang) {
+    _inv.copy(o.parent.matrixWorld).invert(); _up.set(0, 1, 0).transformDirection(_inv);
+    o.quaternion.premultiply(_qa.setFromAxisAngle(_up, ang)); o.updateWorldMatrix(false, true);
+  }
+  // andamento da recarga de cada arma (0..1), guardado aqui para o desenho
   const recarga = { blaster: -1, rifle: -1, canhao: -1 };   // -1 = sem recarregar; 0..1 = andamento
   let golpeT = -1;
 
@@ -136,6 +157,8 @@ export async function criarAstronauta(cena) {
   raiz.add(jet); raiz.updateMatrixWorld(true);
   const tronco = modelo.getObjectByName('Torso') || modelo.getObjectByName('Chest');
   if (tronco) tronco.attach(jet);
+  // o tronco gira no golpe do sabre: volta ao repouso todo quadro (nem toda animacao mexe nele)
+  if (tronco) repouso.set(tronco, tronco.quaternion.clone());
 
   /* ---- fumaca do jetpack (no mundo) ---- */
   const N = 160, pos = new Float32Array(N * 3), vida = new Float32Array(N), vel = new Float32Array(N * 3);
@@ -165,7 +188,9 @@ export async function criarAstronauta(cena) {
     /** andamento da recarga de uma arma (0..1; -1 = parada) */
     recarregar(t, k) { if (t in recarga) recarga[t] = k; },
     /** golpe da espada: o arco da lamina e o braco */
-    golpear() { golpeT = 0; const a = acao.Interact; if (a && !(gesto && gesto.isRunning())) { a.reset(); a.setEffectiveWeight(1); a.timeScale = 2.4; a.fadeIn(.04); a.play(); gesto = a; } },
+    golpear() { golpeT = 0; },
+    /** o modelo da arma na mao (para o rastro do sabre) */
+    armaObj(t) { return armas[t] || null; },
     atirou() {
       const ar = armas[armaAtual]; if (ar) { ar.userData.clarao.material.opacity = 1; ar.userData.clarao.material.rotation = Math.random() * 6; claraoT = .06; }
       const a = acao.Idle_Gun_Shoot; if (!a || (gesto && gesto !== a && gesto.isRunning())) return; a.reset(); a.setEffectiveWeight(1); a.timeScale = 2.2; a.fadeIn(.04); a.play(); gesto = a; },
@@ -177,8 +202,8 @@ export async function criarAstronauta(cena) {
     atualizar(dt, { frente = 0, lado = 0, noChao = true, jet: j = 0 }) {
       tempo += dt;
       if (claraoT > 0) { claraoT -= dt; if (claraoT <= 0) for (const k in armas) armas[k].userData.clarao.material.opacity = 0; }
-      // espada: anda como desarmado (as animacoes de arma sao de pistola)
-      const v = Math.hypot(frente, lado), armado = !!armaAtual && armaAtual !== 'espada';
+      // sabre tambem usa a pose armada: as duas maos no cabo, lamina em guarda
+      const v = Math.hypot(frente, lado), armado = !!armaAtual;
       const alvo = {}; LOOP.forEach((n) => { alvo[n] = 0; });
       if (!noChao) {
         alvo.Idle = 1;
@@ -229,13 +254,24 @@ export async function criarAstronauta(cena) {
       // armado: a mao esquerda segura a frente da arma (nao no rolamento)
       const rolando = gesto === acao.Roll && gesto?.isRunning();
       ikPeso += ((armado && !rolando ? 1 : 0) - ikPeso) * (1 - Math.exp(-dt * 10));
+      guardaPeso += ((armaAtual === 'espada' && !rolando ? 1 : 0) - guardaPeso) * (1 - Math.exp(-dt * 10));
+      if (guardaPeso > .01) { modelo.updateMatrixWorld(true); guardaSabre(guardaPeso); }
+      // golpe do sabre (a arma corta e o tronco gira junto) e recarga (a arma
+      // vira e a mao esquerda faz a troca da celula) — antes do IK, que segue a mao
+      if (golpeT >= 0) {
+        golpeT += dt / .45;
+        if (golpeT >= 1) { golpeT = -1; armas.espada?.userData.golpe(-1); }
+        else {
+          armas.espada?.userData.golpe(golpeT);
+          const k = golpeT, giro = k < .2 ? -.5 * (k / .2) : k < .45 ? -.5 + 1.15 * ((k - .2) / .25) : .65 * (1 - (k - .45) / .55);
+          if (tronco) { modelo.updateMatrixWorld(true); torcer(tronco, giro); }
+        }
+      }
+      for (const k in recarga) armas[k]?.userData.recarga(recarga[k]);
       if (ikPeso > .01 && armas[armaAtual]) {
         fecharDedos(ikPeso); modelo.updateMatrixWorld(true);
         maoEsquerdaNa(armas[armaAtual].userData.maoEsq.getWorldPosition(_T), ikPeso);
       }
-      // golpe da espada (arco) e recarga das armas de fogo
-      if (golpeT >= 0) { golpeT += dt / .34; if (golpeT >= 1) { golpeT = -1; armas.espada?.userData.golpe(-1); } else armas.espada?.userData.golpe(golpeT); }
-      for (const k in recarga) armas[k]?.userData.recarga(recarga[k]);
       acum += dt * empuxo * 120;
       while (acum >= 1) {
         acum -= 1; const i = prox; prox = (prox + 1) % N;

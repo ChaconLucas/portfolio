@@ -84,6 +84,38 @@ export function criarSom() {
     const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = freq;
     o.connect(g); g.connect(comp); envelope(g, .15, .005, dur); const t = agora(); o.start(t); o.stop(t + dur + .05);
   }
+  // sabre: 'liga' (zumbido que sobe e estala) e 'corte' (vuuum descendo)
+  function sabre(tipo) {
+    const t = agora(), liga = tipo === 'liga', dur = liga ? .55 : .32;
+    const g = ctx.createGain(), f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = liga ? 1800 : 2400; f.connect(g); g.connect(comp);
+    envelope(g, liga ? .22 : .2, liga ? .03 : .02, dur);
+    [[1, 'sawtooth'], [1.5, 'square']].forEach(([m, tipoO]) => {
+      const o = ctx.createOscillator(); o.type = tipoO;
+      if (liga) { o.frequency.setValueAtTime(55 * m, t); o.frequency.exponentialRampToValueAtTime(118 * m, t + .25); o.frequency.exponentialRampToValueAtTime(96 * m, t + dur); }
+      else { o.frequency.setValueAtTime(150 * m, t); o.frequency.exponentialRampToValueAtTime(70 * m, t + dur); }
+      o.connect(f); o.start(t); o.stop(t + dur + .05);
+    });
+    const s = ruido(), fb = ctx.createBiquadFilter(), gb = ctx.createGain(); fb.type = 'bandpass'; fb.Q.value = 1.2;
+    fb.frequency.setValueAtTime(liga ? 3000 : 600, t); fb.frequency.exponentialRampToValueAtTime(liga ? 500 : 2600, t + dur * .6);
+    s.connect(fb); fb.connect(gb); gb.connect(comp); envelope(gb, liga ? .25 : .35, .01, dur * .8); s.start(t); s.stop(t + dur + .05);
+  }
+  // recarga: 'solta' (destrava e a celula escorrega), 'encaixa' (clack) e 'carrega' (a energia subindo)
+  function mecanico(tipo) {
+    const t = agora();
+    const clique = (q, fr, v, quando = 0) => {
+      const s = ruido(), f = ctx.createBiquadFilter(), g = ctx.createGain(); f.type = 'bandpass'; f.frequency.value = fr; f.Q.value = q;
+      s.connect(f); f.connect(g); g.connect(comp);
+      g.gain.setValueAtTime(.0001, t + quando); g.gain.exponentialRampToValueAtTime(v, t + quando + .002); g.gain.exponentialRampToValueAtTime(.0001, t + quando + .05);
+      s.start(t + quando); s.stop(t + quando + .07);
+    };
+    if (tipo === 'solta') { clique(3, 2600, .5); clique(2, 1400, .3, .05); }
+    else if (tipo === 'encaixa') { clique(4, 1800, .7); clique(3, 3800, .4, .015); }
+    else {
+      const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'triangle';
+      o.frequency.setValueAtTime(300, t); o.frequency.exponentialRampToValueAtTime(1500, t + .3);
+      o.connect(g); g.connect(comp); envelope(g, .08, .02, .3); o.start(t); o.stop(t + .4);
+    }
+  }
   function conquista() { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => bip(f, .25), i * 110)); }
   function porta() { bip(440, .08); setTimeout(() => bip(660, .12), 80); }
 
@@ -99,7 +131,7 @@ export function criarSom() {
       alvo(ventoG.gain, ronco * .9, .2); alvo(ventoF.frequency, 200 + ronco * 900, .2);
       alvo(jetG.gain, jet * .35, .06);
     },
-    tiro, explosao, dobra, passo, pouso, bip, conquista, porta,
+    tiro, explosao, dobra, passo, pouso, bip, conquista, porta, sabre, mecanico,
     get mudo() { return mudo; },
     alternarMudo() {
       mudo = !mudo; alvo(mestre.gain, mudo ? 0 : .55, .05);
@@ -111,5 +143,5 @@ export function criarSom() {
 }
 function semSom() {
   const nada = () => {};
-  return { destravar: nada, atualizar: nada, tiro: nada, explosao: nada, dobra: nada, passo: nada, pouso: nada, bip: nada, conquista: nada, porta: nada, mudo: true, alternarMudo: () => true, fechar: nada };
+  return { destravar: nada, atualizar: nada, tiro: nada, explosao: nada, dobra: nada, passo: nada, pouso: nada, bip: nada, conquista: nada, porta: nada, sabre: nada, mecanico: nada, mudo: true, alternarMudo: () => true, fechar: nada };
 }

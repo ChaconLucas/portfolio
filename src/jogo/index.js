@@ -12,7 +12,7 @@ import { criarInterior, RAIO_SALA } from './interior.js';
 import { emblema } from './predios.js';
 import { criarRoda, desenharSilhueta } from './roda.js';
 import { criarRede, bolhaEscudo } from './rede.js';
-import { ambienteArmas, maosPrimeiraPessoa } from './armas3d.js';
+import { ambienteArmas, maosPrimeiraPessoa, criarRastroLamina } from './armas3d.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { CURVA, curvarCena } from './curva.js';
 import { criarVoz } from './voz.js';
@@ -635,7 +635,7 @@ export async function abrirJogo() {
      A pe, o clique atira com a arma da mao, na direcao da mira (centro da
      tela). TAB abre o inventario (mouse solto para clicar); 1–4 trocam direto. */
   const ARMAS = [
-    { id: 'espada', nome: 'Espada de energia', icone: '⚔', desc: 'golpe corpo a corpo', cor: 0xff4fd8, cad: .42, corpo: true, st: [.75, .55, .05] },
+    { id: 'espada', nome: 'Sabre de luz', icone: '⚔', desc: 'golpe corpo a corpo', cor: 0xff4fd8, cad: .45, corpo: true, st: [.75, .55, .05] },
     { id: 'blaster', nome: 'Blaster', icone: '🔫', desc: 'tiro a tiro, preciso', cor: 0xff4fd8, cad: .26, vel: 260, esc: .1, tom: 1, st: [.4, .4, .7] },
     { id: 'rifle', nome: 'Rifle de plasma', icone: '⚡', desc: 'rajada rápida', cor: 0x4fd2ff, cad: .085, vel: 330, esc: .07, tom: 1.35, st: [.25, .95, .8] },
     { id: 'canhao', nome: 'Canhão de íons', icone: '💥', desc: 'lento, explode na área', cor: 0xffa040, cad: .85, vel: 150, esc: .32, tom: .55, st: [1, .15, .45] }
@@ -681,7 +681,9 @@ export async function abrirJogo() {
   function escolherArma(i, aPe = true) {
     if (aPe) {
       armaIdx = Math.max(0, Math.min(ARMAS.length - 1, i));
+      const antes = astro?.armaAtual;
       astro?.arma(ARMAS[armaIdx].id); raiz.classList.toggle('armado', !!ARMAS[armaIdx].id);
+      if (ARMAS[armaIdx].id === 'espada' && antes !== 'espada') som.sabre('liga');
     } else navArmaIdx = Math.max(0, Math.min(NAVE_ARMAS.length - 1, i));
     invAPe = null; montarInventario(); mostrarArmaAtual();
     avisarTroca(aPe ? ARMAS : NAVE_ARMAS, aPe ? armaIdx : navArmaIdx);
@@ -742,7 +744,8 @@ export async function abrirJogo() {
     for (const k in vmModelos) vmModelos[k].visible = k === id;
     vmChute *= Math.exp(-dt * 14);
     const bal = Math.hypot(pe.vel.x, pe.vel.z) * (pe.noChao ? 1 : 0), t = tTotal;
-    _v.set(.24 + Math.sin(t * 5) * .004 * bal, -.23 + Math.abs(Math.cos(t * 5)) * .006 * bal + vmChute * .03, -.55 + vmChute * .09).applyQuaternion(camera.quaternion);
+    const sab = id === 'espada';   // o sabre fica mais alto e mais para o meio (as duas maos no cabo aparecem)
+    _v.set((sab ? .17 : .24) + Math.sin(t * 5) * .004 * bal, (sab ? -.19 : -.23) + Math.abs(Math.cos(t * 5)) * .006 * bal + vmChute * .03, -.55 + vmChute * .09).applyQuaternion(camera.quaternion);
     vista1.position.copy(camera.position).add(_v);
     vista1.quaternion.copy(camera.quaternion).multiply(_qGiro);
   }
@@ -820,7 +823,7 @@ export async function abrirJogo() {
 
   /* ---- calor das armas, acerto, granada (G) e escudo (Q) ---- */
   // pente de cada arma (municao infinita, mas recarrega) e tempo de recarga
-  const PENTE = { blaster: 12, rifle: 30, canhao: 1 }, T_RECARGA = { blaster: 1.1, rifle: 1.7, canhao: 1.25 };
+  const PENTE = { blaster: 12, rifle: 30, canhao: 1 }, T_RECARGA = { blaster: 1.3, rifle: 1.8, canhao: 1.6 };
   const pente = { ...PENTE };
   let recarregando = null, ultimoTiro = -9;   // recarregando: { id, t, dur }
   const munUI = $('.jogo-mun'), munTxt = $('.jogo-mun b'), munBarra = $('.jogo-mun em');
@@ -837,8 +840,9 @@ export async function abrirJogo() {
     if (!recarregando && s.aPe && a.id && !a.corpo && pente[a.id] <= 0 && tTotal - ultimoTiro > .14) recarregar();
     if (recarregando) {
       const r = recarregando, antes = r.t / r.dur; r.t += dt; const k = Math.min(1, r.t / r.dur);
-      if (antes < .45 && k >= .45) som.bip(760, .03);      // celula sai
-      if (antes < .7 && k >= .7) som.bip(1050, .04);       // celula nova entra
+      if (antes < .26 && k >= .26) som.mecanico('solta');      // celula velha sai
+      if (antes < .72 && k >= .72) som.mecanico('encaixa');    // a nova entra
+      if (antes < .76 && k >= .76) som.mecanico('carrega');    // tapa e a energia sobe
       astro.recarregar(r.id, k);
       if (k >= 1) { pente[r.id] = PENTE[r.id]; astro.recarregar(r.id, -1); recarregando = null; som.bip(1500, .05); }
     }
@@ -848,30 +852,33 @@ export async function abrirJogo() {
     if (arma) { munTxt.textContent = recarregando ? 'RECARREGANDO' : `${pente[a.id]} / ∞`; munBarra.style.transform = `scaleX(${(recarregando ? recarregando.t / recarregando.dur : pente[a.id] / PENTE[a.id]).toFixed(3)})`; }
   }
 
-  // espada: arco na frente; acerta o que estiver ate ~3 m num leque de ~110 graus
+  // sabre: corte na diagonal; acerta o que estiver ate ~3 m num leque de ~110 graus
   let golpeVM = -1, golpeAcertou = false, golpeT = -1;
-  const rastroGeo = new THREE.RingGeometry(.9, 2.6, 24, 1, -Math.PI * .35, Math.PI * .7);
-  const rastro = new THREE.Mesh(rastroGeo, new THREE.MeshBasicMaterial({ color: 0xff7ae0, transparent: true, opacity: 0, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
-  rastro.renderOrder = 5;
+  const rastro = criarRastroLamina(0xff6ae0);
+  const _rb = new THREE.Vector3(), _rp = new THREE.Vector3();
   function golpear() {
     if (golpeT >= 0) return;
     golpeT = 0; golpeAcertou = false; golpeVM = 0;
-    astro.golpear(); som.bip(320, .05); setTimeout(() => som.bip(180, .08), 40);
-    if (!rastro.parent) cena.add(rastro);
+    astro.golpear(); setTimeout(() => som.sabre('corte'), 70);
+    if (rastro.mesh.parent !== cena) cena.add(rastro.mesh);
   }
   const _gf = new THREE.Vector3(), _gp = new THREE.Vector3();
   function atualizarGolpe(dt) {
-    if (golpeVM >= 0) { golpeVM += dt / .34; if (golpeVM >= 1) golpeVM = -1; }
-    if (golpeT < 0) { rastro.material.opacity = Math.max(0, rastro.material.opacity - dt * 6); return; }
+    if (golpeVM >= 0) { golpeVM += dt / .45; if (golpeVM >= 1) golpeVM = -1; }
+    // o rastro: uma fita de luz entre a base e a ponta da lamina, so no corte
+    const sab = s.fp ? vmModelos.espada : astro.armaObj('espada'), kG = golpeT / .45;
+    if (sab?.userData.ponta && sab.visible) {
+      sab.updateWorldMatrix(true, true);
+      sab.userData.baseLamina.getWorldPosition(_rb); sab.userData.ponta.getWorldPosition(_rp);
+      if (s.fp) _rb.lerp(_rp, .5);   // na primeira pessoa a lamina esta colada na camera: so a metade de fora deixa rastro
+      if (rastro.mesh.parent !== cena) cena.add(rastro.mesh);
+      rastro.atualizar(_rb, _rp, golpeT >= 0 && kG > .16 && kG < .55, dt);
+    } else rastro.atualizar(_rb, _rp, false, 1);
+    if (golpeT < 0) return;
     golpeT += dt;
-    // o rastro: um leque de luz na frente do peito, girando com o corte
     const fr = _gf.set(Math.sin(pe.rumo), 0, Math.cos(pe.rumo));
-    if (rastro.parent !== cena) cena.add(rastro);
-    rastro.position.copy(pe.pos).addScaledVector(fr, .2); rastro.position.y += 1.15;
-    rastro.rotation.set(-Math.PI / 2, 0, 0); rastro.rotateZ(pe.rumo + Math.PI / 2 - .8 + golpeT * 6);
-    rastro.material.opacity = Math.max(0, .55 * (1 - golpeT / .3));
-    // o golpe pega no meio do arco
-    if (!golpeAcertou && golpeT > .1) {
+    // o golpe pega no meio do corte
+    if (!golpeAcertou && golpeT > .14) {
       golpeAcertou = true;
       const quebrou = (tipo) => som.explosao(tipo === 'barril' ? .6 : .2);
       let acertou = false;
@@ -886,7 +893,7 @@ export async function abrirJogo() {
       }
       if (acertou) { marcarAcerto(null, 'objeto'); som.bip(240, .06); abalo = Math.max(abalo, .12); }
     }
-    if (golpeT > .42) golpeT = -1;
+    if (golpeT > .45) golpeT = -1;
   }
   const _vY = new THREE.Vector3(0, 1, 0);
 
@@ -2029,7 +2036,7 @@ export async function abrirJogo() {
   raf(quadro);
   // modo de teste (?debugjogo): avanca a simulacao sem depender do rAF
   if (/debugjogo/.test(location.search)) { semTrava = true; raiz.classList.add('sem-trava'); }   // teste: sem convite de clique
-  if (/debugjogo/.test(location.search)) window.__jogo = { s, pe, tecla, mouse: (x, y) => { mdx += x; mdy += y; }, passo: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) passo(dt); }, interagir, get alvo() { return alvoPerto; }, get mundo() { return mundo; }, get predioPerto() { return predioPerto; }, get mapaInfo() { return mapaInfo; }, get destino() { return destino; }, get tiros() { return tiros; }, camera, get nave() { return nave; }, get voz() { return voz; }, get rede() { return rede; }, renderer };
+  if (/debugjogo/.test(location.search)) window.__jogo = { s, pe, tecla, mouse: (x, y) => { mdx += x; mdy += y; }, passo: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) passo(dt); }, interagir, get alvo() { return alvoPerto; }, get mundo() { return mundo; }, get predioPerto() { return predioPerto; }, get mapaInfo() { return mapaInfo; }, get destino() { return destino; }, get tiros() { return tiros; }, camera, get nave() { return nave; }, get voz() { return voz; }, get rede() { return rede; }, renderer, cena, get astro() { return astro; }, golpear: () => golpear(), recarregar: () => recarregar(), atirar: () => atirarAPe(), escolherArma: (i) => escolherArma(i), alternarPrimeiraPessoa };
 
   function fechar() {
     rodando = false;

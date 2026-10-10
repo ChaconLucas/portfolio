@@ -1000,3 +1000,25 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - **buraco negro** no canto de cima à direita: horizonte, disco de acréção girando com o lado do doppler mais forte, anel de fótons, arco de cima e halo;
   - **meteoros:** pedra em brasa com rastro, a cada 5–11 s e às vezes dois.
 - **Estrelas cadentes** no fundo de estrelas do site (canvas 2D): uma de vez em quando e, às vezes (22%), uma chuva de 6 a 11. Desligadas com "reduzir movimento".
+
+## Armas refeitas e sabre de luz (09/10/2026)
+- **`src/jogo/armas3d.js` reescrito** (mesma interface: `montarArma`, `maosPrimeiraPessoa`, `ambienteArmas`):
+  - as armas de fogo são perfis de lado extrudados com chanfro (slide, receptor, coronha vazada, cabo com janela), canos torneados, cerâmica clara por cima e metal escuro por baixo, frisos na cor da arma e respiros acesos;
+  - a munição é uma **célula de energia** de verdade (vidro, núcleo brilhando, tampas): no cabo do blaster, na frente do gatilho do rifle e na lateral do canhão.
+- **Sabre de luz** no lugar da espada:
+  - cabo de cromo torneado com pomo, anéis, botão aceso e coroa do emissor;
+  - lâmina em três camadas: núcleo branco, brilho e aura que somem nas bordas;
+  - o comprimento é um uniforme do shader. A lâmina **acende sozinha** quando aparece e cresce do emissor, com som;
+  - segurado com **as duas mãos** em guarda: cotovelo direito dobrado e a esquerda no pomo por IK;
+  - o golpe prepara por cima do ombro, corta na diagonal e volta, com o tronco girando junto e uma **fita de luz** seguindo a ponta (`criarRastroLamina`).
+- **Recarga de verdade:**
+  - a arma vira o lado da célula para a mão;
+  - a mão esquerda puxa a célula velha, que cai girando com gravidade;
+  - a mão busca outra no cinto, encaixa e dá um tapa, e a energia volta piscando;
+  - funciona em terceira e em primeira pessoa (a luva esquerda da primeira pessoa está presa ao ponto `maoEsq`, que anda na recarga);
+  - sons novos: `som.sabre('liga'|'corte')` e `som.mecanico('solta'|'encaixa'|'carrega')`.
+- **Bugs corrigidos:**
+  - o deslocamento da arma na recarga era aplicado no espaço do osso do pulso, que tem escala ~90×. A arma "voava" ~2 m; agora o deslocamento é feito no espaço da própria arma;
+  - o giro do tronco no golpe se acumulava, porque nem toda animação mexe no osso `Torso`. Agora ele volta ao repouso todo quadro, como os dedos;
+  - os dedos médios, anelar e mínimo também fecham na empunhadura (antes só o indicador).
+- Modo de teste: `window.__jogo` ganhou `cena`, `astro`, `golpear`, `recarregar`, `atirar`, `escolherArma` e `alternarPrimeiraPessoa`.
