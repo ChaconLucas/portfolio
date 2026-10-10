@@ -1177,3 +1177,15 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - o osso raiz do modelo é o `Body` (não `Hips`), e o giro dele (de lado o corpo vira) agora vem da pose de mira, não dos ciclos de passo. Antes a pistola saía da tela andando de lado e de costas;
   - a câmera da arma usa a posição atual do corpo, porque a do mundo foi posta antes do passo e ficava ~10 cm atrás andando;
   - posições por arma recalculadas com a pose já acomodada (as primeiras medições pegavam a troca de arma ainda em andamento) e mais perto da câmera.
+
+## Braços de verdade na primeira pessoa (10/10/2026)
+- **Mãos e braços da primeira pessoa trocados** pelo modelo "fps arms (rigged only)" de para (OpenGameArt, CC0): `public/assets/jogo/bracos.fbx` (FBX binário 7.4, 434 KB) + `bracos.jpg` (textura 1024², convertida de PNG). Os créditos estão em `public/assets/jogo/CREDITOS.txt`.
+- **`src/jogo/bracos.js`:**
+  - a pele vira luva (textura em tons de cinza, tingida);
+  - os ombros ficam presos à câmera da arma;
+  - IK de dois ossos até o cabo; a mão (que no rig é um controle à parte) vai para a ponta do antebraço;
+  - o pulso gira para a linha dos nós (indicador → mínimo) ficar ao longo do cabo, e cada falange fecha em volta.
+- **Na primeira pessoa a pé, o corpo do astronauta some inteiro** (só as armas continuam). `astro.alvosMaos()` dá onde cada mão segura: o cabo (direita), a empunhadura, o ponto da recarga ou a mão da granada (esquerda).
+- **FOV e distância:**
+  - a primeira pessoa voltou a 66° (o 76° esticava a tela) e o da arma a 50°;
+  - a distância ficou intermediária. Recuar demais mostrava a arma por trás e os cortes do braço.

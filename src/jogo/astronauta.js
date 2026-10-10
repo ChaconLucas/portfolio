@@ -296,6 +296,25 @@ export async function criarAstronauta(cena) {
       _eixoA.set(0, 1, 0).transformDirection(raiz.matrixWorld); _frA.set(0, 0, 1).transformDirection(raiz.matrixWorld);   // cabos em pe, maos para a frente
       empunhar(braco, dedosE, esqW, _eixoA, _frA, 1); empunhar(bracoR, dedosD, dirW, _eixoA, _frA, 1);
     },
+    /** para os bracos da primeira pessoa: onde cada mao segura (meio do punho), o
+     *  eixo do cabo e a "frente" da mao, a partir da arma na mao do astronauta */
+    alvosMaos() {
+      const ar = armas[armaAtual], r = { dir: null, esq: null };
+      modelo.updateMatrixWorld(true);
+      const alvo = (pos, eixo, frente, fecha = 1) => ({ pos: pos.clone(), eixo: eixo.clone(), frente: frente.clone(), fecha });
+      _frA.set(0, 0, 1).transformDirection(raiz.matrixWorld);
+      if (ar) {
+        const cab = ar.userData.cabo;
+        _eixoA.set(0, 1, 0).transformDirection((cab || ar).matrixWorld); _ga2.set(0, 0, 1).transformDirection(ar.matrixWorld);
+        (cab || ar).getWorldPosition(_ga);
+        r.dir = alvo(_ga, _eixoA, _ga2);
+        if (ikPeso > .3 || arremT >= 0) {
+          if (arremT >= 0) { braco.pulso.getWorldPosition(_ga); r.esq = alvo(_ga, _up.set(0, 1, 0), _frA, .9); }
+          else { ar.userData.maoEsq.getWorldPosition(_ga); r.esq = alvo(_ga, _eixoA, _ga2); }
+        }
+      } else if (arremT >= 0) { braco.pulso.getWorldPosition(_ga); r.esq = alvo(_ga, _up.set(0, 1, 0), _frA, .9); }
+      return r;
+    },
     /** centro do peito (onde o tronco gira com a mira) */
     peitoPos(out) { return peito ? peito.getWorldPosition(out) : out.copy(raiz.position).setY(raiz.position.y + 1.3); },
     /** o modelo da arma na mao (para o rastro do sabre) */
@@ -315,6 +334,8 @@ export async function criarAstronauta(cena) {
       if (on) raiz.traverse((o) => { if (o.isSkinnedMesh) for (const m of [].concat(o.material)) cortarMaterial(m); });   // (a pintura do admin troca o material: confere sempre)
       if (on === fp && vm === fpVM) return; fp = on; fpVM = vm;
       if (cabeca) cabeca.visible = !on; jet.visible = !on;
+      // primeira pessoa a pe: o corpo some todo (os bracos de la sao os de bracos.js); ficam as armas
+      raiz.traverse((o) => { if (o.isSkinnedMesh) o.visible = !(on && vm); });
       raiz.traverse((o) => {
         if (o.userData.cabecaAdm) o.visible = !on; o.layers.set(on && vm ? 1 : 0);
       });

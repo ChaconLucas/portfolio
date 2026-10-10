@@ -16,6 +16,7 @@ import { ambienteArmas, criarRastroLamina } from './armas3d.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { CURVA, curvarCena } from './curva.js';
 import { criarCabine } from './cabine.js';
+import { criarBracos } from './bracos.js';
 import { criarVoz } from './voz.js';
 import { sessao, HOST_SALAS } from '../conta.js';
 
@@ -198,11 +199,12 @@ export async function abrirJogo() {
   // RECUADA cujo plano de corte esconde ombros e costas: aparecem antebracos,
   // maos e arma, bem a frente na tela (o truque das armas de jogo de tiro)
   const camVM = new THREE.PerspectiveCamera(); camVM.layers.set(1);
-  let FOV_ARMA = 54;
+  let FOV_ARMA = 50;
   const _eVM = new THREE.Vector3(), _pVM = new THREE.Vector3(), _fVM = new THREE.Vector3(), _oVM = new THREE.Vector3(), _v2VM = new THREE.Vector3(), _vY1 = new THREE.Vector3(0, 1, 0), _qY = new THREE.Quaternion();
     function desenhar(c, cam) {
     CURVA.k.value = c.userData.superficie ? K_CURVA : 0; CURVA.c.value.copy(camera.position);
     renderer.render(c, cam);
+    if (bracos) bracos.grupo.visible = false;
     if (cam !== camera || !s?.aPe || !s.fp) return;
     if (!c.userData.luzesVM) { c.traverse((o) => { if (o.isLight) o.layers.enable(1); }); c.userData.luzesVM = true; }
     const vm = fpDe();
@@ -217,6 +219,8 @@ export async function abrirJogo() {
     _eVM.set(pe.pos.x + Math.sin(s.alvoRumo) * vm.f + Math.cos(s.alvoRumo) * vm.l, pe.pos.y + vm.a, pe.pos.z + Math.cos(s.alvoRumo) * vm.f - Math.sin(s.alvoRumo) * vm.l);
     _oVM.subVectors(_eVM, _pVM).applyQuaternion(_qY.invert()).add(_v2VM.set(-(vm.x || 0), vm.y || 0, vm.r));
     camVM.position.copy(_oVM.applyQuaternion(camera.quaternion)).add(_pVM); camVM.quaternion.copy(camera.quaternion); camVM.updateMatrixWorld();
+    // os bracos de verdade (bracos.js): ombros na camera da arma, maos nos cabos
+    if (bracos) { bracos.grupo.visible = true; bracos.posar(camVM, astro.alvosMaos()); }
     const fundo = c.background; c.background = null; renderer.autoClear = false; renderer.clearDepth();
     renderer.render(c, camVM);
     renderer.autoClear = true; c.background = fundo;
@@ -475,6 +479,8 @@ export async function abrirJogo() {
   const salaAtual = () => (mundo.planetas ? 'espaco' : 'planeta-' + s.planeta.key);
   queueMicrotask(() => rede?.entrar(salaAtual()));
   queueMicrotask(() => cena.add(cabine.grupo));
+  // bracos da primeira pessoa (modelo com dedos; carrega em segundo plano)
+  let bracos = null; criarBracos().then((b) => { bracos = b; cena.add(b.grupo); }).catch(() => {});
   let cadencia = 0, dobraAnt = 0, jetAgora = 0;
 
   s = {
@@ -521,7 +527,7 @@ export async function abrirJogo() {
     desenhar(cena, camera); renderer.copyFramebufferToTexture(fotoTex); dissolve = 1;
     mundo.destruir();
     cena = ent.cenaProx; mundo = ent.mundoProx; ent.cenaProx = ent.mundoProx = null;
-    cena.add(nave.raiz, nave.rastro, astro.raiz, astro.fumaca, tiros.grupo, cabine.grupo);
+    cena.add(nave.raiz, nave.rastro, astro.raiz, astro.fumaca, tiros.grupo, cabine.grupo); if (bracos) cena.add(bracos.grupo);
     queueMicrotask(() => rede?.entrar(salaAtual()));   // outro lugar = outra sala
   }
   const _mb = new THREE.Matrix4();
@@ -772,11 +778,11 @@ export async function abrirJogo() {
   // (o que fica a menos de r + c dela some); x/y = a camera da arma vai para a
   // esquerda/cima (a arma desce para o canto). Ajuste no teste: __jogo.ajustarFP(id, { ... })
   const FP = {
-    nada: { g: 0, f: .1, a: 1.66, l: 0, r: .1, c: .05, x: .04, y: -.1 },
-    espada: { g: .1, f: .1, a: 1.66, l: 0, r: .18, c: .05, x: .06, y: -.13 },
-    blaster: { g: .16, f: .1, a: 1.66, l: 0, r: .1, c: .05, x: -.07, y: -.16 },
-    rifle: { g: .1, f: .1, a: 1.62, l: .04, r: .14, c: .05, x: .04, y: -.1 },
-    canhao: { g: .12, f: .1, a: 1.66, l: .03, r: .2, c: .05, x: .04, y: -.12 }
+    nada: { g: 0, f: .1, a: 1.66, l: 0, r: .18, c: .05, x: .04, y: -.1 },
+    espada: { g: .1, f: .1, a: 1.66, l: 0, r: .24, c: .05, x: .06, y: -.13 },
+    blaster: { g: .16, f: .1, a: 1.66, l: 0, r: .17, c: .05, x: -.07, y: -.16 },
+    rifle: { g: .1, f: .1, a: 1.62, l: .04, r: .2, c: .05, x: .04, y: -.1 },
+    canhao: { g: .12, f: .1, a: 1.66, l: .03, r: .26, c: .05, x: .04, y: -.12 }
   };
   const fpDe = () => FP[ARMAS[armaIdx].id] || FP.nada;
   // correndo (Shift) armado: pose de corrida (0..1); balanco dos passos, tranco
@@ -1753,7 +1759,7 @@ export async function abrirJogo() {
     // mira de arma (a pe, armado): abre a cada tiro e fecha sozinha
     miraAbre *= Math.exp(-dt * 6);
     raiz.classList.toggle('mira-arma', !!(s.aPe && ARMAS[armaIdx].id && !ARMAS[armaIdx].corpo)); raiz.style.setProperty('--abre', (6 + miraAbre * 14).toFixed(1) + 'px');
-    let fov = s.aPe ? (s.fp ? 76 : 60) : 62 + Math.min(1, veloc / 150) * 10 + s.dobra * 14 + (s.modo === 'entrando' ? tremor * 8 + (ent.gas || 0) * 10 : 0);
+    let fov = s.aPe ? (s.fp ? 66 : 60) : 62 + Math.min(1, veloc / 150) * 10 + s.dobra * 14 + (s.modo === 'entrando' ? tremor * 8 + (ent.gas || 0) * 10 : 0);
     fov *= 1 - mirarK * (s.aPe ? .32 : .45);   // mirando: a pe aproxima um pouco, na nave da o zoom
     if (Math.abs(camera.fov - fov) > .05) { camera.fov += (fov - camera.fov) * (1 - Math.exp(-dt * 14)); camera.updateProjectionMatrix(); }
 

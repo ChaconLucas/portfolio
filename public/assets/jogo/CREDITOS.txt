@@ -1,0 +1,5 @@
+bracos.fbx / bracos.jpg — "fps arms (rigged only)" de para, OpenGameArt
+https://opengameart.org/content/fps-arms-rigged-only — licença CC0 (domínio público).
+Malha e textura originais do MakeHuman (crédito do autor). A textura foi convertida de PNG para JPG.
+
+astronauta.glb — "Astronaut" de Quaternius (CC0).
