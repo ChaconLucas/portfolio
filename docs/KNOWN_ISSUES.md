@@ -1039,3 +1039,11 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - o astronauta pega a granada no cinto com a mão esquerda, leva o braço para trás do ombro (o tronco gira junto) e joga por cima, e o braço acompanha;
   - a granada aparece na mão e sai DELA em ~0,3 s (`astro.arremessar()`, `astro.maoEsqPos()`);
   - na primeira pessoa, uma luva com a granada faz o mesmo movimento na frente da câmera.
+
+## Estrelas mais vivas no Stack Universe (09/10/2026)
+- **Estrelas 3D** (`stars()` no `index.html`): antes eram `PointsMaterial` quadrados, de cor única e minúsculos (~1,5 px). Agora são um `ShaderMaterial` próprio:
+  - pontos redondos com núcleo, halo e raios em cruz nas maiores;
+  - cores de estrelas de verdade, sorteadas por peso: azuladas, brancas, amarelas, laranja, vermelhas e algumas lilás;
+  - tamanhos variados (~6% são estrelas grandes);
+  - cada uma pisca no seu ritmo (`uT`), e a escala acompanha a altura do canvas (`uEsc`).
+- **Estrelas 2D do fundo** (canvas `universeStars`): o núcleo e o brilho agora têm a cor da estrela (azul, amarela, laranja, vermelha, lilás ou branca), com brilho mais forte.
