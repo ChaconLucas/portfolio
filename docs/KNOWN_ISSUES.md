@@ -1022,3 +1022,20 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - o giro do tronco no golpe se acumulava, porque nem toda animação mexe no osso `Torso`. Agora ele volta ao repouso todo quadro, como os dedos;
   - os dedos médios, anelar e mínimo também fecham na empunhadura (antes só o indicador).
 - Modo de teste: `window.__jogo` ganhou `cena`, `astro`, `golpear`, `recarregar`, `atirar`, `escolherArma` e `alternarPrimeiraPessoa`.
+
+## Chão do planeta, cabine da nave e arremesso da granada (09/10/2026)
+- **Chão sem "pixel":**
+  - antes a cor vinha da textura do planeta lida por vértice: um ponto a cada 20 m, sombreado chapado. Cada triângulo tinha uma cor só e o chão parecia pixelado;
+  - agora `materialChao()` (em `cenas.js`) lê a MESMA textura do planeta na placa de vídeo, pela posição no mundo, com filtro;
+  - por cima vêm três camadas de ruído (dezenas de metros, metros e palmos), manchas minerais de outro tom e placas escuras;
+  - **veios de energia** finos na cor neon (nada de Terra), e o brilho próprio do planeta (lava, cristais) também vem da textura;
+  - normais suaves (`computeVertexNormals`). `pixelsPlaneta` não é mais usado no jogo.
+- **Cabine da nave** (`src/jogo/cabine.js`, tecla **V** pilotando):
+  - a câmera vai para o assento (`CABINE_OFF`, no espaço do corpo da nave) e gira junto com o nariz e a inclinação; o modelo da nave some;
+  - na frente: moldura do vidro com frisos acesos, painel inclinado com três telas vivas (velocidade e altitude, radar girando, arma, empuxo e escudo);
+  - manche (direita) que inclina com a curva e a subida, e acelerador (esquerda) que anda com o empuxo, com as duas luvas segurando;
+  - `criarLuva()` agora é exportada de `armas3d.js`.
+- **Granada (G) com animação:**
+  - o astronauta pega a granada no cinto com a mão esquerda, leva o braço para trás do ombro (o tronco gira junto) e joga por cima, e o braço acompanha;
+  - a granada aparece na mão e sai DELA em ~0,3 s (`astro.arremessar()`, `astro.maoEsqPos()`);
+  - na primeira pessoa, uma luva com a granada faz o mesmo movimento na frente da câmera.

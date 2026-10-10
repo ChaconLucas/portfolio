@@ -128,6 +128,18 @@ export async function criarAstronauta(cena) {
     _inv.copy(o.parent.matrixWorld).invert(); _up.set(0, 1, 0).transformDirection(_inv);
     o.quaternion.premultiply(_qa.setFromAxisAngle(_up, ang)); o.updateWorldMatrix(false, true);
   }
+  // arremesso: caminho da mao esquerda no espaco do corpo (x = esquerda, z = frente)
+  let arremT = -1;
+  const ARREM = [[0, .2, 1.05, .2], [.12, .28, .95, -.05], [.36, .34, 1.72, -.32], [.5, .18, 1.85, .38], [.72, -.02, 1.2, .5], [1, .2, 1.05, .25]];
+  const granadaMao = new THREE.Mesh(new THREE.IcosahedronGeometry(.11, 1), new THREE.MeshStandardMaterial({ color: 0x2a2836, metalness: .7, roughness: .3, emissive: new THREE.Color(0xb36bff), emissiveIntensity: 1.6 }));
+  const anelMao = new THREE.Mesh(new THREE.TorusGeometry(.13, .02, 6, 18), new THREE.MeshBasicMaterial({ color: 0xd9a6ff })); granadaMao.add(anelMao);
+  granadaMao.visible = false; raiz.add(granadaMao);
+  const _ga = new THREE.Vector3();
+  function alvoArremesso(k, out) {
+    let i = 1; while (i < ARREM.length - 1 && k > ARREM[i][0]) i++;
+    const [k0, x0, y0, z0] = ARREM[i - 1], [k1, x1, y1, z1] = ARREM[i], u = Math.min(1, (k - k0) / (k1 - k0)), e = u * u * (3 - 2 * u);
+    return raiz.localToWorld(out.set(x0 + (x1 - x0) * e, y0 + (y1 - y0) * e, z0 + (z1 - z0) * e));
+  }
   // andamento da recarga de cada arma (0..1), guardado aqui para o desenho
   const recarga = { blaster: -1, rifle: -1, canhao: -1 };   // -1 = sem recarregar; 0..1 = andamento
   let golpeT = -1;
@@ -189,6 +201,11 @@ export async function criarAstronauta(cena) {
     recarregar(t, k) { if (t in recarga) recarga[t] = k; },
     /** golpe da espada: o arco da lamina e o braco */
     golpear() { golpeT = 0; },
+    /** arremesso da granada com a mao esquerda (pega no cinto, leva para tras
+     *  do ombro, joga por cima e o braco acompanha); solta em ~0,3 s */
+    arremessar() { arremT = 0; granadaMao.visible = true; },
+    /** onde esta a mao esquerda agora (de onde a granada sai) */
+    maoEsqPos(out) { return (braco.pulso ? braco.pulso.getWorldPosition(out) : out.copy(raiz.position).setY(raiz.position.y + 1.6)); },
     /** o modelo da arma na mao (para o rastro do sabre) */
     armaObj(t) { return armas[t] || null; },
     atirou() {
@@ -271,6 +288,21 @@ export async function criarAstronauta(cena) {
       if (ikPeso > .01 && armas[armaAtual]) {
         fecharDedos(ikPeso); modelo.updateMatrixWorld(true);
         maoEsquerdaNa(armas[armaAtual].userData.maoEsq.getWorldPosition(_T), ikPeso);
+      }
+      // arremesso da granada: o tronco gira (carrega para tras, joga para a frente) e o braco esquerdo segue o caminho
+      if (arremT >= 0) {
+        arremT += dt / .6;
+        if (arremT >= 1) { arremT = -1; granadaMao.visible = false; }
+        else {
+          const k = arremT, peso = Math.min(1, k * 8, (1 - k) * 6);
+          const giro = k < .36 ? .5 * (k / .36) : k < .6 ? .5 - .95 * ((k - .36) / .24) : -.45 * (1 - (k - .6) / .4);
+          if (tronco) { modelo.updateMatrixWorld(true); torcer(tronco, giro * peso); }
+          modelo.updateMatrixWorld(true);
+          if (!armado) fecharDedos(peso);
+          maoEsquerdaNa(alvoArremesso(k, _ga), peso);
+          granadaMao.visible = k < .5;
+          if (granadaMao.visible) { braco.pulso.getWorldPosition(_ga); raiz.worldToLocal(_ga); granadaMao.position.copy(_ga); granadaMao.position.y -= .07; anelMao.rotation.y += dt * 10; }
+        }
       }
       acum += dt * empuxo * 120;
       while (acum >= 1) {

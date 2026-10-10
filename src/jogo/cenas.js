@@ -3,7 +3,7 @@ import { STACK } from './dados.js';
 import { TIPOS, corpoPredio, portaria, emblema, decorar } from './predios.js';
 import { criarEstruturas } from './estruturas.js';
 import { planejarCidades, planejarEstradas } from './cidades.js';
-import { texturasPlaneta, materialPlaneta, pixelsPlaneta } from '../planetas/textura.js';
+import { texturasPlaneta, materialPlaneta } from '../planetas/textura.js';
 
 // o renderer do jogo (as texturas dos planetas sao geradas na placa de video)
 let rendererPlanetas = null;
@@ -822,6 +822,48 @@ function riosDe(key, locais, ar) {
 // relevo periodico, plano nas pracas e nos sitios; vira uma grade (10 m) que
 // serve a fisica e o desenho (rapido de consultar)
 const PASSO_G = 20, NG = PERIODO / PASSO_G;
+
+/**
+ * Material do chao: a cor vem da textura do planeta (a mesma do espaco),
+ * amostrada pela posicao no mundo (em x repete, em z vai e volta, como o mapa)
+ * com filtro da placa de video — nada de blocos de 20 m. Por cima, tres
+ * camadas de ruido (dezenas de metros, metros e palmos) e veios de energia
+ * finos acesos na cor neon (nada de "terra": parece chao de outro mundo).
+ * O brilho proprio do planeta (lava, cristais) tambem vem da textura.
+ */
+function materialChao({ cor, emissivo, mapa, brilho, neon }) {
+  const m = new THREE.MeshStandardMaterial({ color: cor, emissive: emissivo, emissiveIntensity: .26, roughness: .8 });
+  const un = { uMapa: { value: mapa }, uBrilho: { value: brilho }, uNeon: { value: neon }, uPer: { value: PERIODO } };
+  m.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, un);
+    sh.vertexShader = sh.vertexShader.replace('void main() {', 'varying vec2 vChao;\nvoid main() {')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvChao = (modelMatrix * vec4(transformed, 1.)).xz;');
+    sh.fragmentShader = sh.fragmentShader.replace('void main() {', `varying vec2 vChao; uniform sampler2D uMapa;${brilho ? ' uniform sampler2D uBrilho;' : ''} uniform vec3 uNeon; uniform float uPer;
+      float hsh(vec2 p) { p = mod(p, 289.); return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float ruido(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
+        return mix(mix(hsh(i), hsh(i + vec2(1, 0)), f.x), mix(hsh(i + vec2(0, 1)), hsh(i + vec2(1, 1)), f.x), f.y); }
+      float fbm(vec2 p) { float s = 0., a = .5; for (int i = 0; i < 4; i++) { s += a * ruido(p); p = p * 2.03 + 17.1; a *= .5; } return s / .9375; }
+      void main() {`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        vec2 pm = vChao / uPer + .5; float tv = fract(pm.y);
+        vec2 uvP = vec2(fract(pm.x), 1. - (.2 + .6 * (1. - abs(tv * 2. - 1.))));
+        vec3 base = texture2D(uMapa, uvP).rgb;
+        float n1 = fbm(vChao * .045), n2 = fbm(vChao * .33), n3 = ruido(vChao * 2.4);
+        float n4 = fbm(vChao * .011 + 5.3);
+        base *= (.55 + .9 * n1) * (.74 + .52 * n2) * (.86 + .28 * n3);
+        // manchas de outro tom (minerais) e placas mais escuras e lisas
+        base = mix(base, base * vec3(1.35, .8, 1.4), smoothstep(.55, .8, n4));
+        base = mix(base, base * .55, smoothstep(.62, .7, fbm(vChao * .07 + 2.)) * .6);
+        diffuseColor.rgb *= base * 1.65;`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        float veio = 1. - abs(fbm(vChao * .034 + 3.7) * 2. - 1.);
+        veio = smoothstep(.95, .995, veio) * smoothstep(.3, .55, fbm(vChao * .006 + 9.1));
+        float pulso = .75 + .25 * sin(vChao.x * .02 + vChao.y * .015);
+        totalEmissiveRadiance += uNeon * veio * pulso * 1.1${brilho ? ' + texture2D(uBrilho, uvP).rgb * .35' : ''};`);
+  };
+  m.customProgramCacheKey = () => 'chao' + (brilho ? 'b' : '');
+  return m;
+}
 const cacheAltura = new Map(), cacheSitios = new Map();
 function criarAltura(zonasIn, rios = [], estradas = []) {
   const zonas = [{ x: 0, z: 0, r: RAIO_PRACA + 25 }, ...zonasIn];
@@ -951,11 +993,11 @@ export function criarSuperficie(cena, planeta, opc = {}) {
   const geo = guarda(new THREE.PlaneGeometry(TAM, TAM, SEG, SEG)); geo.rotateX(-Math.PI / 2);
   const p = geo.attributes.position, baseX = new Float32Array(p.count), baseZ = new Float32Array(p.count);
   for (let i = 0; i < p.count; i++) { baseX[i] = p.getX(i); baseZ[i] = p.getZ(i); }
-  const cores = new Float32Array(p.count * 3); geo.setAttribute('color', new THREE.BufferAttribute(cores, 3));
-  // as cores do chao vem da MESMA textura do planeta visto do espaco
-  const pixP = rendererPlanetas ? pixelsPlaneta(rendererPlanetas, { key: planeta.key, hue: cor, seed: semente(iPl) }) : canvasPlaneta(cor, semente(iPl)).getContext('2d').getImageData(0, 0, 1024, 512);
-  const WP = pixP.width, HP = pixP.height, pxP = pixP.data;
-  const corLin = new Float32Array(256); for (let i = 0; i < 256; i++) corLin[i] = new THREE.Color().setRGB(i / 255, 0, 0, THREE.SRGBColorSpace).r;
+  // as cores do chao vem da MESMA textura do planeta visto do espaco, lida
+  // na placa de video (filtrada, sem "pixel" de 15 m) + detalhe procedural
+  const txP = rendererPlanetas ? texturasPlaneta(rendererPlanetas, { key: planeta.key, hue: cor, seed: semente(iPl) }) : null;
+  const mapaP = txP ? txP.map : guarda(texDeCanvas(canvasPlaneta(cor, semente(iPl))));
+  const brilhoP = txP ? txP.brilho : null;
   let chaoX = null, chaoZ = null;
   function posicionarChao(px, pz, forcar) {
     const sx = Math.round(px / ESP) * ESP, sz = Math.round(pz / ESP) * ESP;
@@ -965,17 +1007,13 @@ export function criarSuperficie(cena, planeta, opc = {}) {
     for (let i = 0; i < p.count; i++) {
       const gi = i0 + Math.round(baseX[i] / ESP) * passoG, gj = j0 + Math.round(baseZ[i] / ESP) * passoG;
       p.setY(i, alturaChao.noPonto(gi, gj));
-      // cor: a textura do planeta, repetida (em z vai e volta, para emendar)
-      const u = ((gi / NG) % 1 + 1) % 1, tv = ((gj / NG) % 1 + 1) % 1, lat = .2 + .6 * (1 - Math.abs(tv * 2 - 1));
-      const o = (Math.min(HP - 1, Math.floor(lat * HP)) * WP + Math.min(WP - 1, Math.floor(u * WP))) * 4;
-      cores[i * 3] = corLin[pxP[o]]; cores[i * 3 + 1] = corLin[pxP[o + 1]]; cores[i * 3 + 2] = corLin[pxP[o + 2]];
     }
-    p.needsUpdate = true; geo.attributes.color.needsUpdate = true;
+    p.needsUpdate = true; geo.computeVertexNormals();
     geo.computeBoundingSphere();
   }
   // mesmo tom e brilho do material do planeta (o do site)
   // (o brilho proprio do planeta agora vem da textura: o chao usa o tom roxo fixo de antes)
-  const chao = new THREE.Mesh(geo, guarda(new THREE.MeshStandardMaterial({ color: gl.corpo.material.color, emissive: new THREE.Color(`hsl(${cor},78%,10%)`), emissiveIntensity: .42, vertexColors: true, roughness: .85, flatShading: true })));
+  const chao = new THREE.Mesh(geo, guarda(materialChao({ cor: gl.corpo.material.color, emissivo: new THREE.Color(`hsl(${cor},78%,10%)`), mapa: mapaP, brilho: brilhoP, neon: new THREE.Color(`hsl(${(cor + 40) % 360},95%,62%)`) })));
   chao.frustumCulled = false;
   cena.add(chao);
   posicionarChao(0, 0, true);

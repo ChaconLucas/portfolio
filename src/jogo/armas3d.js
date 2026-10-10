@@ -391,27 +391,35 @@ export function criarRastroLamina(cor = 0xff4fd8, n = 22) {
  * esquerda presa ao ponto maoEsq da arma (anda junto na recarga). Traje
  * branco/cinza.
  */
-export function maosPrimeiraPessoa(tipo, arma) {
-  const g = new THREE.Group();
+/** uma luva do traje (primeira pessoa): punho fechado, polegar por cima e o
+ *  antebraco saindo para tras (-z). esq = mao esquerda */
+export function criarLuva(esq) {
   const luva = guardar(new THREE.MeshStandardMaterial({ color: 0xdedbe8, metalness: .15, roughness: .55 }));
   const escura = guardar(new THREE.MeshStandardMaterial({ color: 0x3a3646, metalness: .4, roughness: .5 }));
   const neon = new THREE.MeshBasicMaterial({ color: 0x9f7bff });
-  const mao = (pai, x, y, z, rx, ry, rz, esq) => {
-    const h = new THREE.Group(); h.position.set(x, y, z); h.rotation.set(rx, ry, rz);
-    const p = new THREE.Mesh(new RoundedBoxGeometry(.06, .075, .085, 2, .02), luva); h.add(p);
-    // dedos fechados em volta (quatro gomos curvados) e o polegar por cima
-    for (let i = 0; i < 4; i++) {
-      const f = new THREE.Mesh(new RoundedBoxGeometry(.018, .026, .05, 2, .008), luva);
-      f.position.set((esq ? 1 : -1) * .036, .028 - i * .021, .025); f.rotation.set(0, (esq ? -1 : 1) * .9, 0); h.add(f);
-      const ponta = new THREE.Mesh(new RoundedBoxGeometry(.018, .022, .032, 2, .008), luva); ponta.position.set((esq ? 1 : -1) * .05, .028 - i * .021, -.008); ponta.rotation.y = (esq ? -1 : 1) * 1.9; h.add(ponta);
-    }
-    const pol = new THREE.Mesh(new RoundedBoxGeometry(.02, .02, .055, 2, .008), luva); pol.position.set((esq ? -1 : 1) * .02, .045, .03); pol.rotation.set(-.3, 0, 0); h.add(pol);
-    // punho do traje com friso de neon e antebraco saindo para tras
-    const punho = new THREE.Mesh(new THREE.CylinderGeometry(.045, .05, .07, 14), escura); punho.rotation.x = Math.PI / 2; punho.position.z = -.07; h.add(punho);
-    const friso = new THREE.Mesh(new THREE.CylinderGeometry(.051, .051, .012, 14), neon); friso.rotation.x = Math.PI / 2; friso.position.z = -.045; h.add(friso);
-    const braco = new THREE.Mesh(new THREE.CylinderGeometry(.05, .06, .4, 14), luva); braco.rotation.x = Math.PI / 2; braco.position.z = -.29; h.add(braco);
-    pai.add(h); return h;
-  };
+  const h = new THREE.Group();
+  const p = new THREE.Mesh(new RoundedBoxGeometry(.06, .075, .085, 2, .02), luva); h.add(p);
+  // dedos fechados em volta (quatro gomos curvados) e o polegar por cima
+  for (let i = 0; i < 4; i++) {
+    const f = new THREE.Mesh(new RoundedBoxGeometry(.018, .026, .05, 2, .008), luva);
+    f.position.set((esq ? 1 : -1) * .036, .028 - i * .021, .025); f.rotation.set(0, (esq ? -1 : 1) * .9, 0); h.add(f);
+    const ponta = new THREE.Mesh(new RoundedBoxGeometry(.018, .022, .032, 2, .008), luva); ponta.position.set((esq ? 1 : -1) * .05, .028 - i * .021, -.008); ponta.rotation.y = (esq ? -1 : 1) * 1.9; h.add(ponta);
+  }
+  const pol = new THREE.Mesh(new RoundedBoxGeometry(.02, .02, .055, 2, .008), luva); pol.position.set((esq ? -1 : 1) * .02, .045, .03); pol.rotation.set(-.3, 0, 0); h.add(pol);
+  // punho do traje com friso de neon e antebraco saindo para tras
+  const punho = new THREE.Mesh(new THREE.CylinderGeometry(.045, .05, .07, 14), escura); punho.rotation.x = Math.PI / 2; punho.position.z = -.07; h.add(punho);
+  const friso = new THREE.Mesh(new THREE.CylinderGeometry(.051, .051, .012, 14), neon); friso.rotation.x = Math.PI / 2; friso.position.z = -.045; h.add(friso);
+  const braco = new THREE.Mesh(new THREE.CylinderGeometry(.05, .06, .4, 14), luva); braco.rotation.x = Math.PI / 2; braco.position.z = -.29; h.add(braco);
+  return h;
+}
+
+/**
+ * Luvas para a primeira pessoa (no espaco da arma): mao direita no cabo e a
+ * esquerda presa ao ponto maoEsq da arma (anda junto na recarga).
+ */
+export function maosPrimeiraPessoa(tipo, arma) {
+  const g = new THREE.Group();
+  const mao = (pai, x, y, z, rx, ry, rz, esq) => { const h = criarLuva(esq); h.position.set(x, y, z); h.rotation.set(rx, ry, rz); pai.add(h); return h; };
   const e = arma.userData.maoEsq;
   if (tipo === 'espada') {
     // sabre: as duas maos no cabo, a direita em cima e a esquerda no pomo
