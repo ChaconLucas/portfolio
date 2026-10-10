@@ -1075,3 +1075,24 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
 - **Laser** (`tiros.js`): o tubo de cor chapada virou um shader com brilho que some nas bordas e nas pontas, núcleo branco por dentro e a curva do planeta.
 - **Clarão na boca da arma:** estrela pequena com raios finos (`texEstrela`) no lugar da bola borrada grande.
 - **Impacto dos tiros de mão:** clarão menor e mais curto, e faíscas pequenas (tamanho mínimo 1,2 → 0,18).
+
+## Pegada das armas longas, jetpack e câmera por arma na primeira pessoa (09/10/2026)
+- **Mão esquerda que não chegava na arma:**
+  - o braço do modelo alcança ~41 cm (braço 18 + antebraço 23), e no rifle e no canhão a empunhadura da frente ficava a ~55 cm do ombro esquerdo, com erro de 11 a 15 cm;
+  - agora as armas longas usam `segurarLonga()`: braço direito recolhido, arma perto do peito, coronha no ombro;
+  - `apontarArma()` corrige o pulso para a arma apontar para a mira;
+  - a empunhadura da frente do rifle foi recuada 6 cm.
+- **Voando de jetpack armado:** pose de mira, com a arma erguida (antes caía na pose parada, de braços abaixados). Na primeira pessoa o corpo não inclina no voo.
+- **Primeira pessoa:**
+  - FOV 76° a pé (antes 60°);
+  - câmera com ajuste por arma (`FP` em `index.js`: giro do corpo, frente, altura, lado), ajustável no teste com `__jogo.ajustarFP(id, g, f, a, l)`.
+
+## Arma da primeira pessoa numa passada própria (09/10/2026)
+- **Antes:** com a câmera no capacete, a arma ficava colada no rosto. Recuar a câmera fazia os ombros low-poly aparecerem.
+- **Agora `desenhar()` faz duas passadas na primeira pessoa a pé:**
+  - o mundo com a câmera normal; o astronauta fica na camada 1, fora dessa passada;
+  - por cima, depois de limpar só a profundidade, o astronauta visto por `camVM`. Essa câmera é recuada (`r`) e deslocada para a esquerda e para cima (`x`, `y`), e o plano de corte (`r + c`) esconde ombros e costas.
+- **Resultado:** a arma e as mãos de verdade, com todas as animações, bem à frente e no canto de baixo à direita, como nos jogos de tiro.
+- As luzes da cena ganham a camada 1 (uma vez por cena), e o fundo é desligado na segunda passada.
+- A cabeça e o jetpack somem na primeira pessoa.
+- Valores por arma ficam em `FP` (`index.js`), e no teste: `__jogo.ajustarFP(id, { r, c, x, y, ... })`.

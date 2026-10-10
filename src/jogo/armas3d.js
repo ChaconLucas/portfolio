@@ -194,7 +194,7 @@ export function montarArma(tipo) {
     por(g, caixa(.062, .008, .16, .002), friso, 0, .084, .1);
     cabo(0); gatilho(.0, .012);
     por(g, perfil([[.044, .012], [.118, .012], [.118, -.012], [.044, -.012]], .05), m.metal);  // poco da celula
-    por(g, perfil([[.215, .022], [.258, .022], [.25, -.07], [.226, -.076], [.214, -.062]], .034), m.borracha);   // empunhadura da frente
+    por(g, perfil([[.155, .012], [.198, .012], [.19, -.08], [.166, -.086], [.154, -.072]], .034), m.borracha);   // empunhadura da frente (perto: o braco do modelo e curto)
     // mira holografica: base, moldura (vista de tras) e o reticulo no vidro
     por(g, caixa(.03, .012, .07, .003), m.metal, 0, .128, .08);
     const mold = new THREE.Shape(); mold.moveTo(-.024, 0); mold.lineTo(.024, 0); mold.lineTo(.024, .036); mold.lineTo(.016, .044); mold.lineTo(-.016, .044); mold.lineTo(-.024, .036);
@@ -203,7 +203,7 @@ export function montarArma(tipo) {
     por(g, new THREE.PlaneGeometry(.036, .032), new THREE.MeshBasicMaterial({ map: texReticulo(), transparent: true, opacity: .85, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false }), 0, .153, .104);
     cel = celula(.019, .13, nucleoCel); cel.position.set(0, -.05, .081); cel.rotation.x = -.18; g.add(cel);
     saida.set(0, -Math.cos(.18), Math.sin(.18));
-    maoEsq.position.set(-.008, -.04, .236); boca.set(0, .062, .665);
+    maoEsq.position.set(-.008, -.045, .176); boca.set(0, .062, .665);
   } else if (tipo === 'canhao') {
     // canhao de ions: tubo grosso com bobinas acesas, capo de ceramica, boca
     // larga e a celula grande encaixada na lateral esquerda

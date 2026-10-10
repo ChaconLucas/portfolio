@@ -193,9 +193,22 @@ export async function abrirJogo() {
   // desenha uma cena: na superficie o chao curva em volta da camera (curva.js);
   // no espaco, no jogo de armas e nas telas de efeito, nada curva
   const K_CURVA = 1 / (2 * R_GLOBO);
-  function desenhar(c, cam) {
+  // primeira pessoa a pe: o mundo com a camera normal (o astronauta fica na
+  // camada 1, de fora) e depois, por cima, so o astronauta visto por uma camera
+  // RECUADA cujo plano de corte esconde ombros e costas: aparecem antebracos,
+  // maos e arma, bem a frente na tela (o truque das armas de jogo de tiro)
+  const camVM = new THREE.PerspectiveCamera(); camVM.layers.set(1);
+    function desenhar(c, cam) {
     CURVA.k.value = c.userData.superficie ? K_CURVA : 0; CURVA.c.value.copy(camera.position);
     renderer.render(c, cam);
+    if (cam !== camera || !s?.aPe || !s.fp) return;
+    if (!c.userData.luzesVM) { c.traverse((o) => { if (o.isLight) o.layers.enable(1); }); c.userData.luzesVM = true; }
+    const vm = fpDe();
+    camVM.fov = camera.fov; camVM.aspect = camera.aspect; camVM.near = vm.r + vm.c; camVM.far = 60; camVM.updateProjectionMatrix();
+    camVM.position.set(-(vm.x || 0), vm.y || 0, vm.r).applyQuaternion(camera.quaternion).add(camera.position); camVM.quaternion.copy(camera.quaternion); camVM.updateMatrixWorld();   // x: para a esquerda (a arma vai para a direita da tela), y: para cima (a arma desce)
+    const fundo = c.background; c.background = null; renderer.autoClear = false; renderer.clearDepth();
+    renderer.render(c, camVM);
+    renderer.autoClear = true; c.background = fundo;
   }
   function medir() {
     renderer.setSize(innerWidth, innerHeight, false);
@@ -732,8 +745,19 @@ export async function abrirJogo() {
      corpo continua la (so a cabeca some): os bracos, as maos e a arma que se
      ve sao os de verdade, com as mesmas animacoes de tiro, recarga, sabre e
      granada; o tronco inclina com a mira para a arma acompanhar o olhar */
-  const FP = { giro: .16, frente: .05, alto: 1.75 };   // ajuste da camera da primeira pessoa (ver window.__jogo.FP)
-  let FP_GIRO = FP.giro, FP_FRENTE = FP.frente, FP_ALTO = FP.alto;
+  // camera da primeira pessoa por arma (o corpo e o do proprio astronauta, entao
+  // cada arma pede um ponto de vista): giro do corpo (a arma aponta para a mira),
+  // frente, altura e lado (+ = esquerda); r = recuo da camera da arma e c = o corte
+  // (o que fica a menos de r + c dela some); x/y = a camera da arma vai para a
+  // esquerda/cima (a arma desce para o canto). Ajuste no teste: __jogo.ajustarFP(id, { ... })
+  const FP = {
+    nada: { g: 0, f: .1, a: 1.66, l: 0, r: .15, c: .2, x: .1, y: .08 },
+    espada: { g: .1, f: .1, a: 1.66, l: 0, r: .25, c: .15, x: .12, y: -.1 },
+    blaster: { g: .16, f: .1, a: 1.66, l: 0, r: .25, c: .2, x: .12, y: .1 },
+    rifle: { g: .1, f: .1, a: 1.62, l: .04, r: .15, c: .2, x: .1, y: .08 },
+    canhao: { g: .12, f: .1, a: 1.66, l: .03, r: .15, c: .2, x: .1, y: .08 }
+  };
+  const fpDe = () => FP[ARMAS[armaIdx].id] || FP.nada;
   // correndo (Shift) armado: pose de corrida (0..1); balanco dos passos, tranco
   // da queda e a mira "atrasada" (a arma acompanha o mouse com um leve atraso)
   let corridaK = 0, bobFase = 0, quedaDip = 0, miraSuave = 0;
@@ -861,7 +885,7 @@ export async function abrirJogo() {
   function atualizarGolpe(dt) {
     // o rastro: uma fita de luz entre a base e a ponta da lamina, so no corte
     const sab = astro.armaObj('espada'), kG = golpeT / .45;
-    if (sab?.userData.ponta && sab.visible) {
+    if (sab?.userData.ponta && sab.visible && !s.fp) {   // (na primeira pessoa a lamina e desenhada na passada da arma, deslocada: o rastro no mundo nao bateria)
       sab.updateWorldMatrix(true, true);
       sab.userData.baseLamina.getWorldPosition(_rb); sab.userData.ponta.getWorldPosition(_rp);
       if (s.fp) _rb.lerp(_rp, .5);   // na primeira pessoa a lamina esta colada na camera: so a metade de fora deixa rastro
@@ -1598,8 +1622,8 @@ export async function abrirJogo() {
       // primeira pessoa: camera no capacete
       // (na frente do rosto: ombros e bracos ficam atras da camera; so antebracos,
       // maos e arma aparecem, como numa visao de jogo)
-      _m.copy(pe.pos); _m.y += FP_ALTO;
-      camPos.copy(_m).addScaledVector(_v.set(Math.sin(s.alvoRumo), 0, Math.cos(s.alvoRumo)), FP_FRENTE);
+      const fpA = fpDe(); _m.copy(pe.pos); _m.y += fpA.a;
+      camPos.copy(_m).addScaledVector(_v.set(Math.sin(s.alvoRumo), 0, Math.cos(s.alvoRumo)), fpA.f).addScaledVector(_v.set(Math.cos(s.alvoRumo), 0, -Math.sin(s.alvoRumo)), fpA.l);
       // balanco dos passos (mais forte correndo) e o tranco da queda
       const vPe = pe.noChao ? Math.hypot(pe.vel.x, pe.vel.z) : 0;
       bobFase += dt * vPe * 1.35; quedaDip *= Math.exp(-dt * 7);
@@ -1684,7 +1708,7 @@ export async function abrirJogo() {
     // mira de arma (a pe, armado): abre a cada tiro e fecha sozinha
     miraAbre *= Math.exp(-dt * 6);
     raiz.classList.toggle('mira-arma', !!(s.aPe && ARMAS[armaIdx].id && !ARMAS[armaIdx].corpo)); raiz.style.setProperty('--abre', (6 + miraAbre * 14).toFixed(1) + 'px');
-    let fov = s.aPe ? 60 : 62 + Math.min(1, veloc / 150) * 10 + s.dobra * 14 + (s.modo === 'entrando' ? tremor * 8 + (ent.gas || 0) * 10 : 0);
+    let fov = s.aPe ? (s.fp ? 76 : 60) : 62 + Math.min(1, veloc / 150) * 10 + s.dobra * 14 + (s.modo === 'entrando' ? tremor * 8 + (ent.gas || 0) * 10 : 0);
     fov *= 1 - mirarK * (s.aPe ? .32 : .45);   // mirando: a pe aproxima um pouco, na nave da o zoom
     if (Math.abs(camera.fov - fov) > .05) { camera.fov += (fov - camera.fov) * (1 - Math.exp(-dt * 14)); camera.updateProjectionMatrix(); }
 
@@ -1890,7 +1914,7 @@ export async function abrirJogo() {
     const sprint = pe.noChao && v > 4.5 && !!ARMAS[armaIdx].id && pe.rolando <= 0 && (ok('ShiftLeft', 'ShiftRight') || tq.turbo > 0);
     corridaK += ((sprint ? 1 : 0) - corridaK) * (1 - Math.exp(-dt * 9));
     miraSuave += (s.alvoMira - miraSuave) * (1 - Math.exp(-dt * 16));
-    if ((v > .3 || jet || ARMAS[armaIdx].id || s.fp) && pe.rolando <= 0) { const alvoR = s.alvoRumo - (s.fp && ARMAS[armaIdx].id ? FP_GIRO : 0); pe.rumo += Math.atan2(Math.sin(alvoR - pe.rumo), Math.cos(alvoR - pe.rumo)) * (1 - Math.exp(-dt * (s.fp ? 20 : 10))); }   // primeira pessoa: o corpo vira junto com o olhar (um pouco para a direita: a arma, no ombro direito, aponta para a mira)
+    if ((v > .3 || jet || ARMAS[armaIdx].id || s.fp) && pe.rolando <= 0) { const alvoR = s.alvoRumo - (s.fp ? fpDe().g : 0); pe.rumo += Math.atan2(Math.sin(alvoR - pe.rumo), Math.cos(alvoR - pe.rumo)) * (1 - Math.exp(-dt * (s.fp ? 20 : 10))); }   // primeira pessoa: o corpo vira junto com o olhar (um pouco para a direita: a arma, no ombro direito, aponta para a mira)
     astro.raiz.position.copy(pe.pos); astro.raiz.rotation.y = pe.rumo;
     // velocidade local para as animacoes (frente / lado esquerdo)
     const sr = Math.sin(pe.rumo), cr = Math.cos(pe.rumo);
@@ -2066,7 +2090,7 @@ export async function abrirJogo() {
   raf(quadro);
   // modo de teste (?debugjogo): avanca a simulacao sem depender do rAF
   if (/debugjogo/.test(location.search)) { semTrava = true; raiz.classList.add('sem-trava'); }   // teste: sem convite de clique
-  if (/debugjogo/.test(location.search)) window.__jogo = { s, pe, tecla, mouse: (x, y) => { mdx += x; mdy += y; }, passo: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) passo(dt); }, interagir, get alvo() { return alvoPerto; }, get mundo() { return mundo; }, get predioPerto() { return predioPerto; }, get mapaInfo() { return mapaInfo; }, get destino() { return destino; }, get tiros() { return tiros; }, camera, get nave() { return nave; }, get voz() { return voz; }, get rede() { return rede; }, renderer, cena, get astro() { return astro; }, cabine: (v) => { s.fp = v; }, granada: () => lancarGranada(), golpear: () => golpear(), recarregar: () => recarregar(), atirar: () => atirarAPe(), escolherArma: (i) => escolherArma(i), alternarPrimeiraPessoa, ajustarFP: (g, f, a) => { FP_GIRO = g; FP_FRENTE = f; FP_ALTO = a; } };
+  if (/debugjogo/.test(location.search)) window.__jogo = { s, pe, tecla, mouse: (x, y) => { mdx += x; mdy += y; }, passo: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) passo(dt); }, interagir, get alvo() { return alvoPerto; }, get mundo() { return mundo; }, get predioPerto() { return predioPerto; }, get mapaInfo() { return mapaInfo; }, get destino() { return destino; }, get tiros() { return tiros; }, camera, get nave() { return nave; }, get voz() { return voz; }, get rede() { return rede; }, renderer, cena, get astro() { return astro; }, cabine: (v) => { s.fp = v; }, granada: () => lancarGranada(), golpear: () => golpear(), recarregar: () => recarregar(), atirar: () => atirarAPe(), escolherArma: (i) => escolherArma(i), alternarPrimeiraPessoa, ajustarFP: (id, o) => { FP[id] = { ...FP[id], ...o }; } };
 
   function fechar() {
     rodando = false;
