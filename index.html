@@ -6424,6 +6424,8 @@ if($('#orbitSystem') && !$('#orbitSystem').classList.contains('panel-open')){
 </script>
 <script type="module">
 import * as THREE from 'three';
+import { texturasPlaneta, materialPlaneta } from '/src/planetas/textura.js';   // mesma textura do jogo
+import { criarFundoEspaco } from '/src/planetas/fundo.js';   // buraco negro e meteoros ao fundo
 
 const mount=document.getElementById('threeUniverse');
 if(mount){
@@ -6443,6 +6445,7 @@ if(mount){
  renderer.toneMappingExposure=1.24;
 
  const universe=new THREE.Group(); scene.add(universe);
+ const fundoEspaco=criarFundoEspaco({camera}); scene.add(fundoEspaco.grupo);
  universe.rotation.x=-.09;
  universe.rotation.y=.18;
 
@@ -6470,35 +6473,6 @@ if(mount){
  }
 
  // procedural textures generated in code
- function planetTexture(seed,hue){
-   const c=document.createElement('canvas');c.width=1024;c.height=512;const x=c.getContext('2d');
-   const grad=x.createLinearGradient(0,0,1024,512);grad.addColorStop(0,`hsl(${hue-8},44%,7%)`);grad.addColorStop(.34,`hsl(${hue+10},54%,16%)`);grad.addColorStop(.68,`hsl(${hue-18},46%,12%)`);grad.addColorStop(1,`hsl(${hue+6},42%,8%)`);x.fillStyle=grad;x.fillRect(0,0,1024,512);
-   let s=seed; const rnd=()=>{s=(s*1664525+1013904223)%4294967296;return s/4294967296};
-   for(let i=0;i<220;i++){
-     const yy=rnd()*512; const h=5+rnd()*24;
-     x.fillStyle=`hsla(${hue+(rnd()-.5)*28},${42+rnd()*28}%,${12+rnd()*18}%,${.028+rnd()*.06})`;
-     x.fillRect(0,yy,1024,h);
-   }
-   for(let i=0;i<210;i++){
-     const px=rnd()*1024,py=rnd()*512,rx=18+rnd()*150,ry=5+rnd()*40,a=.02+rnd()*.08;
-     x.fillStyle=`hsla(${hue+(rnd()-.5)*40},${52+rnd()*28}%,${16+rnd()*30}%,${a})`;x.beginPath();x.ellipse(px,py,rx,ry,rnd()*Math.PI,0,Math.PI*2);x.fill();
-   }
-   for(let i=0;i<85;i++){
-     const px=rnd()*1024,py=rnd()*512,r=10+rnd()*42;
-     const g=x.createRadialGradient(px-r*.2,py-r*.25,1,px,py,r);
-     g.addColorStop(0,`hsla(${hue+10},55%,${28+rnd()*16}%,${.16+rnd()*.14})`);
-     g.addColorStop(.55,`hsla(${hue-8},45%,${12+rnd()*10}%,${.1+rnd()*.12})`);
-     g.addColorStop(1,'rgba(0,0,0,0)');
-     x.fillStyle=g;x.beginPath();x.arc(px,py,r,0,Math.PI*2);x.fill();
-   }
-   for(let i=0;i<900;i++){
-     x.fillStyle=`rgba(255,255,255,${.01+rnd()*.025})`;
-     x.fillRect(rnd()*1024,rnd()*512,1+rnd()*2,1+rnd()*2);
-   }
-   for(let y=0;y<512;y+=7){x.fillStyle=`rgba(230,218,255,${.006+(Math.sin(y*.11+seed)*.004)})`;x.fillRect(0,y,1024,1)}
-   const vign=x.createRadialGradient(512,256,30,512,256,520);vign.addColorStop(0,'rgba(255,255,255,.18)');vign.addColorStop(.55,'rgba(255,255,255,0)');vign.addColorStop(1,'rgba(0,0,0,.18)');x.fillStyle=vign;x.fillRect(0,0,1024,512);
-   const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;tex.wrapS=THREE.RepeatWrapping;tex.wrapT=THREE.ClampToEdgeWrapping;return tex;
- }
  function sunTexture(){const c=document.createElement('canvas');c.width=c.height=1024;const x=c.getContext('2d');const g=x.createRadialGradient(512,512,30,512,512,512);g.addColorStop(0,'rgba(255,245,255,1)');g.addColorStop(.12,'rgba(250,220,255,.98)');g.addColorStop(.32,'rgba(215,145,255,.95)');g.addColorStop(.6,'rgba(126,62,214,.92)');g.addColorStop(1,'rgba(48,18,84,.96)');x.fillStyle=g;x.fillRect(0,0,1024,1024);let s=91;const rnd=()=>{s=(s*1664525+1013904223)%4294967296;return s/4294967296};for(let i=0;i<260;i++){const a=rnd()*Math.PI*2,dist=40+rnd()*360,len=120+rnd()*230,w=20+rnd()*60;const px=512+Math.cos(a)*dist,py=512+Math.sin(a)*dist;const lg=x.createLinearGradient(px,py,px+Math.cos(a)*len,py+Math.sin(a)*len);lg.addColorStop(0,`hsla(${270+rnd()*22},100%,${62+rnd()*18}%,${.16+rnd()*.14})`);lg.addColorStop(1,'rgba(255,255,255,0)');x.save();x.translate(px,py);x.rotate(a);x.fillStyle=lg;x.beginPath();x.ellipse(0,0,len,w,rnd()*0.2,0,Math.PI*2);x.fill();x.restore();}for(let i=0;i<200;i++){const px=rnd()*1024,py=rnd()*1024,r=12+rnd()*74;const rg=x.createRadialGradient(px,py,0,px,py,r);rg.addColorStop(0,`rgba(255,255,255,${.1+rnd()*.12})`);rg.addColorStop(.4,`rgba(244,188,255,${.05+rnd()*.1})`);rg.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=rg;x.beginPath();x.arc(px,py,r,0,Math.PI*2);x.fill();}const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;return tex}
  function glowTexture(){const c=document.createElement('canvas');c.width=c.height=256;const x=c.getContext('2d'),g=x.createRadialGradient(128,128,0,128,128,128);g.addColorStop(0,'rgba(255,250,255,1)');g.addColorStop(.1,'rgba(212,179,255,.98)');g.addColorStop(.35,'rgba(135,80,255,.45)');g.addColorStop(1,'rgba(76,30,180,0)');x.fillStyle=g;x.fillRect(0,0,256,256);return new THREE.CanvasTexture(c)}
  const glowTex=glowTexture();
@@ -6661,12 +6635,13 @@ if(mount){
  const planetMeshes=[],labels=[];
  domains.forEach((d,i)=>{
   const [key,name,r,a,speed,hue,size]=d; const group=new THREE.Group(); universe.add(group);
-  const tex=planetTexture(27+i*41,hue); const mat=new THREE.MeshPhysicalMaterial({map:tex,bumpMap:tex,bumpScale:.08,roughnessMap:tex,color:new THREE.Color(`hsl(${hue},52%,72%)`),roughness:.82,metalness:.03,clearcoat:.12,clearcoatRoughness:.68,sheen:.25,sheenColor:new THREE.Color(`hsl(${hue+6},38%,74%)`),emissive:new THREE.Color(`hsl(${hue},78%,10%)`),emissiveIntensity:.42});
+  // textura gerada na placa de video, igual a do jogo (src/planetas/textura.js)
+  const tx=texturasPlaneta(renderer,{key,hue,seed:27+i*41}); const mat=materialPlaneta(THREE,tx,hue);
   const mesh=new THREE.Mesh(new THREE.SphereGeometry(size,80,80),mat);mesh.userData={key,name,index:i};group.add(mesh);
   const atm=new THREE.Mesh(new THREE.SphereGeometry(size*1.055,56,56),new THREE.MeshBasicMaterial({color:new THREE.Color(`hsl(${hue},76%,70%)`),transparent:true,opacity:.085,side:THREE.BackSide,blending:THREE.AdditiveBlending}));group.add(atm);
   const shade=new THREE.Mesh(new THREE.SphereGeometry(size*1.006,48,48),new THREE.MeshBasicMaterial({transparent:true,opacity:.06,color:0xffffff,side:THREE.FrontSide}));shade.position.x=size*.03;group.add(shade);
   if(key==='tooling'){const ring=new THREE.Mesh(new THREE.RingGeometry(size*1.25,size*1.85,96),new THREE.MeshBasicMaterial({color:0x9a78ff,transparent:true,opacity:.28,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,depthWrite:false}));ring.rotation.x=Math.PI/2.55;ring.rotation.y=.35;group.add(ring)}
-  group.userData={r,a,speed:.024};   // todos na mesma velocidade: um nunca alcanca o outro (antes Data e Infra se atravessavam)planetMeshes.push(mesh);
+  group.userData={r,a,speed:.024};/* todos na mesma velocidade: um nunca alcanca o outro (antes Data e Infra se atravessavam) */planetMeshes.push(mesh);
   const label=document.createElement('button');label.className='three-planet-label';label.textContent=name;label.dataset.key=key;labelsRoot.appendChild(label);labels.push(label);label.onclick=()=>selectPlanet(mesh);mesh.userData.group=group;
  });
 
@@ -6764,7 +6739,7 @@ if(mount){
  function animate(){requestAnimationFrame(animate);if(!universeVisible||window.__jogoAberto)return;
   if(orbitaCamada&&innerWidth>900&&orbitaCamada.style.opacity!==''&&+orbitaCamada.style.opacity<.004)return;
   const t=clock.getElapsedTime();
-  moverNave(Math.min(.05,t-(animate.tAnt||t)));animate.tAnt=t;
+  moverNave(Math.min(.05,t-(animate.tAnt||t)));fundoEspaco.atualizar(t,Math.min(.05,t-(animate.tAnt||t)));animate.tAnt=t;
   universeScroll=window.__portfolioUniverseScroll||0;
   universeScrollSmooth+=(universeScroll-universeScrollSmooth)*.07;
 
@@ -6855,6 +6830,7 @@ if(mount){
   // gasto puro (~0,5ms por quadro no hero).
   // O Contato tambem pinta fundo opaco (#04050a !important).
   const coberturas=[document.querySelector('.intro-sticky'),document.getElementById('contact')].filter(Boolean);
+  const cadentes=[]; let cadT=2; const menosMov=matchMedia('(prefers-reduced-motion: reduce)').matches;
   function draw(t){
     if(window.__jogoAberto){requestAnimationFrame(draw);return;}   // jogo da nave por cima: nada a desenhar aqui
     for(const el of coberturas){
@@ -6893,6 +6869,23 @@ if(mount){
         ctx.beginPath(); ctx.arc(px,py,1.3,0,Math.PI*2); ctx.fill();
       });
     });
+    // estrelas cadentes: uma de vez em quando e, as vezes, uma chuva
+    if(!menosMov){
+      const dt=Math.min(.05,t-(draw.tAnt||t)); draw.tAnt=t; cadT-=dt;
+      if(cadT<=0){ const chuva=Math.random()<.22, n=chuva?6+Math.floor(Math.random()*6):1, ang=(Math.random()<.5?1:-1);
+        for(let i=0;i<n;i++) cadentes.push({x:Math.random()*w,y:Math.random()*h*.45,ang:ang*(.32+Math.random()*.2),v:700+Math.random()*500,vida:0,dur:.5+Math.random()*.5,atraso:chuva?i*.12+Math.random()*.2:0,comp:90+Math.random()*120});
+        cadT=chuva?6+Math.random()*4:1.6+Math.random()*3.2; }
+      for(let i=cadentes.length-1;i>=0;i--){
+        const c=cadentes[i]; if(c.atraso>0){c.atraso-=dt;continue;}
+        c.vida+=dt; if(c.vida>=c.dur){cadentes.splice(i,1);continue;}
+        const k=c.vida/c.dur, dx=Math.cos(c.ang)*Math.sign(c.ang||1), dy=Math.abs(Math.sin(c.ang))+.35, l=Math.hypot(dx,dy);
+        const hx=c.x+dx/l*c.v*c.vida, hy=c.y+dy/l*c.v*c.vida, a=Math.sin(Math.PI*k);
+        const g=ctx.createLinearGradient(hx,hy,hx-dx/l*c.comp,hy-dy/l*c.comp);
+        g.addColorStop(0,`rgba(255,240,255,${.9*a})`); g.addColorStop(.3,`rgba(200,160,255,${.45*a})`); g.addColorStop(1,'rgba(160,120,255,0)');
+        ctx.strokeStyle=g; ctx.lineWidth=1.6; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(hx,hy); ctx.lineTo(hx-dx/l*c.comp,hy-dy/l*c.comp); ctx.stroke();
+        ctx.fillStyle=`rgba(255,250,255,${a})`; ctx.beginPath(); ctx.arc(hx,hy,1.6,0,Math.PI*2); ctx.fill();
+      }
+    }
     ctx.restore();
     requestAnimationFrame(draw);
   }

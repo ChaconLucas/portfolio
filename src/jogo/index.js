@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import './jogo.css';
 import { criarNave, matizDe, corCss, pintarAstronautaAdmin, aureolaAdmin } from './nave.js';
 import { criarAstronauta } from './astronauta.js';
-import { criarEspaco, criarSuperficie, LIMITE_ESPACO, R_GLOBO } from './cenas.js';
+import { criarEspaco, criarSuperficie, LIMITE_ESPACO, R_GLOBO, usarRendererPlanetas } from './cenas.js';
+import { liberarTexturasPlaneta } from '../planetas/textura.js';
 import { STACK, PROJETOS_POR_TECH, ANCORA } from './dados.js';
 import { criarSom } from './som.js';
 import { criarTiros } from './tiros.js';
@@ -178,6 +179,7 @@ export async function abrirJogo() {
   // reflexo do metal das armas (um ambiente de estudio, gerado uma vez)
   const envArmas = (() => { const pm = new THREE.PMREMGenerator(renderer); const tx = pm.fromScene(new RoomEnvironment(), .04).texture; pm.dispose(); return tx; })();
   ambienteArmas(envArmas);
+  usarRendererPlanetas(renderer);   // texturas dos planetas (geradas na placa de video)
   // resolucao automatica: comeca pelo que a maquina aguenta e ajusta pelo FPS
   // (cai quando trava, sobe quando sobra) — PC bom fica com tudo no maximo
   const prMax = Math.min(devicePixelRatio || 1, TOQUE ? 1.25 : 1.5), prMin = semAcel ? .4 : .55;
@@ -2042,7 +2044,7 @@ export async function abrirJogo() {
     rede?.fechar(); voz?.fechar();
     nave?.destruir(); astro?.destruir(); mundo.destruir(); ent.mundoProx?.destruir(); tiros?.destruir(); som.fechar();
     rt.dispose(); posMat.dispose(); fotoTex?.dispose(); fotoMat.dispose(); removeEventListener('resize', medirPos);
-    envArmas.dispose(); renderer.dispose(); renderer.forceContextLoss();
+    envArmas.dispose(); liberarTexturasPlaneta(renderer); renderer.dispose(); renderer.forceContextLoss();
     raiz.remove();
     document.documentElement.classList.remove('jogo-aberto');
     window.__jogoAberto = false;

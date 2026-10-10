@@ -3,6 +3,11 @@ import { STACK } from './dados.js';
 import { TIPOS, corpoPredio, portaria, emblema, decorar } from './predios.js';
 import { criarEstruturas } from './estruturas.js';
 import { planejarCidades, planejarEstradas } from './cidades.js';
+import { texturasPlaneta, materialPlaneta, pixelsPlaneta } from '../planetas/textura.js';
+
+// o renderer do jogo (as texturas dos planetas sao geradas na placa de video)
+let rendererPlanetas = null;
+export function usarRendererPlanetas(r) { rendererPlanetas = r; }
 
 /**
  * As duas cenas do jogo:
@@ -118,12 +123,9 @@ const NUVENS_ALT = 1.08;
 function montarPlaneta(d, i, raio, guarda) {
   const g = new THREE.Group(), hue = d.cor;
   // material, atmosfera fina, "sombra" e anel: iguais ao site
-  const tex = guarda(texDeCanvas(canvasPlaneta(hue, semente(i))));
-  const corpo = new THREE.Mesh(guarda(new THREE.SphereGeometry(raio, 80, 60)), guarda(new THREE.MeshPhysicalMaterial({
-    map: tex, bumpMap: tex, bumpScale: .08, roughnessMap: tex, color: new THREE.Color(`hsl(${hue},52%,72%)`), roughness: .82, metalness: .03,
-    clearcoat: .12, clearcoatRoughness: .68, sheen: .25, sheenColor: new THREE.Color(`hsl(${hue + 6},38%,74%)`),
-    emissive: new THREE.Color(`hsl(${hue},78%,10%)`), emissiveIntensity: .42, fog: false
-  })));
+  // a mesma textura do site (src/planetas/textura.js; em cache, nao vai no guarda)
+  const tx = texturasPlaneta(rendererPlanetas, { key: d.key, hue, seed: semente(i) });
+  const corpo = new THREE.Mesh(guarda(new THREE.SphereGeometry(raio, 80, 60)), guarda(materialPlaneta(THREE, tx, hue, { fog: false })));
   g.add(corpo);
   g.add(new THREE.Mesh(guarda(new THREE.SphereGeometry(raio * 1.055, 56, 40)), guarda(new THREE.MeshBasicMaterial({ color: new THREE.Color(`hsl(${hue},76%,70%)`), transparent: true, opacity: .085, side: THREE.BackSide, blending: THREE.AdditiveBlending, fog: false }))));
   const sombra = new THREE.Mesh(guarda(new THREE.SphereGeometry(raio * 1.006, 48, 36)), guarda(new THREE.MeshBasicMaterial({ transparent: true, opacity: .06, color: 0xffffff, fog: false })));
@@ -950,7 +952,9 @@ export function criarSuperficie(cena, planeta, opc = {}) {
   const p = geo.attributes.position, baseX = new Float32Array(p.count), baseZ = new Float32Array(p.count);
   for (let i = 0; i < p.count; i++) { baseX[i] = p.getX(i); baseZ[i] = p.getZ(i); }
   const cores = new Float32Array(p.count * 3); geo.setAttribute('color', new THREE.BufferAttribute(cores, 3));
-  const cvP = canvasPlaneta(cor, semente(iPl)), WP = cvP.width, HP = cvP.height, pxP = cvP.getContext('2d').getImageData(0, 0, WP, HP).data;
+  // as cores do chao vem da MESMA textura do planeta visto do espaco
+  const pixP = rendererPlanetas ? pixelsPlaneta(rendererPlanetas, { key: planeta.key, hue: cor, seed: semente(iPl) }) : canvasPlaneta(cor, semente(iPl)).getContext('2d').getImageData(0, 0, 1024, 512);
+  const WP = pixP.width, HP = pixP.height, pxP = pixP.data;
   const corLin = new Float32Array(256); for (let i = 0; i < 256; i++) corLin[i] = new THREE.Color().setRGB(i / 255, 0, 0, THREE.SRGBColorSpace).r;
   let chaoX = null, chaoZ = null;
   function posicionarChao(px, pz, forcar) {
@@ -970,7 +974,8 @@ export function criarSuperficie(cena, planeta, opc = {}) {
     geo.computeBoundingSphere();
   }
   // mesmo tom e brilho do material do planeta (o do site)
-  const chao = new THREE.Mesh(geo, guarda(new THREE.MeshStandardMaterial({ color: gl.corpo.material.color, emissive: gl.corpo.material.emissive, emissiveIntensity: .42, vertexColors: true, roughness: .85, flatShading: true })));
+  // (o brilho proprio do planeta agora vem da textura: o chao usa o tom roxo fixo de antes)
+  const chao = new THREE.Mesh(geo, guarda(new THREE.MeshStandardMaterial({ color: gl.corpo.material.color, emissive: new THREE.Color(`hsl(${cor},78%,10%)`), emissiveIntensity: .42, vertexColors: true, roughness: .85, flatShading: true })));
   chao.frustumCulled = false;
   cena.add(chao);
   posicionarChao(0, 0, true);

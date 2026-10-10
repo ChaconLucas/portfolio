@@ -980,3 +980,23 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - o ângulo inicial de **AI Workflow** passou de 6,2 para **5,5**, porque com 6,2 ficava encostando em Frontend.
 - **Simulado numa volta inteira:** a menor distância entre dois planetas é 1,45× a soma dos raios.
 - **No jogo** (mesma tabela, planetas parados): 1,7×.
+
+## Planetas texturizados (site e jogo iguais) e fundo do Stack Universe (09/10/2026)
+- **Bug corrigido no ar:** na correção da velocidade igual, um comentário `//` no meio da linha comentou o `planetMeshes.push` e o resto da linha. A nave do site procurava um planeta inexistente, a animação quebrava a cada quadro e o Stack Universe ficava vazio. Agora é `/* */`.
+- **`src/planetas/textura.js`: uma textura só para o site e o jogo.** Os dois chamam `texturasPlaneta(renderer, { key, hue, seed })`.
+  - **Gerada na placa de vídeo:** um shader de ruído 3D (simplex, fbm, ridged, deformação de domínio) amostrado na esfera de verdade, sem emenda nem polo esticado. Uma vez por planeta, com cache por renderer.
+  - **Um tipo por planeta**, na paleta roxa de cada um:
+    - Frontend terrestre, Mobile arquipélago e Data oceânico (continentes, mares, picos, gelo nos polos, luzes de cidade);
+    - Backend e Tooling gasosos (faixas e uma tempestade);
+    - Security vulcânico (rachaduras de lava rosa brilhando);
+    - Infra gelado (placas com fendas);
+    - Analytics desértico (dunas);
+    - AI cristalino (veios brilhando);
+    - crateras nos secos e sem ar.
+  - **Saídas:** cor, relevo (R altura → bumpMap, G aspereza → roughnessMap) e brilho (emissiveMap, que já inclui o brilho base antigo). `materialPlaneta()` monta o mesmo material nos dois lados.
+  - **Cor:** o shader pensa a cor em sRGB e grava linear (`pow 2.2`). Gravar num alvo sRGB convertia duas vezes e o planeta saía lavado.
+  - **No jogo:** o chão da superfície usa as cores dessa mesma textura (`pixelsPlaneta`, lida da placa de vídeo uma vez e convertida de volta para sRGB). O brilho próprio do chão continua o roxo fixo de antes, porque o material novo usa emissive branco com mapa.
+- **`src/planetas/fundo.js`** (só no site):
+  - **buraco negro** no canto de cima à direita: horizonte, disco de acréção girando com o lado do doppler mais forte, anel de fótons, arco de cima e halo;
+  - **meteoros:** pedra em brasa com rastro, a cada 5–11 s e às vezes dois.
+- **Estrelas cadentes** no fundo de estrelas do site (canvas 2D): uma de vez em quando e, às vezes (22%), uma chuva de 6 a 11. Desligadas com "reduzir movimento".
