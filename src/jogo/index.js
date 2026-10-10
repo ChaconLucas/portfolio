@@ -1509,8 +1509,8 @@ export async function abrirJogo() {
       { const x = mundo.rochaEm(s.pos, 3); if (x) { _v.subVectors(s.pos, x.c).normalize(); s.pos.copy(x.c).addScaledVector(_v, x.k + 3.2); const vn = s.vel.dot(_v); if (vn < 0) s.vel.addScaledVector(_v, -vn * 1.6); s.vel.multiplyScalar(.5); s.dobra = 0; tiros.explodir(s.pos, 3, [.8, .8, 1]); som.explosao(.3); } }
       for (const p of mundo.planetas) {
         _v.subVectors(s.pos, p.pos); const d = _v.length(), lim = p.raio * 1.15 + 2;
-        // bateu no planeta: ja comeca a entrar (antes empurrava, parava e so depois entrava)
-        if (d < lim) { s.pos.copy(p.pos).addScaledVector(_v.normalize(), lim); comecarEntrada(p); break; }
+        // encostou no planeta: desliza pela borda (so entra com E; a entrada mantem o embalo)
+        if (d < lim) { _v.normalize(); s.pos.copy(p.pos).addScaledVector(_v, lim); const vn = s.vel.dot(_v); if (vn < 0) s.vel.addScaledVector(_v, -vn); s.dobra = Math.min(s.dobra, .3); }
       }
       { const rs = mundo.sol.raio * 1.3; _v.subVectors(s.pos, mundo.sol.pos); if (_v.length() < rs) { s.pos.copy(mundo.sol.pos).addScaledVector(_v.normalize(), rs); s.vel.multiplyScalar(.3); s.dobra = 0; } }
       // borda do sistema: so tira a parte da velocidade que vai para fora (desliza na borda)

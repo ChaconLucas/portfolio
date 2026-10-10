@@ -1202,3 +1202,4 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - o ponto de pegada do manche (`pegaManche`) e do acelerador estava 3–4 cm atrás do cabo, e a mão fechava no ar, ao lado dele. Agora fica no centro do cabo;
   - deslocamento da palma ajustado olhando de perto numa vitrine (`LADO_PALMA` ±0,02): com 0 a mão ficava de um lado do cabo, com 0,035 do outro;
   - os dedos fecham um pouco mais (1,35 / 1,4 / 1,3 rad).
+- **Planeta só entra com E (10/10):** bater no planeta não começa mais a entrada sozinho. A nave encosta e desliza pela borda (perde só a velocidade que ia para dentro, e a dobra cai). A entrada mantendo o embalo continua quando se aperta E em alta velocidade.
