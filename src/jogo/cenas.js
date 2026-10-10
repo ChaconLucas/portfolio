@@ -127,7 +127,7 @@ function montarPlaneta(d, i, raio, guarda) {
   const tx = texturasPlaneta(rendererPlanetas, { key: d.key, hue, seed: semente(i) });
   const corpo = new THREE.Mesh(guarda(new THREE.SphereGeometry(raio, 80, 60)), guarda(materialPlaneta(THREE, tx, hue, { fog: false })));
   g.add(corpo);
-  g.add(new THREE.Mesh(guarda(new THREE.SphereGeometry(raio * 1.055, 56, 40)), guarda(new THREE.MeshBasicMaterial({ color: new THREE.Color(`hsl(${hue},76%,70%)`), transparent: true, opacity: .085, side: THREE.BackSide, blending: THREE.AdditiveBlending, fog: false }))));
+  // (a casca fina do site, de borda dura, fazia um anel em volta do planeta no jogo: aqui quem faz o brilho e a atmosfera abaixo, que some suave)
   const sombra = new THREE.Mesh(guarda(new THREE.SphereGeometry(raio * 1.006, 48, 36)), guarda(new THREE.MeshBasicMaterial({ transparent: true, opacity: .06, color: 0xffffff, fog: false })));
   sombra.position.x = raio * .03; g.add(sombra);
   if (d.key === 'tooling') {
@@ -136,7 +136,7 @@ function montarPlaneta(d, i, raio, guarda) {
   }
   // so do jogo, e so aparecem chegando perto (de longe fica igual ao site):
   // a atmosfera grossa e as nuvens
-  const atm = atmosfera(raio, hue, guarda); atm.uniforms.forca.value = 0;
+  const atm = atmosfera(raio, hue, guarda); atm.uniforms.forca.value = ATM_FORCA;
   let nuvens = null;
   if (d.atmosfera) {
     g.add(atm);
@@ -152,7 +152,7 @@ function montarPlaneta(d, i, raio, guarda) {
  * planeta e some na borda (pela distancia do raio de visao ao centro), mais
  * um brilho na beirada do disco. Aditiva; `forca` apaga quando a nave entra.
  */
-const ATM_ALT = 1.1;
+const ATM_ALT = 1.1, ATM_FORCA = .85;   // a atmosfera vista do espaco fica sempre ligada
 function atmosfera(raio, cor, guarda) {
   const u = { cor: { value: new THREE.Color(`hsl(${cor},95%,58%)`) }, forca: { value: 1 }, rP: { value: raio }, rS: { value: raio * ATM_ALT } };
   const vs = `varying vec3 vW; varying vec3 vC; varying float vE; varying vec3 vN;
@@ -168,7 +168,7 @@ function atmosfera(raio, cor, guarda) {
         // so uma faixa na borda: por cima do disco o brilho some logo para dentro
         // (antes cobria o planeta inteiro e ele ficava esbranquicado)
         float dentro = smoothstep(rP * vE * .9, rP * vE, b);
-        float a = pow(1. - h, 3.2) * dentro * forca;
+        float a = (pow(1. - h, 3.) * .85 + pow(1. - h, 1.4) * .15) * dentro * forca;   // brilho forte rente e um veu bem suave ate o fim (sem borda)
         // lado do sol (no centro do sistema) mais forte; o lado da noite quase apaga
         vec3 pr = cameraPosition + d * dot(oc, d);
         float dia = .2 + .8 * smoothstep(-.35, .5, dot(normalize(pr - vC), normalize(-vC)));
@@ -689,7 +689,7 @@ export function criarEspaco(cena) {
     aproximar(p, o) {
       const s = o.R / p.raio;
       p.grupo.scale.setScalar(s); p.grupo.position.copy(o.centro);
-      p.atm.uniforms.forca.value = o.halo;
+      p.atm.uniforms.forca.value = Math.max(o.halo, ATM_FORCA * (1 - o.k));   // (vinha do brilho normal e some suave enquanto o planeta cresce)
       if (p.nuvens) { p.nuvens.material.opacity = .7 * o.nuv; p.nuvens.visible = o.nuv > .002; }
       // a camada de gas: uma esfera em volta da camera (a nave fica dentro e
       // aparece) e fiapos passando rapido (ver atualizar)
@@ -718,7 +718,7 @@ export function criarEspaco(cena) {
     /** fim da saida: tudo de volta ao lugar de verdade */
     restaurar() {
       const p = focado; if (!p) return;
-      p.grupo.scale.setScalar(1); p.grupo.position.copy(p.orig); p.atm.uniforms.forca.value = 0; gasK = 0;
+      p.grupo.scale.setScalar(1); p.grupo.position.copy(p.orig); p.atm.uniforms.forca.value = ATM_FORCA; gasK = 0;
       if (p.nuvens) { p.nuvens.material.opacity = 0; p.nuvens.visible = false; }
       for (const x of planetas) { x.grupo.position.copy(x.orig); x.grupo.scale.setScalar(1); }
       sol.position.set(0, 0, 0); sol.scale.setScalar(1); luzSol.position.set(0, 0, 0); luzSolSup.position.set(0, 0, 0);

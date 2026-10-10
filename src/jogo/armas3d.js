@@ -176,7 +176,7 @@ export function montarArma(tipo) {
     por(g, caixa(.057, .02, .014, .003), friso, 0, .07, .132);                                   // anel colorido
     cel = celula(.012, .1, nucleoCel); cel.position.set(0, -.048, -.031); cel.rotation.x = .1; g.add(cel);
     saida.set(0, -Math.cos(.1), -Math.sin(.1));
-    maoEsq.position.set(-.03, -.075, .01); boca.set(0, .068, .2);
+    maoEsq.position.set(.012, -.07, -.01); boca.set(0, .068, .2);   // a esquerda envolve o cabo por baixo e pelo lado esquerdo
   } else if (tipo === 'rifle') {
     // rifle de plasma: receptor de ceramica, guarda-mao com respiros, cano com
     // freio de boca, coronha vazada, mira holografica e a celula na frente do gatilho

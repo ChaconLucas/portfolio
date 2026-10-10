@@ -73,7 +73,27 @@ export async function criarNave(cena) {
   const frente = COMPRIMENTO * .5;
   const plasma = new THREE.Group(); plasma.position.set(0, 0, frente * .55); corpo.add(plasma); plasma.visible = false;
   const conchaGeo = new THREE.SphereGeometry(1.25, 28, 18, 0, Math.PI * 2, 0, Math.PI * .5); conchaGeo.rotateX(Math.PI / 2);
-  const concha = new THREE.Mesh(conchaGeo, new THREE.MeshBasicMaterial({ color: 0xff7a2e, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  // fogo da reentrada: chamas (ruido) correndo da ponta para tras em volta do
+  // nariz — branco-amarelo na frente, laranja e rosa na cauda (antes: um cone liso)
+  const fogoU = { uT: { value: 0 }, uK: { value: 0 } };
+  const concha = new THREE.Mesh(conchaGeo, new THREE.ShaderMaterial({
+    uniforms: fogoU, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false,
+    vertexShader: 'varying vec3 vP, vN, vV; void main(){ vP = position; vec4 mv = modelViewMatrix * vec4(position, 1.); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }',
+    fragmentShader: `uniform float uT, uK; varying vec3 vP, vN, vV;
+      float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float r(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f); return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); }
+      float fbm(vec2 p){ float s = 0., a = .5; for (int i = 0; i < 4; i++) { s += a * r(p); p = p * 2.1 + 1.7; a *= .5; } return s / .9375; }
+      void main(){
+        float ang = atan(vP.y, vP.x), k = clamp(vP.z / 1.25, 0., 1.);
+        float n = fbm(vec2(ang * 2.2 + 3., k * 5. + uT * 7.));
+        float chama = smoothstep(.3, .8, n + k * .55);
+        float borda = 1. - abs(dot(normalize(vN), normalize(vV)));
+        float a = uK * chama * (.2 + k * .9) * (.45 + borda * .9);
+        vec3 c = mix(vec3(1., .3, .65), vec3(1., .72, .32), smoothstep(.1, .7, k));
+        c = mix(c, vec3(1.), pow(k, 5.) * .8);
+        gl_FragColor = vec4(c * a, a);
+      }`
+  }));
   concha.scale.set(1, 1, 1.6); plasma.add(concha);
   const fogo = new THREE.Sprite(new THREE.SpriteMaterial({ map: brilho, color: 0xffa040, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
   fogo.scale.setScalar(5); plasma.add(fogo);
@@ -134,16 +154,15 @@ export async function criarNave(cena) {
       envelope.scale.set(.6 + e * .5, .6 + e * .5, (.4 + e * 2.6) * tremor);
       nucleo.scale.set(.3 + e * .25, .3 + e * .25, (.25 + e * 1.4) * tremor);
       envelope.material.color.setHex(turbo ? 0x4fd2ff : corChama);
-      halo.material.opacity = Math.min(1, .3 + e * .8);
-      halo.scale.setScalar(1.2 + e * 1.6);
+      halo.material.opacity = Math.min(.75, .25 + e * .45);
+      halo.scale.setScalar(1 + e * .9);   // (menor: vista de tras virava uma bola branca em cima da nave)
       luz.intensity = e * 6;
       // reentrada
       plasma.visible = reentra > .01;
       if (plasma.visible) {
         const f = 1 + Math.sin(t * 47) * .06 + Math.sin(t * 29) * .05;
-        concha.material.opacity = reentra * .42;
-        concha.material.color.setRGB(1, .35 + reentra * .3, .1 + reentra * .15);
-        concha.scale.set(f, f, (1.2 + reentra * 1.4) * f);
+        fogoU.uK.value = reentra * 1.1; fogoU.uT.value = t;
+        concha.scale.set(f, f, (1.3 + reentra * 1.6) * f);
         fogo.material.opacity = reentra * .5; fogo.scale.setScalar((1.6 + reentra * 1.8) * f);   // brilho do plasma (antes cobria a nave de branco)
       }
       rastro.material.uniforms.calor.value += (reentra - rastro.material.uniforms.calor.value) * .1;

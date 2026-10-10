@@ -1138,3 +1138,38 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - agora é só uma faixa na borda, mais forte do lado do sol, que apaga quando a câmera está perto ou dentro (entrando e saindo);
   - a casca é mais fina (1,1 R) e a beirada mais fraca;
   - as luzes da aproximação também foram reduzidas.
+
+## Som respondendo na hora (10/10/2026)
+- O `AudioContext` agora é criado com `latencyHint: 0` (o menor buffer que o sistema aceitar): no Chrome do Mac, a latência total caiu de ~29 ms para ~19 ms.
+- O áudio é "destravado" também a cada tecla (não só no clique): se o navegador pausou o contexto (troca de aba, saída da tela cheia), os sons não ficam presos esperando.
+- **O primeiro tiro sai no próprio clique** (`dispararSePuder()`), em vez de esperar o próximo quadro do jogo; a rajada segurando o botão continua no quadro.
+- Fone Bluetooth adiciona 150–250 ms que o navegador não consegue tirar.
+
+## Primeira pessoa estável, entrada direta da velocidade da luz e atmosfera suave (10/10/2026)
+- **Armado, o corpo se divide em dois:**
+  - as **pernas** seguem os ciclos de passo (cópias dos clipes só com os ossos de baixo, `P_*`);
+  - o **tronco** fica sempre na pose de mira (`TRONCO`, só os ossos de cima);
+  - antes, correndo de costas e de lado os braços balançavam como se não houvesse arma, e na primeira pessoa ela saía da tela.
+- **Inclinação com a mira:**
+  - o peito gira com a mira (`-mira`, sinal conferido pela posição da arma na tela);
+  - a pegada das armas longas (`bracoDireito`) também gira com a mira;
+  - a câmera da arma gira em volta do peito junto com o olhar;
+  - resultado: olhando para cima ou para baixo, a arma fica parada no mesmo lugar da tela.
+- **Campo de visão e corte do corpo:**
+  - a passada da arma tem FOV próprio (54°); com o do mundo (76°) o braço esticava nas bordas;
+  - o ombro cortado pelo plano da câmera aparecia como um toco oco. Agora o corte é uma esfera em volta do peito e dos ombros (o shader descarta, `cortarMaterial`), e o plano de corte ficou mínimo.
+- **Mãos:**
+  - o blaster também é empunhado pela esquerda (a mão envolve o cabo por baixo e pelo lado);
+  - os dedos fecham 1,5 rad por falange e o polegar 0,8.
+- **Entrada no planeta:**
+  - bater no planeta já começa a entrada (antes empurrava a nave e parava);
+  - a nave entra com o embalo que tinha, que cai suave para a velocidade do mergulho, e o efeito da velocidade da luz vai sumindo junto.
+- **Atmosfera vista do espaço:**
+  - a casca fina do site, com borda dura, fazia um anel em volta do planeta e saiu do jogo;
+  - a atmosfera nova (faixa na borda, mais forte do lado do sol, véu suave até o fim) fica sempre ligada no espaço (`ATM_FORCA`) e some suave quando o planeta cresce na entrada.
+- **Entrada mais direta (10/10):**
+  - dura 5,6 s com ar (antes 7) e 4,4 s sem ar (antes 5,2);
+  - o planeta cresce rápido desde o começo e só desacelera no fim (curva "ease-out"); antes começava devagar, acelerava e freava de novo.
+- **Fogo da reentrada** (`nave.js`): o cone liso virou chamas em shader (ruído correndo da ponta para trás), branco-amarelo na frente e laranja-rosa na cauda. Só aparece na parte do ar, junto com os riscos de luz.
+- A camada de nuvens do planeta durante a entrada caiu para 30% (fazia uma faixa pálida grossa no horizonte).
+- O brilho do motor ficou menor (visto de trás, virava uma bola branca em cima da nave).

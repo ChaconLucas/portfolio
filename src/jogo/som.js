@@ -12,7 +12,8 @@
 export function criarSom() {
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return semSom();
-  const ctx = new AC();
+  // latencia minima: o som sai junto com a acao (o padrao deixa um buffer maior)
+  let ctx; try { ctx = new AC({ latencyHint: 0 }); } catch (e) { ctx = new AC(); }
   let mudo = false;
   try { mudo = localStorage.getItem('jogo-mudo') === '1'; } catch (e) { /* */ }
   const mestre = ctx.createGain(); mestre.gain.value = mudo ? 0 : .55; mestre.connect(ctx.destination);
