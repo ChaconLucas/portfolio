@@ -1119,3 +1119,22 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - na mão esquerda do rifle e do canhão (empunhadura vertical) e do sabre (eixo da lâmina);
   - antes, só o pulso ia até o ponto, e a mão ficava virada como na pose parada.
 - **Na cabine** somem os quadros de velocidade, alvo e arma do HUD da tela, porque o painel e o vidro já mostram isso.
+
+## Tiro na cabine, saída do planeta, atmosfera e personagem deitado (09/10/2026)
+- **Personagem de lado:** na cabine o piloto recebe a inclinação da nave. Ao sair, só o `rotation.y` era trocado e a inclinação ficava. Agora é `rotation.set(0, rumo, 0)`.
+- **Tiro da nave na cabine:**
+  - o laser nascia centrado no ponto de saída (metade atrás) e já andava ~18 m no primeiro quadro;
+  - o brilho dependia do ângulo com a superfície e zerava visto ao longo do comprimento;
+  - e o apagado das pontas pegava 30% perto da câmera.
+- **Agora:**
+  - a geometria começa na boca e o laser fica parado no quadro em que nasce;
+  - um termo "ao longo do eixo" mantém o laser aceso, e as pontas apagam só 4%;
+  - na cabine os tiros saem de baixo do nariz, à vista, mais finos e compridos, com um clarão pequeno e um **feixe** da boca até a mira que some em 0,15 s.
+- **Saída do planeta:** no lugar do plasma (o cone amarelo), **riscos de luz** passam em volta da nave (`nave.riscos()`).
+  - A imagem da superfície que se dissolvia por cima (o plano pálido cortando a tela) agora dura 0,35 s em vez de 0,9 s.
+  - A camada de nuvens só aparece depois de a câmera sair dela.
+- **Atmosfera vista do espaço:**
+  - antes a casca brilhava por cima do disco inteiro, e de perto o planeta ficava esbranquiçado;
+  - agora é só uma faixa na borda, mais forte do lado do sol, que apaga quando a câmera está perto ou dentro (entrando e saindo);
+  - a casca é mais fina (1,1 R) e a beirada mais fraca;
+  - as luzes da aproximação também foram reduzidas.

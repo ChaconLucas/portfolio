@@ -50,6 +50,15 @@ export async function criarNave(cena) {
   const atras = -COMPRIMENTO * .5;
   // chama
   const chama = new THREE.Group(); chama.position.set(0, 0, atras); corpo.add(chama);
+  // riscos de luz passando em volta da nave (subindo e saindo do planeta):
+  // traços que vem da frente e correm para tras, mais claros na ponta
+  const NR = 70, rp = new Float32Array(NR * 6), rc = new Float32Array(NR * 6), rInfo = [];
+  const rGeo = new THREE.BufferGeometry(); rGeo.setAttribute('position', new THREE.BufferAttribute(rp, 3)); rGeo.setAttribute('color', new THREE.BufferAttribute(rc, 3));
+  const riscosM = new THREE.LineSegments(rGeo, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  riscosM.frustumCulled = false; riscosM.visible = false; raiz.add(riscosM);
+  const novoRisco = (i, z) => { const a = Math.random() * Math.PI * 2, r = 1.6 + Math.random() * 6; rInfo[i] = { x: Math.cos(a) * r, y: Math.sin(a) * r * .8, z, l: 3 + Math.random() * 7, v: .7 + Math.random() * .6, c: Math.random() }; };
+  for (let i = 0; i < NR; i++) novoRisco(i, -40 + Math.random() * 80);
+  let riscosK = 0;
   // base larga no bocal (z = 0), ponta para tras (z = -1)
   const coneGeo = new THREE.ConeGeometry(.3, 1, 18, 1, true); coneGeo.translate(0, .5, 0); coneGeo.rotateX(-Math.PI / 2);
   const envelope = new THREE.Mesh(coneGeo, new THREE.MeshBasicMaterial({ color: 0x8a5cff, transparent: true, opacity: .55, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
@@ -109,6 +118,8 @@ export async function criarNave(cena) {
     get empuxo() { return empuxo; },
     /** 0..1: intensidade da reentrada (plasma no nariz, faiscas laranja) */
     reentrada(k) { reentra = k; },
+    /** 0..1: riscos de luz passando em volta (velocidade) */
+    riscos(k) { riscosK = k; },
     /** vista da cabine: o brilho do plasma (que fica em volta da camera) some; a concha de fogo continua na frente */
     vistaCabine(on) { fogo.visible = !on; halo.visible = !on; },
     /**
@@ -136,6 +147,17 @@ export async function criarNave(cena) {
         fogo.material.opacity = reentra * .5; fogo.scale.setScalar((1.6 + reentra * 1.8) * f);   // brilho do plasma (antes cobria a nave de branco)
       }
       rastro.material.uniforms.calor.value += (reentra - rastro.material.uniforms.calor.value) * .1;
+      riscosM.visible = riscosK > .01;
+      if (riscosM.visible) {
+        for (let i = 0; i < NR; i++) {
+          const q = rInfo[i]; q.z -= dt * 140 * q.v * (.4 + riscosK); if (q.z < -45) novoRisco(i, 40 + Math.random() * 10);
+          const o = i * 6, br = Math.min(1, (45 + q.z) / 20) * Math.min(1, (45 - q.z) / 15) * riscosK;
+          rp[o] = q.x; rp[o + 1] = q.y; rp[o + 2] = q.z; rp[o + 3] = q.x; rp[o + 4] = q.y; rp[o + 5] = q.z - q.l * (.5 + riscosK);
+          const cr = .75 + q.c * .25, cg = .8 + q.c * .1;
+          rc[o] = cr * br; rc[o + 1] = cg * br; rc[o + 2] = br; rc[o + 3] = 0; rc[o + 4] = 0; rc[o + 5] = 0;   // ponta clara, cauda some
+        }
+        rGeo.attributes.position.needsUpdate = true; rGeo.attributes.color.needsUpdate = true;
+      }
 
       // particulas: soltas no bocal, no mundo
       raiz.updateMatrixWorld();

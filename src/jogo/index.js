@@ -718,6 +718,7 @@ export async function abrirJogo() {
     const ponto = pontoDaMiraNave(_miraN, a.vel * (a.vida || 1.4) * .8);
     tiros.disparar(nave.corpo, s.vel, nave.raiz.scale.x, {
       cor: a.cor, vel: a.vel, esc: a.esc, comp: a.comp, espalha: a.espalha, vida: a.vida, ponto,
+      ...(cabineOn ? { saida: [.42, .12, 1.4], clarao: .14 * nave.raiz.scale.x, esc: (a.esc || 1) * .7, comp: (a.comp || 1) * 5, feixe: .6 * (a.esc || 1) } : {}),   // na cabine: sai embaixo do nariz, a vista, com clarao
       lados: a.unico ? [0] : a.alterna ? [ladoTiro] : a.guiado ? [ladoTiro = -ladoTiro] : [-1, 1],
       dados: { arma: a.id, dano: a.dano, area: a.area || 0, alvo }
     });
@@ -1349,7 +1350,8 @@ export async function abrirJogo() {
     e.alt = q * R_GLOBO - (e.hS - e.altS);
     mundo.aproximar(p, { R, centro: e.centro, olho: s.pos, verdadeiro: e.ver, k: 1 - kR, m: 2 - kR,
       kCeu: ar ? 1 - suave((u - .24) / .14) : 0, kLuz: 1 - suave(u / .7), kFora: 1 - suave((u - .5) / .5), qS2W: e.qS2W, hNeb: Math.max(0, e.alt),
-      halo: ar ? suave((u - .38) / .2) * (1 - suave((u - .75) / .25)) : 0, nuv: ar ? 1 - suave((u - .55) / .4) : 0, gas: ar ? suave((u - .06) / .1) * (1 - suave((u - .3) / .14)) : 0, velGas: 600 });
+      halo: ar ? suave((u - .38) / .2) * (1 - suave((u - .75) / .25)) : 0, nuv: ar ? suave((u - .42) / .3) : 0,   // (a camada de nuvens so aparece depois de a camera sair dela: antes virava um plano palido cortando a tela)
+      gas: ar ? suave((u - .06) / .1) * (1 - suave((u - .3) / .14)) : 0, velGas: 600 });
     nave.raiz.scale.setScalar(ESC_SUP + (1 - ESC_SUP) * kV);
     e.kLuz = 1 - suave(u / .7);
     return ar;
@@ -1470,7 +1472,7 @@ export async function abrirJogo() {
     const sobe = Math.max(-1, Math.min(1, (ok('Space', 'KeyR') ? 1 : 0) - (ok('ControlLeft', 'ControlRight', 'KeyF', 'KeyC') ? 1 : 0) + tq.sobe - tq.desce));
     const turbo = (ok('ShiftLeft', 'ShiftRight') || tq.turbo > 0) && acelera > 0;
     const ctl = { acelera, freia, lado, sobe, turbo };
-    let empuxo = .12, reentra = 0, tremor = 0;
+    let empuxo = .12, reentra = 0, tremor = 0, riscos = 0;
 
     if (s.modo === 'espaco') {
       // Shift + W: entra em dobra (velocidade da luz); soltando, sai devagar
@@ -1552,7 +1554,8 @@ export async function abrirJogo() {
       s.mira += (.8 - s.mira) * (1 - Math.exp(-dt * 3));
       s.alvoRumo = s.rumo; s.alvoMira = s.mira * .55;
       empuxo = 1;
-      if (mundo.atmosfera) { reentra = suave((T - .6) / 1.2) * .7; tremor = reentra * .4; fx.nuvem = Math.max(0, 1 - Math.abs(s.pos.y - 600) / 200) * .95; }
+      // subindo: riscos de luz passando em volta (o plasma era um cone amarelo feio)
+      riscos = suave((T - .3) / 1.2); if (mundo.atmosfera) { tremor = riscos * .3; fx.nuvem = Math.max(0, 1 - Math.abs(s.pos.y - 600) / 200) * .95; }
       if (s.pos.y > 1500) comecarSaida();
     } else if (s.modo === 'saindo' && T >= SAI_T) {
       terminarSaida();
@@ -1560,7 +1563,7 @@ export async function abrirJogo() {
       const u = T / SAI_T;
       const ar = aplicarSaida(u, dt);
       empuxo = 1; s.banco *= .93;
-      if (ar) { reentra = .7 * (1 - suave(u / .45)); tremor = reentra * .4; }
+      riscos = 1 - suave((u - .35) / .5); if (ar) tremor = riscos * .3 * (1 - suave(u / .45));
     } else if (s.modo === 'superficie') {
       fx.nuvem = 0; fx.veu = Math.max(0, fx.veu - dt * 2.2);
       if (!s.pousado) {
@@ -1587,7 +1590,7 @@ export async function abrirJogo() {
     else { nave.raiz.rotation.y = s.rumo; nave.raiz.rotation.x = -s.mira; nave.raiz.rotation.z = 0; }
     nave.corpo.rotation.z = -s.banco; nave.corpo.rotation.x = s.arfagem;
     nave.corpo.position.y += ((s.pousado ? -.25 : Math.sin(t * 2) * .12) - nave.corpo.position.y) * .1;
-    nave.reentrada(reentra);
+    nave.reentrada(reentra); nave.riscos(riscos);
     nave.atualizar(dt, empuxo, turbo || cinema || s.modo === 'subindo', t);
     if (!s.aPe) { astro.atualizar(dt, {}); jetAgora = 0; }
 
@@ -1778,7 +1781,7 @@ export async function abrirJogo() {
     if (dissolve > 0) {
       fotoMat.uniforms.alfa.value = suave(dissolve);
       renderer.autoClear = false; renderer.render(fotoCena, posCam); renderer.autoClear = true;
-      dissolve = Math.max(0, dissolve - dt / .9);
+      dissolve = Math.max(0, dissolve - dt / .35);   // rapido: a imagem velha (o chao, na saida) aparecia como um plano palido cortando a tela
     }
     if (!cabineOn) desenharArma3D(dt, cinema);   // na cabine a arma ja aparece na tela do painel
   }
@@ -1932,7 +1935,7 @@ export async function abrirJogo() {
     corridaK += ((sprint ? 1 : 0) - corridaK) * (1 - Math.exp(-dt * 9));
     miraSuave += (s.alvoMira - miraSuave) * (1 - Math.exp(-dt * 16));
     if ((v > .3 || jet || ARMAS[armaIdx].id || s.fp) && pe.rolando <= 0) { const alvoR = s.alvoRumo - (s.fp ? fpDe().g : 0); pe.rumo += Math.atan2(Math.sin(alvoR - pe.rumo), Math.cos(alvoR - pe.rumo)) * (1 - Math.exp(-dt * (s.fp ? 20 : 10))); }   // primeira pessoa: o corpo vira junto com o olhar (um pouco para a direita: a arma, no ombro direito, aponta para a mira)
-    astro.raiz.position.copy(pe.pos); astro.raiz.rotation.y = pe.rumo;
+    astro.raiz.position.copy(pe.pos); astro.raiz.rotation.set(0, pe.rumo, 0);   // (zera a inclinacao que a cabine da: o piloto sentado segue a nave)
     // velocidade local para as animacoes (frente / lado esquerdo)
     const sr = Math.sin(pe.rumo), cr = Math.cos(pe.rumo);
     const ev = astro.atualizar(dt, { frente: pe.vel.x * sr + pe.vel.z * cr, lado: pe.vel.x * cr - pe.vel.z * sr, noChao: pe.noChao, jet, mira: (ARMAS[armaIdx].id || s.fp ? miraSuave : 0) * (1 - corridaK), corrida: corridaK });
@@ -2107,7 +2110,7 @@ export async function abrirJogo() {
   raf(quadro);
   // modo de teste (?debugjogo): avanca a simulacao sem depender do rAF
   if (/debugjogo/.test(location.search)) { semTrava = true; raiz.classList.add('sem-trava'); }   // teste: sem convite de clique
-  if (/debugjogo/.test(location.search)) window.__jogo = { s, pe, tecla, mouse: (x, y) => { mdx += x; mdy += y; }, passo: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) passo(dt); }, interagir, get alvo() { return alvoPerto; }, get mundo() { return mundo; }, get predioPerto() { return predioPerto; }, get mapaInfo() { return mapaInfo; }, get destino() { return destino; }, get tiros() { return tiros; }, camera, get nave() { return nave; }, get voz() { return voz; }, get rede() { return rede; }, renderer, cena, get astro() { return astro; }, cabine: (v) => { s.fp = v; }, granada: () => lancarGranada(), golpear: () => golpear(), recarregar: () => recarregar(), atirar: () => atirarAPe(), escolherArma: (i) => escolherArma(i), alternarPrimeiraPessoa, ASSENTO, cabine3d: cabine, ajustarFP: (id, o) => { FP[id] = { ...FP[id], ...o }; } };
+  if (/debugjogo/.test(location.search)) window.__jogo = { s, pe, tecla, mouse: (x, y) => { mdx += x; mdy += y; }, passo: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) passo(dt); }, interagir, get alvo() { return alvoPerto; }, get mundo() { return mundo; }, get predioPerto() { return predioPerto; }, get mapaInfo() { return mapaInfo; }, get destino() { return destino; }, get tiros() { return tiros; }, camera, get nave() { return nave; }, get voz() { return voz; }, get rede() { return rede; }, renderer, cena, get astro() { return astro; }, cabine: (v) => { s.fp = v; }, granada: () => lancarGranada(), golpear: () => golpear(), recarregar: () => recarregar(), atirar: () => atirarAPe(), atirarNave: () => atirarNave(), escolherArma: (i) => escolherArma(i), alternarPrimeiraPessoa, ASSENTO, cabine3d: cabine, ajustarFP: (id, o) => { FP[id] = { ...FP[id], ...o }; } };
 
   function fechar() {
     rodando = false;

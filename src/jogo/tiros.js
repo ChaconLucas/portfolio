@@ -10,13 +10,15 @@ import { CURVA_GLSL, usarCurva } from './curva.js';
 export function criarTiros() {
   const grupo = new THREE.Group();
   const N = 96;
-  const geo = new THREE.CylinderGeometry(.22, .22, 16, 6, 1, true); geo.rotateX(Math.PI / 2);
+  const geo = new THREE.CylinderGeometry(.22, .22, 16, 6, 1, true); geo.rotateX(Math.PI / 2); geo.translate(0, 0, 8);   // comeca na boca e se estende para a frente (centrado, metade nascia atras da arma/camera)
   // laser: brilho que some nas bordas (mais forte de frente) e nas pontas, com
   // um nucleo branco por dentro (antes: tubo de cor chapada)
   const laserMat = (cor, forca = 1) => new THREE.ShaderMaterial({
     uniforms: usarCurva({ uCor: { value: new THREE.Color(cor) }, uF: { value: forca } }), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false,
-    vertexShader: `${CURVA_GLSL} varying vec3 vN, vV; varying float vY; void main(){ vec4 w = modelMatrix * vec4(position, 1.); vN = normalize(mat3(modelMatrix) * normal); vV = normalize(cameraPosition - w.xyz); vY = uv.y; gl_Position = projectionMatrix * viewMatrix * curvar(w); }`,
-    fragmentShader: 'uniform vec3 uCor; uniform float uF; varying vec3 vN, vV; varying float vY; void main(){ float f = abs(dot(normalize(vN), normalize(vV))); float pontas = smoothstep(0., .3, vY) * smoothstep(1., .75, vY); float a = pow(f, 1.4) * pontas * uF; vec3 c = mix(uCor * 1.3, vec3(1.), pow(f, 5.) * .7); gl_FragColor = vec4(c * a, a); }'
+    // (visto de tras, ao longo do comprimento — da cabine, do ombro — o "de frente"
+    // zera: o termo "ao longo" mantem o laser aceso)
+    vertexShader: `${CURVA_GLSL} varying vec3 vN, vV, vE; varying float vY; void main(){ vec4 w = modelMatrix * vec4(position, 1.); vN = normalize(mat3(modelMatrix) * normal); vE = normalize(mat3(modelMatrix) * vec3(0., 0., 1.)); vV = normalize(cameraPosition - w.xyz); vY = uv.y; gl_Position = projectionMatrix * viewMatrix * curvar(w); }`,
+    fragmentShader: 'uniform vec3 uCor; uniform float uF; varying vec3 vN, vV, vE; varying float vY; void main(){ vec3 V = normalize(vV); float f = abs(dot(normalize(vN), V)); float ao = abs(dot(normalize(vE), V)); f = max(f, smoothstep(.6, .98, ao) * .85); float pontas = smoothstep(0., .04, vY) * smoothstep(1., .96, vY); float a = pow(f, 1.4) * pontas * uF; vec3 c = mix(uCor * 1.3, vec3(1.), pow(f, 5.) * .7); gl_FragColor = vec4(c * a, a); }'
   });
   const mat = laserMat(0xff4fd8);
   const nucleoMat = laserMat(0xffffff, 1.2);
@@ -27,6 +29,11 @@ export function criarTiros() {
     grupo.add(m); lasers.push({ m, vel: new THREE.Vector3(), vida: 0, dados: null });
   }
   let prox = 0;
+  // feixes: o rastro de luz da boca ate a mira, que some em ~0,15 s (da cabine
+  // o laser e rapido demais para se ver saindo; o feixe mostra o disparo)
+  const feixes = [];
+  for (let i = 0; i < 8; i++) { const fm = laserMat(0xff4fd8); const m = new THREE.Mesh(geo, fm); m.visible = false; m.frustumCulled = false; grupo.add(m); feixes.push({ m, vida: 0 }); }
+  let pfx = 0;
 
   // faiscas das explosoes
   const NF = 400, pos = new Float32Array(NF * 3), vel = new Float32Array(NF * 3), vida = new Float32Array(NF), cor = new Float32Array(NF * 3);
@@ -41,7 +48,7 @@ export function criarTiros() {
   let pf = 0;
   const claroes = [];
   for (let i = 0; i < 6; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: texClarao, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })); s.visible = false; grupo.add(s); claroes.push({ s, vida: 0, tam: 1 }); }
-  let pc = 0;
+  let pc = 0; const _branco = new THREE.Color(1, 1, 1);
   const _d = new THREE.Vector3(), _e = new THREE.Vector3(), _f = new THREE.Vector3(), _z = new THREE.Vector3(0, 0, 1);
   // cor por arma (um material por cor)
   const mats = new Map([[0xff4fd8, mat]]);
@@ -58,7 +65,10 @@ export function criarTiros() {
       const fwd = _d.set(0, 0, 1).transformDirection(corpo.matrixWorld);
       for (const lado of o.lados || [-1, 1]) {
         const l = lasers[prox]; prox = (prox + 1) % N;
-        l.m.position.set(lado * 1.25, -.1, 1.2).applyMatrix4(corpo.matrixWorld);
+        const sa = o.saida || [1.25, -.1, 1.2];   // de onde sai (no corpo da nave); na cabine, embaixo do nariz, a vista
+        l.m.position.set(lado * sa[0], sa[1], sa[2]).applyMatrix4(corpo.matrixWorld);
+        if (o.clarao) this.clarao(l.m.position, o.clarao, o.cor);
+        if (o.feixe && o.ponto) this.feixe(l.m.position, o.ponto, o.cor, o.feixe);
         l.m.quaternion.setFromRotationMatrix(corpo.matrixWorld);
         l.m.scale.set(escala * (o.esc || 1), escala * (o.esc || 1), escala * (o.comp || 1));
         // com ponto de mira: cada laser sai da sua asa e converge nele
@@ -66,7 +76,7 @@ export function criarTiros() {
         if (o.ponto) l.m.quaternion.setFromUnitVectors(_z, dir);
         if (o.espalha) { dir.x += (Math.random() - .5) * o.espalha; dir.y += (Math.random() - .5) * o.espalha; dir.z += (Math.random() - .5) * o.espalha; dir.normalize(); }
         l.vel.copy(dir).multiplyScalar(o.vel || 1100).add(velNave);
-        l.vida = o.vida || 1.4; l.m.visible = true; l.m.material = matDe(o.cor || 0xff4fd8);
+        l.vida = o.vida || 1.4; l.m.visible = true; l.m.material = matDe(o.cor || 0xff4fd8); l.novo = true;
         l.dados = o.dados ? { ...o.dados } : null;
       }
     },
@@ -76,7 +86,19 @@ export function criarTiros() {
       l.m.position.copy(origem); l.m.quaternion.setFromUnitVectors(_z, dir);
       l.m.scale.setScalar(o.escala || .12); l.m.material = matDe(o.cor || 0xff4fd8);
       l.vel.copy(dir).multiplyScalar(o.vel || 220);
-      l.vida = o.vida || 1.6; l.m.visible = true; l.dados = o.dados || null;
+      l.vida = o.vida || 1.6; l.m.visible = true; l.dados = o.dados || null; l.novo = true;
+    },
+    /** feixe de luz de a ate b (some rapido) */
+    feixe(a, b, cor = 0xff4fd8, grossura = .5) {
+      const f = feixes[pfx]; pfx = (pfx + 1) % feixes.length;
+      _f.subVectors(b, a); const d = _f.length(); if (d < .01) return;
+      f.m.position.copy(a); f.m.quaternion.setFromUnitVectors(_z, _f.normalize()); f.m.scale.set(grossura, grossura, d / 16);
+      f.m.material.uniforms.uCor.value.set(cor); f.vida = .15; f.m.visible = true;
+    },
+    /** so o clarao (sem faiscas): o disparo visto da cabine */
+    clarao(p, tam = 1, cor = 0xffffff) {
+      const cl = claroes[pc]; pc = (pc + 1) % claroes.length;
+      cl.s.position.copy(p); cl.vida = .09; cl.dur = .09; cl.tam = tam; cl.s.visible = true; cl.s.material.color.set(cor).lerp(_branco, .4);
     },
     explodir(p, tam = 10, corBase = [1, .6, .3]) {
       const n = Math.min(90, 20 + tam * 2);
@@ -91,7 +113,7 @@ export function criarTiros() {
       }
       const cl = claroes[pc]; pc = (pc + 1) % claroes.length;
       // (tiros pequenos, das armas de mao: clarao e faiscas pequenos tambem)
-      cl.s.position.copy(p); cl.vida = tam < 4 ? .25 : .5; cl.dur = cl.vida; cl.tam = tam * (tam < 4 ? 1.1 : 2.2); cl.s.visible = true;
+      cl.s.material.color.setRGB(1, 1, 1); cl.s.position.copy(p); cl.vida = tam < 4 ? .25 : .5; cl.dur = cl.vida; cl.tam = tam * (tam < 4 ? 1.1 : 2.2); cl.s.visible = true;
       faiscas.material.size = Math.min(9, Math.max(.18, tam * .12));
     },
     /** move os lasers; testar(pos) -> true se bateu (o laser some) */
@@ -107,7 +129,8 @@ export function criarTiros() {
           l.vel.lerp(_f, 1 - Math.exp(-dt * 3.5)).setLength(Math.min(1600, v + 700 * dt));
           l.m.quaternion.setFromUnitVectors(_z, _e.copy(l.vel).normalize());
         }
-        l.m.position.addScaledVector(l.vel, dt);
+        // no quadro em que nasce ele fica na boca (senao ja aparecia ~18 m a frente: parecia nao sair e demorar)
+        if (l.novo) l.novo = false; else l.m.position.addScaledVector(l.vel, dt);
         // rastro de fumaca do missil
         if (a) { const k = pf; pf = (pf + 1) % NF; pos[k * 3] = l.m.position.x; pos[k * 3 + 1] = l.m.position.y; pos[k * 3 + 2] = l.m.position.z; vel[k * 3] = vel[k * 3 + 1] = vel[k * 3 + 2] = 0; vida[k] = .5; cor[k * 3] = .9; cor[k * 3 + 1] = .6; cor[k * 3 + 2] = .4; }
         if (l.vida <= 0 || (testar && testar(l.m.position, l.dados))) { l.vida = 0; l.m.visible = false; }
@@ -121,6 +144,7 @@ export function criarTiros() {
         if (f < .05) { cor[k * 3] = cor[k * 3 + 1] = cor[k * 3 + 2] = 0; }
       }
       gf.attributes.position.needsUpdate = true; gf.attributes.color.needsUpdate = true;
+      for (const f of feixes) { if (f.vida <= 0) continue; f.vida -= dt; f.m.material.uniforms.uF.value = 2 * Math.max(0, f.vida / .15); if (f.vida <= 0) f.m.visible = false; }
       for (const cl of claroes) {
         if (cl.vida <= 0) continue;
         cl.vida -= dt; const k = Math.max(0, cl.vida / (cl.dur || .5));

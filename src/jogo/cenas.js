@@ -152,9 +152,9 @@ function montarPlaneta(d, i, raio, guarda) {
  * planeta e some na borda (pela distancia do raio de visao ao centro), mais
  * um brilho na beirada do disco. Aditiva; `forca` apaga quando a nave entra.
  */
-const ATM_ALT = 1.2;
+const ATM_ALT = 1.1;
 function atmosfera(raio, cor, guarda) {
-  const u = { cor: { value: new THREE.Color(`hsl(${cor},85%,62%)`) }, forca: { value: 1 }, rP: { value: raio }, rS: { value: raio * ATM_ALT } };
+  const u = { cor: { value: new THREE.Color(`hsl(${cor},95%,58%)`) }, forca: { value: 1 }, rP: { value: raio }, rS: { value: raio * ATM_ALT } };
   const vs = `varying vec3 vW; varying vec3 vC; varying float vE; varying vec3 vN;
     void main(){ vec4 w = modelMatrix * vec4(position,1.); vW = w.xyz; vC = (modelMatrix * vec4(0.,0.,0.,1.)).xyz;
       vE = length(modelMatrix[0].xyz); vN = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * viewMatrix * w; }`;
@@ -165,7 +165,16 @@ function atmosfera(raio, cor, guarda) {
         vec3 d = normalize(vW - cameraPosition), oc = vC - cameraPosition;
         float b = length(oc - d * dot(oc, d));
         float h = clamp((b - rP * vE) / ((rS - rP) * vE), 0., 1.);
-        float a = pow(1. - h, 2.4) * forca;
+        // so uma faixa na borda: por cima do disco o brilho some logo para dentro
+        // (antes cobria o planeta inteiro e ele ficava esbranquicado)
+        float dentro = smoothstep(rP * vE * .9, rP * vE, b);
+        float a = pow(1. - h, 3.2) * dentro * forca;
+        // lado do sol (no centro do sistema) mais forte; o lado da noite quase apaga
+        vec3 pr = cameraPosition + d * dot(oc, d);
+        float dia = .2 + .8 * smoothstep(-.35, .5, dot(normalize(pr - vC), normalize(-vC)));
+        // camera perto ou dentro da casca (entrando/saindo): apaga
+        float longe = smoothstep(rS * vE * 1.05, rS * vE * 1.6, length(oc));
+        a *= dia * longe;
         gl_FragColor = vec4(cor * a, 1.);
       }`
   })));
@@ -173,7 +182,7 @@ function atmosfera(raio, cor, guarda) {
     uniforms: u, vertexShader: vs, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
     fragmentShader: `uniform vec3 cor; uniform float forca; varying vec3 vW; varying vec3 vN;
       void main(){ float f = 1. - max(0., dot(normalize(vN), normalize(cameraPosition - vW)));
-        gl_FragColor = vec4(cor * pow(f, 3.) * .9 * forca, 1.); }`
+        gl_FragColor = vec4(cor * pow(f, 4.) * .45 * forca, 1.); }`
   })));
   const g = new THREE.Group(); g.add(casca, borda); g.uniforms = u;
   return g;
@@ -691,11 +700,11 @@ export function criarEspaco(cena) {
       orbitas.forEach((l) => { l.material.opacity = .18 * (1 - o.kFora); l.visible = o.kFora < 1; });
       cinturao.material.opacity = 1 - o.kFora; cinturao.visible = rochas.inst.visible = o.kFora < 1;
       // as luzes viram as da superficie
-      luzEntrada.intensity = 2.2 * o.kLuz; luzEntrada.target.position.copy(o.centro);
+      luzEntrada.intensity = 1.25 * o.kLuz;   // (mais fraca: com a do ceu e o hemisferio, o planeta perto estourava de branco) luzEntrada.target.position.copy(o.centro);
       luzEntrada.position.copy(LUZ_SUP).applyQuaternion(o.qS2W).multiplyScalar(o.R * 3).add(o.centro);
-      hemi.intensity = .9 * o.kLuz; hemi.position.set(0, 1, 0).applyQuaternion(o.qS2W);
+      hemi.intensity = .5 * o.kLuz; hemi.position.set(0, 1, 0).applyQuaternion(o.qS2W);
       luzesSite.forEach(([l, i]) => { l.intensity = i * (1 - o.kLuz); });
-      luzSol.intensity = 235 * Math.pow(ESC, 1.34) * (1 - o.kLuz); luzSolSup.intensity = 3 * o.kLuz;
+      luzSol.intensity = 235 * Math.pow(ESC, 1.34) * (1 - o.kLuz); luzSolSup.intensity = 1.7 * o.kLuz;
       // o planeta vai ganhando a cor do globo da superficie
       // com atmosfera: o ceu da cor do planeta cobre as estrelas e entra a
       // mesma neblina da superficie naquela altitude
