@@ -12,7 +12,7 @@ import { criarInterior, RAIO_SALA } from './interior.js';
 import { emblema } from './predios.js';
 import { criarRoda, desenharSilhueta } from './roda.js';
 import { criarRede, bolhaEscudo } from './rede.js';
-import { ambienteArmas, maosPrimeiraPessoa, criarRastroLamina, criarLuva } from './armas3d.js';
+import { ambienteArmas, criarRastroLamina } from './armas3d.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { CURVA, curvarCena } from './curva.js';
 import { criarCabine } from './cabine.js';
@@ -281,7 +281,7 @@ export async function abrirJogo() {
     if (e.code === 'KeyM' && !e.repeat) alternarMapa();
     if (e.code === 'Tab') { e.preventDefault(); if (!e.repeat) mostrarTab(true); }
     if (e.code === 'KeyI') { if (!e.repeat) { if (roda.aberta) fecharRoda(true); else abrirRoda(); } }
-    if (e.code === 'KeyV' && !e.repeat) { if (s.aPe) alternarPrimeiraPessoa(); else if (s.modo === 'espaco' || s.modo === 'superficie') { s.cabine = !s.cabine; som.bip(s.cabine ? 880 : 600, .05); } }
+    if (e.code === 'KeyV' && !e.repeat && (s.aPe || s.modo === 'espaco' || s.modo === 'superficie')) alternarPrimeiraPessoa();   // a mesma visao a pe e na nave
     if (/^Digit[1-4]$/.test(e.code) && !e.repeat) escolherArma(+e.code.slice(5) - 1, s.aPe);
     if (e.code === 'KeyN' && !e.repeat) alternarSom();
     if (e.code === 'KeyP' && !e.repeat) alternarPvp();
@@ -448,7 +448,7 @@ export async function abrirJogo() {
   rede = sess ? criarRede({ token: sess.token, host: HOST_SALAS, modeloNave: nave.modeloBase, aoEvento: (tipo, m) => eventoRede(tipo, m) }) : null;
   const salaAtual = () => (mundo.planetas ? 'espaco' : 'planeta-' + s.planeta.key);
   queueMicrotask(() => rede?.entrar(salaAtual()));
-  queueMicrotask(() => cena.add(vista1, cabine.grupo));
+  queueMicrotask(() => cena.add(cabine.grupo));
   let cadencia = 0, dobraAnt = 0, jetAgora = 0;
 
   s = {
@@ -495,7 +495,7 @@ export async function abrirJogo() {
     desenhar(cena, camera); renderer.copyFramebufferToTexture(fotoTex); dissolve = 1;
     mundo.destruir();
     cena = ent.cenaProx; mundo = ent.mundoProx; ent.cenaProx = ent.mundoProx = null;
-    cena.add(nave.raiz, nave.rastro, astro.raiz, astro.fumaca, tiros.grupo, vista1, cabine.grupo);
+    cena.add(nave.raiz, nave.rastro, astro.raiz, astro.fumaca, tiros.grupo, cabine.grupo);
     queueMicrotask(() => rede?.entrar(salaAtual()));   // outro lugar = outra sala
   }
   const _mb = new THREE.Matrix4();
@@ -565,7 +565,7 @@ export async function abrirJogo() {
     pe.pos.copy(s.pos).addScaledVector(lado, 5.2); pe.pos.y = mundo.alturaChao(pe.pos.x, pe.pos.z);
     pe.rumo = Math.atan2(lado.x, lado.z); pe.vel.set(0, 0, 0); pe.velY = 0; pe.noChao = true;
     astro.raiz.visible = true; astro.gesto('Wave');
-    s.alvoRumo = pe.rumo + Math.PI * .85; s.alvoMira = -.05;    // camera vira para ver o rosto
+    s.alvoRumo = pe.rumo + (s.fp ? 0 : Math.PI * .85); s.alvoMira = -.05;    // terceira pessoa: a camera vira para ver o rosto
     $('.jogo-titulo span').textContent = `explorando ${s.planeta.nome}`;
   }
   function embarcar() {
@@ -728,27 +728,17 @@ export async function abrirJogo() {
   rodaCv.addEventListener('pointermove', (e) => { if (!preso()) roda.apontar(e.clientX, e.clientY); });
   rodaCv.addEventListener('click', (e) => { roda.apontar(e.clientX, e.clientY); fecharRoda(true); });
 
-  /* primeira pessoa (V, a pe): camera no capacete, o corpo some e a arma
-     aparece na frente da tela (um modelo so para a visao) */
-  const vista1 = new THREE.Group(); vista1.visible = false;
-  const vmModelos = {}; let vmChute = 0;
+  /* primeira pessoa (V, a pe): camera no capacete do proprio astronauta. O
+     corpo continua la (so a cabeca some): os bracos, as maos e a arma que se
+     ve sao os de verdade, com as mesmas animacoes de tiro, recarga, sabre e
+     granada; o tronco inclina com a mira para a arma acompanhar o olhar */
+  const FP = { giro: .16, frente: .05, alto: 1.75 };   // ajuste da camera da primeira pessoa (ver window.__jogo.FP)
+  let FP_GIRO = FP.giro, FP_FRENTE = FP.frente, FP_ALTO = FP.alto;
+  // correndo (Shift) armado: pose de corrida (0..1); balanco dos passos, tranco
+  // da queda e a mira "atrasada" (a arma acompanha o mouse com um leve atraso)
+  let corridaK = 0, bobFase = 0, quedaDip = 0, miraSuave = 0;
   function alternarPrimeiraPessoa(v = !s.fp) {
     s.fp = v; raiz.classList.toggle('fp', v); som.bip(v ? 880 : 600, .05);
-    camera.near = v ? .08 : .4; camera.updateProjectionMatrix();
-  }
-  function atualizarVista1(dt) {
-    const id = ARMAS[armaIdx].id, on = !!(s.fp && s.aPe && id);
-    vista1.visible = on; if (!on) return;
-    if (!vmModelos[id]) { vmModelos[id] = astro.modeloArma(id); vmModelos[id].add(maosPrimeiraPessoa(id, vmModelos[id])); vmModelos[id].scale.setScalar(.85); vista1.add(vmModelos[id]); }
-    vmModelos[id].userData.recarga(recarregando && recarregando.id === id ? recarregando.t / recarregando.dur : -1);
-    if (id === 'espada') vmModelos[id].userData.golpe(golpeVM);
-    for (const k in vmModelos) vmModelos[k].visible = k === id;
-    vmChute *= Math.exp(-dt * 14);
-    const bal = Math.hypot(pe.vel.x, pe.vel.z) * (pe.noChao ? 1 : 0), t = tTotal;
-    const sab = id === 'espada';   // o sabre fica mais alto e mais para o meio (as duas maos no cabo aparecem)
-    _v.set((sab ? .17 : .24) + Math.sin(t * 5) * .004 * bal, (sab ? -.19 : -.23) + Math.abs(Math.cos(t * 5)) * .006 * bal + vmChute * .03, -.55 + vmChute * .09).applyQuaternion(camera.quaternion);
-    vista1.position.copy(camera.position).add(_v);
-    vista1.quaternion.copy(camera.quaternion).multiply(_qGiro);
   }
   const _qGiro = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
   // cabine da nave (V pilotando): painel, manche e acelerador na frente da camera
@@ -790,12 +780,12 @@ export async function abrirJogo() {
   function atirarAPe() {
     const a = ARMAS[armaIdx]; if (!a.id) return;
     if (a.corpo) return golpear();
+    if (corridaK > .35) return;   // correndo com a arma abaixada/levantada: nao atira
     // pente: municao infinita, mas acabou o pente tem que recarregar
     if (recarregando) return;
     if (pente[a.id] <= 0) { recarregar(); return; }
     pente[a.id]--; ultimoTiro = tTotal;
-    if (s.fp && vmModelos[a.id]) { vista1.updateMatrixWorld(true); vmModelos[a.id].userData.boca.getWorldPosition(_bc); const fl = vmModelos[a.id].userData.clarao; fl.material.opacity = 1; setTimeout(() => { fl.material.opacity = 0; }, 50); vmChute = 1; }
-    else astro.boca(_bc);
+    astro.boca(_bc);
     pontoDaMira(_mira); miraAbre = Math.min(1, miraAbre + (a.id === 'rifle' ? .25 : .6));
     mdy -= a.id === 'canhao' ? 26 : a.id === 'blaster' ? 9 : 4;   // coice: a mira sobe um pouco
     const dir = _dirC.subVectors(_mira, _bc).normalize();
@@ -858,20 +848,19 @@ export async function abrirJogo() {
   }
 
   // sabre: corte na diagonal; acerta o que estiver ate ~3 m num leque de ~110 graus
-  let golpeVM = -1, golpeAcertou = false, golpeT = -1;
+  let golpeAcertou = false, golpeT = -1;
   const rastro = criarRastroLamina(0xff6ae0);
   const _rb = new THREE.Vector3(), _rp = new THREE.Vector3();
   function golpear() {
     if (golpeT >= 0) return;
-    golpeT = 0; golpeAcertou = false; golpeVM = 0;
+    golpeT = 0; golpeAcertou = false;
     astro.golpear(); setTimeout(() => som.sabre('corte'), 70);
     if (rastro.mesh.parent !== cena) cena.add(rastro.mesh);
   }
   const _gf = new THREE.Vector3(), _gp = new THREE.Vector3();
   function atualizarGolpe(dt) {
-    if (golpeVM >= 0) { golpeVM += dt / .45; if (golpeVM >= 1) golpeVM = -1; }
     // o rastro: uma fita de luz entre a base e a ponta da lamina, so no corte
-    const sab = s.fp ? vmModelos.espada : astro.armaObj('espada'), kG = golpeT / .45;
+    const sab = astro.armaObj('espada'), kG = golpeT / .45;
     if (sab?.userData.ponta && sab.visible) {
       sab.updateWorldMatrix(true, true);
       sab.userData.baseLamina.getWorldPosition(_rb); sab.userData.ponta.getWorldPosition(_rp);
@@ -921,38 +910,20 @@ export async function abrirJogo() {
   const matGranada = new THREE.MeshStandardMaterial({ color: 0x2a2836, metalness: .7, roughness: .3, emissive: new THREE.Color(0xb36bff), emissiveIntensity: 1 });
   const geoGranada = new THREE.IcosahedronGeometry(.13, 1), geoAnelG = new THREE.TorusGeometry(.15, .025, 6, 20);
   // G: o astronauta pega a granada no cinto, leva o braco para tras e joga por
-  // cima (a granada sai da MAO, ~0,3 s depois); na primeira pessoa a luva
-  // esquerda faz o mesmo movimento na frente da camera
-  let granadaSolta = -1, arremVM = -1;
+  // cima (a granada sai da MAO, ~0,3 s depois)
+  let granadaSolta = -1;
   function lancarGranada() {
     if (!s.aPe || s.dentro || morto || granadaCd > 0 || painelAberto || granadaSolta >= 0) return;
-    granadaCd = 3.5; granadaSolta = .3; arremVM = 0;
+    granadaCd = 3.5; granadaSolta = .3;
     astro.arremessar(); som.mecanico('solta');
   }
   function soltarGranada() {
     const g = new THREE.Mesh(geoGranada, matGranada.clone()); const anel = new THREE.Mesh(geoAnelG, new THREE.MeshBasicMaterial({ color: 0xd9a6ff })); g.add(anel);
-    if (s.fp && maoGranada.visible) granadaVM.getWorldPosition(g.position); else astro.maoEsqPos(g.position);
+    astro.maoEsqPos(g.position);
     camera.getWorldDirection(_dirG);
     const v = new THREE.Vector3().copy(_dirG).multiplyScalar(17).add(pe.vel); v.y += 5.5;
     cena.add(g); granadas.push({ m: g, v, vida: 1.7, anel });
     som.sabre('corte');
-  }
-  // a luva da primeira pessoa com a granada (no espaco da camera, como a arma)
-  const maoGranada = new THREE.Group(); maoGranada.visible = false;
-  const luvaG = criarLuva(true); maoGranada.add(luvaG);
-  const granadaVM = new THREE.Mesh(geoGranada, matGranada); granadaVM.scale.setScalar(.6); granadaVM.position.set(.0, .02, .07); luvaG.add(granadaVM);
-  const ARREM_VM = [[0, .32, -.5, .35, -.4], [.3, .3, -.02, .16, -.2], [.5, .12, .08, .6, -1.1], [.75, .02, -.25, .62, -1.3], [1, .1, -.65, .5, -1]];
-  function atualizarArremessoVM(dt) {
-    if (arremVM >= 0) { arremVM += dt / .6; if (arremVM >= 1) arremVM = -1; }
-    const on = arremVM >= 0 && s.fp && s.aPe;
-    maoGranada.visible = on; if (!on) return;
-    if (maoGranada.parent !== cena) cena.add(maoGranada);
-    const k = arremVM; let i = 1; while (i < ARREM_VM.length - 1 && k > ARREM_VM[i][0]) i++;
-    const a = ARREM_VM[i - 1], b = ARREM_VM[i], u = Math.min(1, (k - a[0]) / (b[0] - a[0])), e = u * u * (3 - 2 * u);
-    luvaG.position.set(a[1] + (b[1] - a[1]) * e, a[2] + (b[2] - a[2]) * e, a[3] + (b[3] - a[3]) * e);
-    luvaG.rotation.set(a[4] + (b[4] - a[4]) * e, 0, .3);
-    granadaVM.visible = k < .5;
-    maoGranada.position.copy(camera.position); maoGranada.quaternion.copy(camera.quaternion).multiply(_qGiro);
   }
   const _dirG = new THREE.Vector3();
   function atualizarGranadas(dt) {
@@ -1039,7 +1010,7 @@ export async function abrirJogo() {
   }
   const NOME_ARMA = { blaster: 'blaster', rifle: 'rifle', canhao: 'canhão', laser: 'lasers', plasma: 'plasma', missil: 'míssil', ions: 'íons' };
   function eventoRede(tipo, m) {
-    if (tipo === 'conectado' && m.admin && !souAdm) { souAdm = true; nave.pintar({ matiz: matizDe(sess.usuario), admin: true }); pintarAstronautaAdmin(astro.raiz); astro.raiz.add(aureolaAdmin()); $('.jogo-conta').classList.add('adm'); $('.jogo-conta').style.setProperty('--cj', minhaCor()); }
+    if (tipo === 'conectado' && m.admin && !souAdm) { souAdm = true; nave.pintar({ matiz: matizDe(sess.usuario), admin: true }); pintarAstronautaAdmin(astro.raiz); { const au = aureolaAdmin(); au.userData.cabecaAdm = true; astro.raiz.add(au); } $('.jogo-conta').classList.add('adm'); $('.jogo-conta').style.setProperty('--cj', minhaCor()); }
     if (tipo === 'entrou') noFeed(`<b style="color:${corCss(matizDe(m.nome), m.admin)}">${m.admin ? '👑 ' : ''}${m.nome}</b>${m.admin ? ' <span class="selo-adm">ADM</span>' : ''} entrou aqui`);
     else if (tipo === 'saiu') noFeed(`<b>${m.nome}</b> saiu`);
     else if (tipo === 'erro') noFeed(`<span class="ruim">${m.msg}</span>`);
@@ -1437,7 +1408,7 @@ export async function abrirJogo() {
     const emDobra = !naSuperficie && s.dobra > .05;
     // S freia e, parado, da re; A/D sao propulsores laterais de verdade (com embalo)
     const re = naSuperficie ? 30 : 140, ladoAcel = naSuperficie ? 38 : 150;
-    s.vel.addScaledVector(FRENTE, (acelera * (emDobra ? 2300 * s.dobra + 280 : turbo ? 95 : naSuperficie ? 42 : 280) - freia * (emDobra ? 600 : s.vel.dot(FRENTE) > 5 ? 160 : re)) * dt);
+    s.vel.addScaledVector(FRENTE, (acelera * (emDobra ? 2300 * s.dobra + 280 : turbo ? 200 : naSuperficie ? 85 : 280) - freia * (emDobra ? 600 : s.vel.dot(FRENTE) > 5 ? 160 : re)) * dt);
     s.vel.x += Math.cos(s.alvoRumo) * lado * ladoAcel * dt; s.vel.z -= Math.sin(s.alvoRumo) * lado * ladoAcel * dt;   // lados da visao
     s.vel.y += sobe * dt * (naSuperficie ? 42 : 30);
     // arrasto: a parte lateral e forte (a nave "segura" na curva); solta, para e paira
@@ -1448,7 +1419,7 @@ export async function abrirJogo() {
     const solto = !acelera && !freia && !lado && !sobe;
     s.vel.multiplyScalar(Math.exp(-dt * (acelera ? (emDobra ? .05 : .35) : solto ? 1.8 : .9)));
     if (naSuperficie) s.vel.y *= Math.exp(-dt * (sobe ? .9 : 3));
-    const max = naSuperficie ? (turbo ? 150 : 70) : 480 + s.dobra * 3200; if (s.vel.length() > max) s.vel.setLength(s.vel.length() + (max - s.vel.length()) * (1 - Math.exp(-dt * 3)));
+    const max = naSuperficie ? (turbo ? 330 : 140) : 480 + s.dobra * 3200; if (s.vel.length() > max) s.vel.setLength(s.vel.length() + (max - s.vel.length()) * (1 - Math.exp(-dt * 3)));
     // re e lateral tem teto proprio (mais baixo que pra frente)
     { const vf = s.vel.dot(FRENTE), maxRe = naSuperficie ? 30 : 160; if (vf < -maxRe) s.vel.addScaledVector(FRENTE, -maxRe - vf); }
     { _v.copy(FRENTE).multiplyScalar(s.vel.dot(FRENTE)); _m.subVectors(s.vel, _v); const lt = Math.hypot(_m.x, _m.z), maxL = naSuperficie ? 45 : 220; if (lt > maxL) { s.vel.x -= _m.x * (1 - maxL / lt); s.vel.z -= _m.z * (1 - maxL / lt); } }
@@ -1580,7 +1551,7 @@ export async function abrirJogo() {
     nave.raiz.position.copy(s.pos);
     nave.raiz.rotation.order = 'YXZ';
     const cinema = s.modo === 'entrando' || s.modo === 'saindo';
-    cabineOn = !!(s.cabine && !s.aPe && !cinema && !morto && (s.modo === 'espaco' || s.modo === 'superficie'));
+    cabineOn = !!(s.fp && !s.aPe && !cinema && !morto && (s.modo === 'espaco' || s.modo === 'superficie'));
     if (cinema) nave.raiz.quaternion.copy(ent.qN);
     else { nave.raiz.rotation.y = s.rumo; nave.raiz.rotation.x = -s.mira; nave.raiz.rotation.z = 0; }
     nave.corpo.rotation.z = -s.banco; nave.corpo.rotation.x = s.arfagem;
@@ -1625,8 +1596,16 @@ export async function abrirJogo() {
       camRel.subVectors(camPos, s.pos); olhaRel.subVectors(camOlha, s.pos);
     } else if (s.aPe && s.fp) {
       // primeira pessoa: camera no capacete
-      _m.copy(pe.pos); _m.y += 1.62;
-      camPos.copy(_m).addScaledVector(_v.set(Math.sin(s.alvoRumo), 0, Math.cos(s.alvoRumo)), .12);
+      // (na frente do rosto: ombros e bracos ficam atras da camera; so antebracos,
+      // maos e arma aparecem, como numa visao de jogo)
+      _m.copy(pe.pos); _m.y += FP_ALTO;
+      camPos.copy(_m).addScaledVector(_v.set(Math.sin(s.alvoRumo), 0, Math.cos(s.alvoRumo)), FP_FRENTE);
+      // balanco dos passos (mais forte correndo) e o tranco da queda
+      const vPe = pe.noChao ? Math.hypot(pe.vel.x, pe.vel.z) : 0;
+      bobFase += dt * vPe * 1.35; quedaDip *= Math.exp(-dt * 7);
+      const amp = Math.min(1, vPe / 6) * (.022 + corridaK * .02);
+      camPos.y += -Math.abs(Math.sin(bobFase)) * amp - quedaDip - corridaK * .1;   // correndo, o corpo inclina e a cabeca desce um pouco
+      camPos.addScaledVector(_v.set(-Math.cos(s.alvoRumo), 0, Math.sin(s.alvoRumo)), Math.sin(bobFase) * amp * .6);
       _m.copy(camPos).add(FRENTE);
     } else if (s.aPe) {
       // terceira pessoa a pe: atras e acima do astronauta (armado: por cima do ombro direito)
@@ -1700,9 +1679,8 @@ export async function abrirJogo() {
       cabine.atualizar(dt, { vira: Math.max(-1, Math.min(1, dR * 2.5)), sobe: Math.max(-1, Math.min(1, (s.alvoMira - s.mira) * 3)), empuxo, vel: veloc,
         alt: mundo.planetas ? null : s.pos.y - mundo.alturaChao(s.pos.x, s.pos.z), arma: NAVE_ARMAS[navArmaIdx].nome, escudo: escudoT > 0 });
     }
-    astro.raiz.visible = !!s.aPe && !s.fp;
-    if (s.aPe) atualizarVista1(dt); else vista1.visible = false;
-    atualizarArremessoVM(dt);
+    astro.raiz.visible = !!s.aPe;
+    astro.primeiraPessoa(!!(s.aPe && s.fp));
     // mira de arma (a pe, armado): abre a cada tiro e fecha sozinha
     miraAbre *= Math.exp(-dt * 6);
     raiz.classList.toggle('mira-arma', !!(s.aPe && ARMAS[armaIdx].id && !ARMAS[armaIdx].corpo)); raiz.style.setProperty('--abre', (6 + miraAbre * 14).toFixed(1) + 'px');
@@ -1902,17 +1880,21 @@ export async function abrirJogo() {
       if (pe.pos.y > teto) { pe.pos.y = teto; pe.velY = Math.min(0, pe.velY); }
       if (pe.pos.y <= chao) {
         if (pe.velY < -7) { som.pouso(); if (!dentro) mundo.levantarPoeira(pe.pos.x, pe.pos.z, .25); }
+        if (pe.velY < -3) quedaDip = Math.min(.14, -pe.velY * .011);   // tranco da queda (camera e arma)
         pe.pos.y = chao; pe.velY = 0; pe.noChao = true; pe.voando = false;
         pe.vel.multiplyScalar(.4);             // pousa freando
       }
     }
     // olha para onde a camera olha (andando ou voando); parado, fica como esta
     const v = Math.hypot(pe.vel.x, pe.vel.z);
-    if ((v > .3 || jet || ARMAS[armaIdx].id || s.fp) && pe.rolando <= 0) pe.rumo += Math.atan2(Math.sin(s.alvoRumo - pe.rumo), Math.cos(s.alvoRumo - pe.rumo)) * (1 - Math.exp(-dt * 10));
+    const sprint = pe.noChao && v > 4.5 && !!ARMAS[armaIdx].id && pe.rolando <= 0 && (ok('ShiftLeft', 'ShiftRight') || tq.turbo > 0);
+    corridaK += ((sprint ? 1 : 0) - corridaK) * (1 - Math.exp(-dt * 9));
+    miraSuave += (s.alvoMira - miraSuave) * (1 - Math.exp(-dt * 16));
+    if ((v > .3 || jet || ARMAS[armaIdx].id || s.fp) && pe.rolando <= 0) { const alvoR = s.alvoRumo - (s.fp && ARMAS[armaIdx].id ? FP_GIRO : 0); pe.rumo += Math.atan2(Math.sin(alvoR - pe.rumo), Math.cos(alvoR - pe.rumo)) * (1 - Math.exp(-dt * (s.fp ? 20 : 10))); }   // primeira pessoa: o corpo vira junto com o olhar (um pouco para a direita: a arma, no ombro direito, aponta para a mira)
     astro.raiz.position.copy(pe.pos); astro.raiz.rotation.y = pe.rumo;
     // velocidade local para as animacoes (frente / lado esquerdo)
     const sr = Math.sin(pe.rumo), cr = Math.cos(pe.rumo);
-    const ev = astro.atualizar(dt, { frente: pe.vel.x * sr + pe.vel.z * cr, lado: pe.vel.x * cr - pe.vel.z * sr, noChao: pe.noChao, jet });
+    const ev = astro.atualizar(dt, { frente: pe.vel.x * sr + pe.vel.z * cr, lado: pe.vel.x * cr - pe.vel.z * sr, noChao: pe.noChao, jet, mira: (ARMAS[armaIdx].id || s.fp ? miraSuave : 0) * (1 - corridaK), corrida: corridaK });
     if (ev) { som.passo(ev === 'corrida'); if (!dentro && ev === 'corrida') mundo.levantarPoeira(pe.pos.x, pe.pos.z, .015); }
     return jet;
   }
@@ -2084,7 +2066,7 @@ export async function abrirJogo() {
   raf(quadro);
   // modo de teste (?debugjogo): avanca a simulacao sem depender do rAF
   if (/debugjogo/.test(location.search)) { semTrava = true; raiz.classList.add('sem-trava'); }   // teste: sem convite de clique
-  if (/debugjogo/.test(location.search)) window.__jogo = { s, pe, tecla, mouse: (x, y) => { mdx += x; mdy += y; }, passo: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) passo(dt); }, interagir, get alvo() { return alvoPerto; }, get mundo() { return mundo; }, get predioPerto() { return predioPerto; }, get mapaInfo() { return mapaInfo; }, get destino() { return destino; }, get tiros() { return tiros; }, camera, get nave() { return nave; }, get voz() { return voz; }, get rede() { return rede; }, renderer, cena, get astro() { return astro; }, cabine: (v) => { s.cabine = v; }, granada: () => lancarGranada(), golpear: () => golpear(), recarregar: () => recarregar(), atirar: () => atirarAPe(), escolherArma: (i) => escolherArma(i), alternarPrimeiraPessoa };
+  if (/debugjogo/.test(location.search)) window.__jogo = { s, pe, tecla, mouse: (x, y) => { mdx += x; mdy += y; }, passo: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) passo(dt); }, interagir, get alvo() { return alvoPerto; }, get mundo() { return mundo; }, get predioPerto() { return predioPerto; }, get mapaInfo() { return mapaInfo; }, get destino() { return destino; }, get tiros() { return tiros; }, camera, get nave() { return nave; }, get voz() { return voz; }, get rede() { return rede; }, renderer, cena, get astro() { return astro; }, cabine: (v) => { s.fp = v; }, granada: () => lancarGranada(), golpear: () => golpear(), recarregar: () => recarregar(), atirar: () => atirarAPe(), escolherArma: (i) => escolherArma(i), alternarPrimeiraPessoa, ajustarFP: (g, f, a) => { FP_GIRO = g; FP_FRENTE = f; FP_ALTO = a; } };
 
   function fechar() {
     rodando = false;

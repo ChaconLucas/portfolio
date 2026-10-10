@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { CURVA_GLSL, usarCurva } from './curva.js';
 
 /**
  * Tiros da nave (clique / botao no toque): dois lasers saindo das asas,
@@ -10,12 +11,19 @@ export function criarTiros() {
   const grupo = new THREE.Group();
   const N = 96;
   const geo = new THREE.CylinderGeometry(.22, .22, 16, 6, 1, true); geo.rotateX(Math.PI / 2);
-  const mat = new THREE.MeshBasicMaterial({ color: 0xff4fd8, transparent: true, opacity: .95, blending: THREE.AdditiveBlending, depthWrite: false });
-  const nucleoMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .9, blending: THREE.AdditiveBlending, depthWrite: false });
+  // laser: brilho que some nas bordas (mais forte de frente) e nas pontas, com
+  // um nucleo branco por dentro (antes: tubo de cor chapada)
+  const laserMat = (cor, forca = 1) => new THREE.ShaderMaterial({
+    uniforms: usarCurva({ uCor: { value: new THREE.Color(cor) }, uF: { value: forca } }), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false,
+    vertexShader: `${CURVA_GLSL} varying vec3 vN, vV; varying float vY; void main(){ vec4 w = modelMatrix * vec4(position, 1.); vN = normalize(mat3(modelMatrix) * normal); vV = normalize(cameraPosition - w.xyz); vY = uv.y; gl_Position = projectionMatrix * viewMatrix * curvar(w); }`,
+    fragmentShader: 'uniform vec3 uCor; uniform float uF; varying vec3 vN, vV; varying float vY; void main(){ float f = abs(dot(normalize(vN), normalize(vV))); float pontas = smoothstep(0., .3, vY) * smoothstep(1., .75, vY); float a = pow(f, 1.4) * pontas * uF; vec3 c = mix(uCor * 1.3, vec3(1.), pow(f, 5.) * .7); gl_FragColor = vec4(c * a, a); }'
+  });
+  const mat = laserMat(0xff4fd8);
+  const nucleoMat = laserMat(0xffffff, 1.2);
   const lasers = [];
   for (let i = 0; i < N; i++) {
     const m = new THREE.Mesh(geo, mat); m.visible = false; m.frustumCulled = false;
-    const n = new THREE.Mesh(geo, nucleoMat); n.scale.set(.4, .4, 1.05); m.add(n);
+    const n = new THREE.Mesh(geo, nucleoMat); n.scale.set(.32, .32, .9); m.add(n);
     grupo.add(m); lasers.push({ m, vel: new THREE.Vector3(), vida: 0, dados: null });
   }
   let prox = 0;
@@ -37,7 +45,7 @@ export function criarTiros() {
   const _d = new THREE.Vector3(), _e = new THREE.Vector3(), _f = new THREE.Vector3(), _z = new THREE.Vector3(0, 0, 1);
   // cor por arma (um material por cor)
   const mats = new Map([[0xff4fd8, mat]]);
-  const matDe = (cor) => { if (!mats.has(cor)) mats.set(cor, new THREE.MeshBasicMaterial({ color: cor, transparent: true, opacity: .95, blending: THREE.AdditiveBlending, depthWrite: false })); return mats.get(cor); };
+  const matDe = (cor) => { if (!mats.has(cor)) mats.set(cor, laserMat(cor)); return mats.get(cor); };
 
   return {
     grupo,
@@ -82,8 +90,9 @@ export function criarTiros() {
         cor[k * 3] = corBase[0] * (.7 + q * .3) + q * .3; cor[k * 3 + 1] = corBase[1] * (.7 + q * .5); cor[k * 3 + 2] = corBase[2] + q * .2;
       }
       const cl = claroes[pc]; pc = (pc + 1) % claroes.length;
-      cl.s.position.copy(p); cl.vida = .5; cl.tam = tam * 2.2; cl.s.visible = true;
-      faiscas.material.size = Math.min(9, Math.max(1.2, tam * .09));
+      // (tiros pequenos, das armas de mao: clarao e faiscas pequenos tambem)
+      cl.s.position.copy(p); cl.vida = tam < 4 ? .25 : .5; cl.dur = cl.vida; cl.tam = tam * (tam < 4 ? 1.1 : 2.2); cl.s.visible = true;
+      faiscas.material.size = Math.min(9, Math.max(.18, tam * .12));
     },
     /** move os lasers; testar(pos) -> true se bateu (o laser some) */
     atualizar(dt, testar) {
@@ -114,7 +123,7 @@ export function criarTiros() {
       gf.attributes.position.needsUpdate = true; gf.attributes.color.needsUpdate = true;
       for (const cl of claroes) {
         if (cl.vida <= 0) continue;
-        cl.vida -= dt; const k = Math.max(0, cl.vida / .5);
+        cl.vida -= dt; const k = Math.max(0, cl.vida / (cl.dur || .5));
         cl.s.scale.setScalar(cl.tam * (1.6 - k)); cl.s.material.opacity = k; if (cl.vida <= 0) cl.s.visible = false;
       }
     },

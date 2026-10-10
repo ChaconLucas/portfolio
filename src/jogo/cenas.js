@@ -1065,7 +1065,10 @@ export function criarSuperficie(cena, planeta, opc = {}) {
   // poeira levantada no pouso
   const NP = 90, pp = new Float32Array(NP * 3), vp = new Float32Array(NP * 3), vidaP = new Float32Array(NP);
   const gp = guarda(new THREE.BufferGeometry()); gp.setAttribute('position', new THREE.BufferAttribute(pp, 3));
-  const poeira = new THREE.Points(gp, guarda(new THREE.PointsMaterial({ color: new THREE.Color(`hsl(${cor},30%,70%)`), size: .7, transparent: true, opacity: .6, depthWrite: false })));
+  // (cada grao e uma nuvenzinha redonda e macia; sem textura o ponto saia quadrado)
+  const cvP = document.createElement('canvas'); cvP.width = cvP.height = 64;
+  { const x = cvP.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,.9)'); g.addColorStop(.45, 'rgba(255,255,255,.35)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); }
+  const poeira = new THREE.Points(gp, guarda(new THREE.PointsMaterial({ map: guarda(texDeCanvas(cvP)), color: new THREE.Color(`hsl(${cor},30%,70%)`), size: 1.1, transparent: true, opacity: .6, depthWrite: false })));
   poeira.frustumCulled = false; cena.add(poeira);
 
   /* ---- predios da stack: um por tecnologia, cada um no seu local ---- */

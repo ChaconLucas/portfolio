@@ -1047,3 +1047,31 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - tamanhos variados (~6% são estrelas grandes);
   - cada uma pisca no seu ritmo (`uT`), e a escala acompanha a altura do canvas (`uEsc`).
 - **Estrelas 2D do fundo** (canvas `universeStars`): o núcleo e o brilho agora têm a cor da estrela (azul, amarela, laranja, vermelha, lilás ou branca), com brilho mais forte.
+
+## Primeira pessoa com o corpo de verdade, visão única e nave mais rápida no planeta (09/10/2026)
+- **Primeira pessoa a pé** não usa mais um modelo separado com luvas montadas de caixas (`vista1`, `maosPrimeiraPessoa` e a luva da granada foram removidos):
+  - a câmera fica dentro do capacete do próprio astronauta;
+  - só a cabeça (`SpaceSuit_Head`) e a auréola do admin somem (`astro.primeiraPessoa()`);
+  - braços, mãos e arma são os do modelo, com as mesmas animações de tiro, recarga, sabre e granada;
+  - o corpo vira junto com o olhar, com `FP_GIRO` para a arma do ombro direito apontar para a mira.
+  - a câmera fica ~10 cm acima da cabeça e 5 cm à frente (`FP`, ajustável no teste com `__jogo.ajustarFP(giro, frente, alto)`). Com a câmera no centro da cabeça, os ombros low-poly enchiam a tela e a arma ficava no meio dela; assim aparecem só antebraços, mãos e arma, embaixo à direita.
+- **O peito inclina com a mira** para cima e para baixo quando armado (osso `Chest`, volta ao repouso todo quadro), nas duas visões: os braços e a arma acompanham o olhar.
+- **Visão única:** `s.fp` vale para a nave (cabine) e a pé. V alterna nos dois modos; entrar e sair da nave mantém a visão. Em primeira pessoa, sair da nave não vira a câmera para o rosto.
+- **Nave na superfície mais rápida:** máxima de 70 → 140 m/s e turbo de 150 → 330 m/s, com mais aceleração.
+
+## Correr armado, balanço da câmera e poeira redonda (09/10/2026)
+- **Shift correndo armado** (`corridaK` em `index.js`, `corrida` em `astro.atualizar`):
+  - **pistola e sabre** sobem numa mão só, perto do ombro; o braço esquerdo solta e o corpo usa a corrida normal;
+  - **rifle e canhão** descem na diagonal na frente do corpo, com as duas mãos;
+  - não dá para atirar até sair da corrida;
+  - na primeira pessoa a pose é mais contida e a cabeça desce um pouco, para a arma continuar na tela;
+  - tudo por `bracoDireito()` em `astronauta.js` (direção do braço e do antebraço no espaço do corpo). A guarda do sabre usa a mesma função.
+- **Primeira pessoa:** balanço dos passos (mais forte correndo), tranco da câmera ao cair de um pulo, e o corpo e a mira seguem o mouse com um leve atraso, então a arma "balança" ao virar.
+- **Poeira** do pouso e dos passos: os pontos ganharam textura redonda e macia (antes eram quadrados brancos).
+
+## Encaixe na mão, punho fechado e luz do tiro (09/10/2026)
+- **As armas iam presas no PULSO**, então o cabo ficava atrás da mão. Medido no modelo, o meio do punho fechado fica ~7 cm à frente do pulso (`_PUNHO` em `astronauta.js`). Agora todas as armas são montadas ali, e o cabo do sabre passa por dentro do punho.
+- **Dedos:** cada falange fecha 1,25 rad (antes 0,75), e o punho fecha de verdade em volta do cabo.
+- **Laser** (`tiros.js`): o tubo de cor chapada virou um shader com brilho que some nas bordas e nas pontas, núcleo branco por dentro e a curva do planeta.
+- **Clarão na boca da arma:** estrela pequena com raios finos (`texEstrela`) no lugar da bola borrada grande.
+- **Impacto dos tiros de mão:** clarão menor e mais curto, e faíscas pequenas (tamanho mínimo 1,2 → 0,18).

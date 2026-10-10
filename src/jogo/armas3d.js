@@ -26,7 +26,7 @@ import { CURVA_GLSL, usarCurva } from './curva.js';
  *  - golpe(k): corte do sabre (prepara, corta na diagonal, volta a guarda);
  *  - lamina, ponta, baseLamina (sabre): para o rastro de luz;
  *  - fixarBase(): guarda a pose de repouso (quem prende a arma na mao chama).
- * Tambem: maosPrimeiraPessoa() (luvas da primeira pessoa) e
+ * Tambem: criarLuva() (luva do traje, usada na cabine da nave) e
  * criarRastroLamina() (a fita de luz que segue a lamina no golpe).
  */
 const COR = { blaster: 0xff4fd8, rifle: 0x4fd2ff, canhao: 0xffa040, espada: 0xff4fd8 };
@@ -75,6 +75,22 @@ function texClarao() {
   const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);
   gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.35, 'rgba(255,255,255,.6)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
   return (_claraoTex = new THREE.CanvasTexture(c));
+}
+// clarao do tiro: estrela com raios finos e miolo branco (nao uma bola borrada)
+let _estrela = null;
+function texEstrela() {
+  if (_estrela) return _estrela;
+  const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
+  x.globalCompositeOperation = 'lighter';
+  const g = x.createRadialGradient(64, 64, 0, 64, 64, 30); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.35, 'rgba(255,255,255,.7)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 6; i++) {
+    const a = i / 6 * Math.PI * 2 + (i % 2) * .2, l = i % 2 ? 40 : 62;
+    x.save(); x.translate(64, 64); x.rotate(a);
+    const r = x.createLinearGradient(0, 0, l, 0); r.addColorStop(0, 'rgba(255,255,255,.95)'); r.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = r; x.beginPath(); x.moveTo(0, -3.5); x.lineTo(l, 0); x.lineTo(0, 3.5); x.closePath(); x.fill(); x.restore();
+  }
+  return (_estrela = new THREE.CanvasTexture(c));
 }
 let _reticulo = null;
 function texReticulo() {
@@ -216,7 +232,7 @@ export function montarArma(tipo) {
     // sabre de luz: cabo de cromo torneado, empunhadura de borracha com aneis,
     // botao aceso, coroa do emissor e a lamina em tres camadas
     const cab = new THREE.Group(); g.add(cab);
-    cab.rotation.x = .95; cab.position.set(0, -.045, -.012);   // lamina para a frente e para cima (guarda)
+    cab.rotation.x = .95; cab.position.set(0, .01, 0);   // a empunhadura (y ~ 0) no meio do punho   // lamina para a frente e para cima (guarda)
     por(cab, torno([[0, -.178], [.017, -.178], [.022, -.173], [.024, -.163], [.021, -.152], [.019, -.146], [.019, .02], [.022, .025], [.022, .07],
       [.025, .074], [.029, .118], [.026, .124], [.017, .124], [.017, .114], [0, .114]], 32), m.cromo);
     por(cab, new THREE.CylinderGeometry(.0205, .0205, .15, 24), m.borracha, 0, -.065);
@@ -260,8 +276,8 @@ export function montarArma(tipo) {
   const repousoMao = maoEsq.position.clone();
 
   const bocaObj = new THREE.Object3D(); bocaObj.position.copy(boca); g.add(bocaObj);
-  const fl = new THREE.Sprite(new THREE.SpriteMaterial({ map: texClarao(), color: cor.clone().lerp(new THREE.Color(1, 1, 1), .35), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
-  fl.scale.setScalar(tipo === 'canhao' ? .7 : .4); bocaObj.add(fl);
+  const fl = new THREE.Sprite(new THREE.SpriteMaterial({ map: texEstrela(), color: cor.clone().lerp(new THREE.Color(1, 1, 1), .45), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+  fl.scale.setScalar(tipo === 'canhao' ? .38 : tipo === 'rifle' ? .24 : .2); fl.position.z = .02; bocaObj.add(fl);
 
   /* ---- recarga: caminho da mao esquerda e da celula ---- */
   let velha = null, casaQ = null, compCel = 0;
@@ -386,11 +402,6 @@ export function criarRastroLamina(cor = 0xff4fd8, n = 22) {
   };
 }
 
-/**
- * Luvas para a primeira pessoa (no espaco da arma): mao direita no cabo e a
- * esquerda presa ao ponto maoEsq da arma (anda junto na recarga). Traje
- * branco/cinza.
- */
 /** uma luva do traje (primeira pessoa): punho fechado, polegar por cima e o
  *  antebraco saindo para tras (-z). esq = mao esquerda */
 export function criarLuva(esq) {
@@ -411,25 +422,4 @@ export function criarLuva(esq) {
   const friso = new THREE.Mesh(new THREE.CylinderGeometry(.051, .051, .012, 14), neon); friso.rotation.x = Math.PI / 2; friso.position.z = -.045; h.add(friso);
   const braco = new THREE.Mesh(new THREE.CylinderGeometry(.05, .06, .4, 14), luva); braco.rotation.x = Math.PI / 2; braco.position.z = -.29; h.add(braco);
   return h;
-}
-
-/**
- * Luvas para a primeira pessoa (no espaco da arma): mao direita no cabo e a
- * esquerda presa ao ponto maoEsq da arma (anda junto na recarga).
- */
-export function maosPrimeiraPessoa(tipo, arma) {
-  const g = new THREE.Group();
-  const mao = (pai, x, y, z, rx, ry, rz, esq) => { const h = criarLuva(esq); h.position.set(x, y, z); h.rotation.set(rx, ry, rz); pai.add(h); return h; };
-  const e = arma.userData.maoEsq;
-  if (tipo === 'espada') {
-    // sabre: as duas maos no cabo, a direita em cima e a esquerda no pomo
-    mao(g, 0, -.04, -.03, -.68, 0, 0, false);
-    mao(e, .004, .0, -.02, -.68, 0, 0, true);
-    return g;
-  }
-  mao(g, .0, -.035, -.02, -.25, 0, 0, false);
-  if (tipo === 'canhao') mao(e, -.01, -.01, 0, -.1, .5, Math.PI * .9, true);
-  else if (tipo === 'blaster') mao(e, -.01, .01, -.01, -.35, .35, .25, true);
-  else mao(e, -.02, .015, -.02, -.2, .55, .2, true);
-  return g;
 }
