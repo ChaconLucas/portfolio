@@ -635,8 +635,14 @@ function placaTexto(w, h, desenhar) {
      ping-pong        x -0,6..1  z -3,9         dois agentes jogando
      soneca           x -2,4..-0,8 z -4,3       pufes, alguem dormindo (zZ)
      servidor         x 5,7      z -4,7
-   Nos dutos do teto, pulsos de luz correm das mesas ate o monitor principal:
-   e o "estado de todos por SSE" do projeto, visto de fora. */
+   De cada tela sobe um pulso de luz na cor do estado: e o "estado de todos
+   por SSE" do projeto, visto de fora. (Dutos no teto, sem teto, liam como
+   varetas soltas cruzando a cena.) */
+// diminui a fonte (Silkscreen) ate o texto caber na largura
+function caber(c, texto, tam, largura) {
+  let t = tam;
+  do { c.font = `700 ${t}px Silkscreen, ui-monospace, monospace`; t -= 2; } while (t > 8 && c.measureText(texto).width > largura);
+}
 export function criarCoworking() {
   const raiz = new THREE.Group(); raiz.name = 'coworking';
   const Z = -5.2, XD = 6.2;   // parede do fundo e parede da direita
@@ -684,7 +690,7 @@ export function criarCoworking() {
   const ceu = ceuCidade();
   const vidroCeu = new THREE.MeshBasicMaterial({ map: ceu, toneMapped: false, color: 0xbbbbbb });
   const caixilho = new THREE.MeshStandardMaterial({ color: 0x15121a, roughness: .4, metalness: .6 });
-  [-1.7, .9, 3.5].forEach((x) => {
+  [-2.1, 1.0, 3.6].forEach((x) => {
     const j = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.3), vidroCeu); j.position.set(x, 2.05, Z + .01); raiz.add(j);
     [[0, .68, 1.62, .08], [0, -.68, 1.62, .08], [-.77, 0, .08, 1.44], [.77, 0, .08, 1.44], [0, 0, .04, 1.3], [0, .1, 1.5, .04]]
       .forEach(([dx, dy, l, a]) => raiz.add(peca(new THREE.BoxGeometry(l, a, .06), caixilho, x + dx, 2.05 + dy, Z + .04)));
@@ -693,9 +699,9 @@ export function criarCoworking() {
   const neon = tex(1024, 256, (c, w, h) => {
     c.textAlign = 'center'; c.textBaseline = 'middle';
     c.shadowColor = '#ff7a3a'; c.shadowBlur = 28; c.fillStyle = '#ffe2c8';
-    c.font = `${FONTE}, ui-monospace, monospace`; c.fillText('COWORKING·AGENTS', w / 2, h * .42);
-    c.shadowColor = '#5bbf6a'; c.fillStyle = '#b8f5c0'; c.font = '700 34px Silkscreen, ui-monospace, monospace';
-    c.fillText('● 8 TRABALHANDO   ● 2 PRECISAM DE VOCÊ', w / 2, h * .82);
+    caber(c, 'COWORKING·AGENTS', 96, w * .92); c.fillText('COWORKING·AGENTS', w / 2, h * .42);
+    c.shadowColor = '#5bbf6a'; c.fillStyle = '#b8f5c0';
+    caber(c, '● 8 TRABALHANDO   ● 2 PRECISAM DE VOCÊ', 34, w * .9); c.fillText('● 8 TRABALHANDO   ● 2 PRECISAM DE VOCÊ', w / 2, h * .82);
   });
   quandoFonte(FONTE, neon);
   const placa = new THREE.Mesh(new THREE.PlaneGeometry(3.4, .85), new THREE.MeshBasicMaterial({ map: neon, transparent: true, toneMapped: false, depthWrite: false }));
@@ -716,7 +722,7 @@ export function criarCoworking() {
   tapete.rotation.x = -Math.PI / 2; tapete.position.set(1.4, .003, -1.6); tapete.receiveShadow = true; raiz.add(tapete);
   const placaSala = placaTexto(256, 64, (c, w, h) => {
     c.fillStyle = '#1a1020'; c.fillRect(0, 0, w, h); c.fillStyle = '#f0a070'; c.fillRect(0, 0, w, 4);
-    c.fillStyle = '#ffe2c8'; c.font = '700 28px Silkscreen, monospace'; c.textBaseline = 'middle'; c.fillText('API', 14, h / 2 + 2);
+    c.fillStyle = '#ffe2c8'; c.font = '700 28px Silkscreen, monospace'; c.textBaseline = 'middle'; c.textAlign = 'left'; c.fillText('API', 14, h / 2 + 2);
     c.fillStyle = '#e8b44a'; c.fillText('●3', 92, h / 2 + 2); c.fillStyle = '#7ec8e3'; c.fillText('↑2', 160, h / 2 + 2);
   });
   quandoFonte('700 28px Silkscreen', placaSala.map);
@@ -762,8 +768,8 @@ export function criarCoworking() {
   // adesivo no vidro: quantos subagentes estao trabalhando
   const adesivo = placaTexto(512, 128, (c, w, h) => {
     c.fillStyle = 'rgba(26,16,32,.85)'; c.fillRect(0, 0, w, h); c.fillStyle = '#e8b44a'; c.fillRect(0, 0, 8, h);
-    c.font = '700 44px Silkscreen, monospace'; c.textBaseline = 'middle'; c.fillStyle = '#ffd88a'; c.fillText('3 SUBAGENTES', 28, 44);
-    c.font = '700 26px Silkscreen, monospace'; c.fillStyle = '#c8bcd8'; c.fillText('SALA DE REUNIÃO · PLANO', 28, 96);
+    c.textBaseline = 'middle'; c.fillStyle = '#ffd88a'; caber(c, '3 SUBAGENTES', 44, w - 50); c.fillText('3 SUBAGENTES', 28, 44);
+    c.fillStyle = '#c8bcd8'; caber(c, 'SALA DE REUNIÃO · PLANO', 26, w - 50); c.fillText('SALA DE REUNIÃO · PLANO', 28, 96);
   });
   quandoFonte('700 44px Silkscreen', adesivo.map);
   const ad = new THREE.Mesh(new THREE.PlaneGeometry(1.0, .25), adesivo); ad.position.set(XS + .58, 1.55, ZF + .01); raiz.add(ad);
@@ -820,14 +826,17 @@ export function criarCoworking() {
   raiz.add(peca(caixa(.7, 1.95, .66, .04), new THREE.MeshStandardMaterial({ color: 0xe8e4dc, roughness: .3, metalness: .2 }), 4.6, .975, Z + .36));
   raiz.add(peca(new THREE.BoxGeometry(.03, .5, .03), grafite, 4.32, 1.35, Z + .7));
   // armario alto
-  raiz.add(peca(caixa(3.0, .6, .36, .02), new THREE.MeshStandardMaterial({ color: 0x2e4a5a, roughness: .6 }), 2.7, 2.6, Z + .2));
-  // placa da cozinha
-  const placaCoz = placaTexto(256, 64, (c, w, h) => {
-    c.fillStyle = '#1a1020'; c.fillRect(0, 0, w, h); c.fillStyle = '#4f7fd9'; c.fillRect(0, 0, w, 4);
-    c.fillStyle = '#c8d8ff'; c.font = '700 26px Silkscreen, monospace'; c.textBaseline = 'middle'; c.fillText('COZINHA · SUA VEZ', 12, h / 2 + 2);
+  // armario alto (abaixo das janelas nao cabe: fica so na faixa entre elas)
+  raiz.add(peca(caixa(1.0, .55, .34, .02), new THREE.MeshStandardMaterial({ color: 0x2e4a5a, roughness: .6 }), 2.3, 2.15, Z + .19));
+  raiz.add(peca(new THREE.BoxGeometry(.01, .5, .005), grafite, 2.3, 2.15, Z + .365));
+  // placa da cozinha, presa na frente da bancada
+  const placaCoz = placaTexto(512, 80, (c, w, h) => {
+    c.fillStyle = '#1a1020'; c.fillRect(0, 0, w, h); c.fillStyle = '#4f7fd9'; c.fillRect(0, 0, w, 5);
+    c.fillStyle = '#c8d8ff'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    caber(c, 'COZINHA · SUA VEZ', 40, w * .9); c.fillText('COZINHA · SUA VEZ', w / 2, h / 2 + 3);
   });
-  quandoFonte('700 26px Silkscreen', placaCoz.map);
-  const pc = new THREE.Mesh(new THREE.PlaneGeometry(1.1, .28), placaCoz); pc.position.set(2.7, 3.05, Z + .04); raiz.add(pc);
+  quandoFonte('700 40px Silkscreen', placaCoz.map);
+  const pc = new THREE.Mesh(new THREE.PlaneGeometry(1.2, .19), placaCoz); pc.position.set(2.7, .62, Z + .625); raiz.add(pc);
   // sofa (o turquesa do app), de costas para a bancada, com quem terminou a vez
   const tecido = new THREE.MeshStandardMaterial({ color: 0x2a7f86, roughness: .9 });
   raiz.add(peca(caixa(1.8, .42, .8, .08), tecido, 2.7, .26, -3.75));
@@ -879,37 +888,26 @@ export function criarCoworking() {
   }
   animados.push((t) => leds.forEach((m, i) => { const v = Math.sin(t * (3 + (i % 5)) + i * 1.7); m.color.setHex(v > .6 ? 0x5bff8a : v > -.2 ? 0x1f6a46 : (i % 7 === 0 ? 0xe8b44a : 0x0d2a1a)); }));
 
-  /* ------------------------------------------ dutos e pulsos de estado -- */
-  // da sala de reuniao e do pod ate o monitor principal: cada pulso e um
-  // evento de estado chegando (o SSE do projeto)
-  const rotas = [
-    [[5.2, 2.75, -2.0], [2.0, 2.75, -1.6], [0, 2.75, -.2], [0, 1.6, -.2]],
-    [[2.7, 2.75, -4.3], [2.0, 2.75, -1.6]],
-    [[.2, 2.75, -3.9], [0, 2.75, -.2]]
-  ].map((pts) => pts.map((p) => new THREE.Vector3(...p)));
-  const duto = new THREE.MeshStandardMaterial({ color: 0x2a2833, roughness: .5, metalness: .6 });
-  rotas.forEach((pts) => {
-    for (let i = 0; i < pts.length - 1; i++) {
-      const a = pts[i], b = pts[i + 1], len = a.distanceTo(b);
-      const m = new THREE.Mesh(new THREE.BoxGeometry(.08, .04, len), duto);
-      m.position.copy(a).lerp(b, .5); m.lookAt(b); raiz.add(m);
+  /* --------------------------------------------- pulsos de estado -- */
+  // de cada tela sobe um bloquinho de luz na cor do estado e some no alto:
+  // e o "estado de todos a cada segundo" do projeto, visto de fora
+  const corEstado = { codigo: 0x5bff8a, terminal: 0x7ec8e3, pergunta: 0xff5a4a, aprovacao: 0xffc84a, pensando: 0xc79bff };
+  const pulsos = [];
+  AGENTES.forEach((a, i) => {
+    for (let k = 0; k < 2; k++) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(.035, .035, .035), new THREE.MeshBasicMaterial({ color: corEstado[a.estado], toneMapped: false, transparent: true, depthWrite: false }));
+      raiz.add(m); pulsos.push({ m, x: a.x, z: a.z - .16, fase: i * .23 + k * .5 });
     }
   });
-  const coresPulso = [0x5bff8a, 0xff5a4a, 0xffc84a, 0x7ec8e3, 0xff9a5a];
-  const pulsos = [];
-  for (let k = 0; k < 14; k++) {
-    const rota = rotas[k % rotas.length];
-    const comp = []; let tot = 0;
-    for (let i = 0; i < rota.length - 1; i++) { const d = rota[i].distanceTo(rota[i + 1]); comp.push(d); tot += d; }
-    const m = new THREE.Mesh(new THREE.BoxGeometry(.06, .06, .14), new THREE.MeshBasicMaterial({ color: coresPulso[k % coresPulso.length], toneMapped: false, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
-    raiz.add(m); pulsos.push({ m, rota, comp, tot, fase: k / 14, vel: .16 + (k % 3) * .04 });
-  }
-  const _p = new THREE.Vector3();
+  [[5.2, -2.0, 0xffc84a], [5.2, -2.0, 0x5bff8a]].forEach(([x, z, cor], k) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(.035, .035, .035), new THREE.MeshBasicMaterial({ color: cor, toneMapped: false, transparent: true, depthWrite: false }));
+    raiz.add(m); pulsos.push({ m, x, z, fase: .3 + k * .5 });
+  });
   animados.push((t) => pulsos.forEach((p) => {
-    let d = ((t * p.vel + p.fase) % 1) * p.tot, i = 0;
-    while (i < p.comp.length - 1 && d > p.comp[i]) { d -= p.comp[i]; i++; }
-    _p.copy(p.rota[i]).lerp(p.rota[i + 1], Math.min(1, d / p.comp[i]));
-    p.m.position.copy(_p); p.m.lookAt(p.rota[i + 1]);
+    const k = (t * .45 + p.fase) % 1;
+    p.m.position.set(p.x + Math.sin(k * 6 + p.fase * 9) * .02, 1.2 + k * 1.1, p.z);
+    p.m.material.opacity = Math.sin(k * Math.PI);
+    p.m.rotation.y = t * 2;
   }));
 
   /* ---------------------------------------------- luminarias e plantas -- */
@@ -942,8 +940,8 @@ export function criarCoworking() {
     c.fillStyle = '#2a2430'; c.fillRect(14, h - 18, w - 28, 2);
   });
   const quadro = new THREE.Mesh(new THREE.PlaneGeometry(1.0, .62), new THREE.MeshStandardMaterial({ map: grafico, roughness: .35 }));
-  quadro.position.set(-.4, 1.95, Z + .03); raiz.add(quadro);
-  raiz.add(peca(new THREE.BoxGeometry(1.06, .68, .02), grafite, -.4, 1.95, Z + .015));
+  quadro.position.set(-.55, 1.95, Z + .03); raiz.add(quadro);
+  raiz.add(peca(new THREE.BoxGeometry(1.06, .68, .02), grafite, -.55, 1.95, Z + .015));
   let proxQuadro = 0;
   animados.push((t) => { if (t >= proxQuadro) { proxQuadro = t + 3; qPasso++; grafico.userData.redesenhar(); } });
 

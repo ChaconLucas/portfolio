@@ -1267,3 +1267,9 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
     - a meia tela a mais de altura usa `.project-chapter:first-of-type` em `efeitos.css`.
   - O ingresso do GateCheck virou uma vinheta comum, na saída do WSL.
   - O `z-index` dos capítulos segue a ordem da página (quem vem depois cobre quem veio antes).
+- **Coworking, correções no cenário (10/10):**
+  - o neon e as placas saíam cortados, porque o texto em Silkscreen 96px não cabia no canvas. Agora `caber()` diminui a fonte até caber;
+  - a placa da cozinha, que ficava em cima do neon, foi para a frente da bancada;
+  - o armário alto encolheu e ficou entre as janelas;
+  - os dutos do teto (sem teto, pareciam varetas soltas) viraram pulsos de luz subindo das telas dos agentes;
+  - o quadro ganhou folga das janelas.
