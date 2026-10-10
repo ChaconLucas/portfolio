@@ -1196,3 +1196,9 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - o sentido de fechar dos dedos está certo nas duas mãos;
   - a mão é deslocada para o lado da palma (`LADO_PALMA` −0,035 na direita, +0,035 na esquerda), para o cabo ficar DENTRO do punho; antes os dedos fechavam ao lado dele.
 - **FOV da primeira pessoa: 58° vertical.** O FOV do Three.js é o vertical: em tela 16:9, 66° viravam mais de 100° na horizontal e esticavam a imagem; 58° dá ~90°, o padrão de jogos de tiro.
+- **Dedos para trás:** o sentido de fechar agora é escolhido por dedo, a cada quadro: o que leva a ponta para mais perto da linha do cabo. Com a mão em orientações diferentes, um sentido fixo às vezes dobrava os dedos para trás.
+- **Imagem esticada com a arma na mão:** os braços nasciam praticamente na câmera, e a perspectiva esticava tudo perto da tela. A câmera da arma virou "teleobjetiva": FOV 40° e 14 cm mais recuada (`r`). Os ombros ficam no olho (`posar(..., avanco = r)`), então arma e braços ocupam o mesmo espaço na tela, sem deformar.
+- **Mão no manche (10/10):**
+  - o ponto de pegada do manche (`pegaManche`) e do acelerador estava 3–4 cm atrás do cabo, e a mão fechava no ar, ao lado dele. Agora fica no centro do cabo;
+  - deslocamento da palma ajustado olhando de perto numa vitrine (`LADO_PALMA` ±0,02): com 0 a mão ficava de um lado do cabo, com 0,035 do outro;
+  - os dedos fecham um pouco mais (1,35 / 1,4 / 1,3 rad).

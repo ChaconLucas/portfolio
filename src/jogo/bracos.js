@@ -72,7 +72,7 @@ export async function criarBracos() {
   }
   const _f = new THREE.Vector3(), _s = new THREE.Vector3(), _h = new THREE.Vector3(), _a1 = new THREE.Vector3(), _b1 = new THREE.Vector3(), _e = new THREE.Vector3(), _cima = new THREE.Vector3(), _q = new THREE.Quaternion();
   const PALMA = .085;   // do pulso ao meio da mao fechada
-  let LADO_PALMA = -.035, LADO_PALMA_E = .035; const _pn = new THREE.Vector3();
+  let LADO_PALMA = -.02, LADO_PALMA_E = .02; const _pn = new THREE.Vector3();
   function empunhar(l, alvo) {
     // frente perpendicular ao cabo; o pulso fica PALMA atras do ponto do cabo
     _f.copy(alvo.frente).addScaledVector(alvo.eixo, -alvo.frente.dot(alvo.eixo)).normalize();
@@ -89,34 +89,49 @@ export async function criarBracos() {
     _e.copy(alvo.eixo).addScaledVector(_f, -alvo.eixo.dot(_f));
     if (_s.lengthSq() > 1e-8 && _e.lengthSq() > 1e-8) girar(l.mao, _s.normalize().clone(), _e.normalize().clone());
   }
-  // fecha os dedos: cada falange gira em volta do eixo da linha dos nos (indicador -> minimo)
-  const _ax = new THREE.Vector3();
-  function fechar(l, k, sinal) {
-    l.a.getWorldPosition(_a1); l.b.getWorldPosition(_b1); _ax.subVectors(_a1, _b1).normalize();
-    for (const dedo of l.dedos) for (const [i, o] of dedo.entries()) {
-      _inv.copy(o.parent.matrixWorld).invert(); const eixo = _ax.clone().transformDirection(_inv);
-      o.quaternion.premultiply(_q.setFromAxisAngle(eixo, sinal * k * (i === 0 ? 1.15 : 1.25))); o.updateWorldMatrix(false, true);
-    }
-    for (const [i, o] of l.polegar.entries()) {
-      _inv.copy(o.parent.matrixWorld).invert(); const eixo = _ax.clone().transformDirection(_inv);
-      o.quaternion.premultiply(_q.setFromAxisAngle(eixo, sinal * k * (i === 0 ? .2 : .55))); o.updateWorldMatrix(false, true);
+  // fecha os dedos: cada falange gira em volta do eixo da linha dos nos
+  // (indicador -> minimo). O SENTIDO e escolhido por dedo: o que leva a ponta
+  // para mais perto do cabo (com a mao em posicoes diferentes, um sentido fixo
+  // as vezes dobrava os dedos para tras)
+  const _ax = new THREE.Vector3(), _pt = new THREE.Vector3(), _sv = [];
+  function aplicarDedo(cadeia, eixoW, angs, sinal) {
+    for (const [i, o] of cadeia.entries()) {
+      _inv.copy(o.parent.matrixWorld).invert(); const eixo = eixoW.clone().transformDirection(_inv);
+      o.quaternion.premultiply(_q.setFromAxisAngle(eixo, sinal * angs[i])); o.updateWorldMatrix(false, true);
     }
   }
+  function distCabo(cadeia, alvo) {
+    const ponta = cadeia[cadeia.length - 1]; (ponta.children[0] || ponta).getWorldPosition(_pt);
+    _pt.sub(alvo.pos); return _pt.addScaledVector(alvo.eixo, -_pt.dot(alvo.eixo)).length();   // distancia ate a linha do cabo
+  }
+  function fecharDedo(cadeia, eixoW, angs, alvo) {
+    _sv.length = 0; for (const o of cadeia) _sv.push(o.quaternion.clone());
+    const volta = () => { cadeia.forEach((o, i) => o.quaternion.copy(_sv[i])); cadeia[0].updateWorldMatrix(false, true); };
+    aplicarDedo(cadeia, eixoW, angs, 1); const d1 = distCabo(cadeia, alvo); volta();
+    aplicarDedo(cadeia, eixoW, angs, -1); const d2 = distCabo(cadeia, alvo); volta();
+    aplicarDedo(cadeia, eixoW, angs, d1 <= d2 ? 1 : -1);
+  }
+  function fechar(l, k, alvo) {
+    l.a.getWorldPosition(_a1); l.b.getWorldPosition(_b1); _ax.subVectors(_a1, _b1).normalize();
+    for (const dedo of l.dedos) fecharDedo(dedo, _ax, [1.35 * k, 1.4 * k, 1.3 * k], alvo);
+    if (l.polegar.length) fecharDedo(l.polegar, _ax, [.2 * k, .55 * k, .55 * k], alvo);
+  }
+
 
   const OMBROS = new THREE.Vector3(0, -.27, -.02);   // a raiz do rig (entre os ombros) no espaco da camera da arma
-  const sinalDedos = { R: -1, L: -1 }; let camadaAtual = 1;
+  let camadaAtual = 1;
   return {
     grupo,
     /** camada de desenho: 1 = passada da arma (a pe), 0 = cena normal (cabine) */
     camada(n) { if (n === camadaAtual) return; camadaAtual = n; grupo.traverse((o) => o.layers.set(n)); },
     /** inverte o sentido do fechar dos dedos (ajuste) */
-    set sinal(v) { sinalDedos.R = v; },
-    set sinalEsq(v) { sinalDedos.L = v; },
     set ladoPalma(v) { LADO_PALMA = v; },
     set ladoPalmaEsq(v) { LADO_PALMA_E = v; },
-    posar(camera, alvos) {
+    /** avanco: quanto a camera esta recuada (camera "teleobjetiva" da arma): os
+     *  ombros ficam no olho, nao na camera */
+    posar(camera, alvos, avanco = 0) {
       if (!grupo.visible) return;
-      grupo.position.copy(OMBROS).applyQuaternion(camera.quaternion).add(camera.position);
+      grupo.position.set(OMBROS.x, OMBROS.y, OMBROS.z - avanco).applyQuaternion(camera.quaternion).add(camera.position);
       grupo.quaternion.copy(camera.quaternion);
       for (const [o, q] of repouso) o.quaternion.copy(q);
       for (const [o, p] of repousoPos) o.position.copy(p);
@@ -126,7 +141,7 @@ export async function criarBracos() {
         const l = lados[L];
         if (!alvo) continue;
         empunhar(l, alvo);
-        fechar(l, alvo.fecha ?? 1, sinalDedos[L]);
+        fechar(l, alvo.fecha ?? 1, alvo);
       }
     }
   };

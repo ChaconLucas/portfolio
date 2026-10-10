@@ -160,7 +160,7 @@ export function criarCabine(cor = 0x9f7bff) {
   por(new THREE.Mesh(new THREE.CylinderGeometry(.012, .015, .14, 12), claro), 0, .07, 0, 0, 0, 0, haste);
   por(caixa(.045, .1, .05, borracha, .015), 0, .17, 0, 0, 0, 0, haste);
   por(caixa(.012, .012, .012, neon, .004), 0, .225, .012, 0, 0, 0, haste);
-  const pegaManche = new THREE.Object3D(); pegaManche.position.set(0, .16, -.03); haste.add(pegaManche);   // onde o pulso direito fica
+  const pegaManche = new THREE.Object3D(); pegaManche.position.set(0, .17, 0); haste.add(pegaManche);   // o meio do punho fica no centro do cabo do manche
 
   const acel = new THREE.Group(); por(acel, .2, -.38, .5);
   por(caixa(.05, .03, .2, metal2, .01), 0, 0, 0, 0, 0, 0, acel);
@@ -168,7 +168,7 @@ export function criarCabine(cor = 0x9f7bff) {
   const alavanca = new THREE.Group(); acel.add(alavanca);
   por(caixa(.03, .09, .03, claro, .01), 0, .05, 0, 0, 0, 0, alavanca);
   por(caixa(.07, .04, .05, borracha, .015), 0, .1, 0, 0, 0, 0, alavanca);
-  const pegaAcel = new THREE.Object3D(); pegaAcel.position.set(0, .11, -.04); alavanca.add(pegaAcel);
+  const pegaAcel = new THREE.Object3D(); pegaAcel.position.set(0, .1, 0); alavanca.add(pegaAcel);   // centro da manopla do acelerador
 
   /* ---- telas ---- */
   let telaT = 0, hudT0 = 0, radarA = 0, piscaT = 0;

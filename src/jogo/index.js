@@ -199,7 +199,7 @@ export async function abrirJogo() {
   // RECUADA cujo plano de corte esconde ombros e costas: aparecem antebracos,
   // maos e arma, bem a frente na tela (o truque das armas de jogo de tiro)
   const camVM = new THREE.PerspectiveCamera(); camVM.layers.set(1);
-  let FOV_ARMA = 50;
+  let FOV_ARMA = 40;   // fechado (teleobjetiva) e a camera mais recuada: a arma e os bracos perto da tela nao esticam
   const _eVM = new THREE.Vector3(), _pVM = new THREE.Vector3(), _fVM = new THREE.Vector3(), _oVM = new THREE.Vector3(), _v2VM = new THREE.Vector3(), _vY1 = new THREE.Vector3(0, 1, 0), _qY = new THREE.Quaternion();
     function desenhar(c, cam) {
     CURVA.k.value = c.userData.superficie ? K_CURVA : 0; CURVA.c.value.copy(camera.position);
@@ -220,7 +220,7 @@ export async function abrirJogo() {
     _oVM.subVectors(_eVM, _pVM).applyQuaternion(_qY.invert()).add(_v2VM.set(-(vm.x || 0), vm.y || 0, vm.r));
     camVM.position.copy(_oVM.applyQuaternion(camera.quaternion)).add(_pVM); camVM.quaternion.copy(camera.quaternion); camVM.updateMatrixWorld();
     // os bracos de verdade (bracos.js): ombros na camera da arma, maos nos cabos
-    if (bracos) { bracos.camada(1); bracos.grupo.visible = true; bracos.posar(camVM, astro.alvosMaos()); }
+    if (bracos) { bracos.camada(1); bracos.grupo.visible = true; bracos.posar(camVM, astro.alvosMaos(), vm.r); }
     const fundo = c.background; c.background = null; renderer.autoClear = false; renderer.clearDepth();
     renderer.render(c, camVM);
     renderer.autoClear = true; c.background = fundo;
@@ -778,11 +778,11 @@ export async function abrirJogo() {
   // (o que fica a menos de r + c dela some); x/y = a camera da arma vai para a
   // esquerda/cima (a arma desce para o canto). Ajuste no teste: __jogo.ajustarFP(id, { ... })
   const FP = {
-    nada: { g: 0, f: .1, a: 1.66, l: 0, r: .18, c: .05, x: .04, y: -.1 },
-    espada: { g: .1, f: .1, a: 1.66, l: 0, r: .24, c: .05, x: .06, y: -.13 },
-    blaster: { g: .16, f: .1, a: 1.66, l: 0, r: .17, c: .05, x: -.07, y: -.16 },
-    rifle: { g: .1, f: .1, a: 1.62, l: .04, r: .2, c: .05, x: .04, y: -.1 },
-    canhao: { g: .12, f: .1, a: 1.66, l: .03, r: .26, c: .05, x: .04, y: -.12 }
+    nada: { g: 0, f: .1, a: 1.66, l: 0, r: .32, c: .05, x: .04, y: -.1 },
+    espada: { g: .1, f: .1, a: 1.66, l: 0, r: .38, c: .05, x: .06, y: -.13 },
+    blaster: { g: .16, f: .1, a: 1.66, l: 0, r: .31, c: .05, x: -.07, y: -.16 },
+    rifle: { g: .1, f: .1, a: 1.62, l: .04, r: .34, c: .05, x: .04, y: -.1 },
+    canhao: { g: .12, f: .1, a: 1.66, l: .03, r: .40, c: .05, x: .04, y: -.12 }
   };
   const fpDe = () => FP[ARMAS[armaIdx].id] || FP.nada;
   // correndo (Shift) armado: pose de corrida (0..1); balanco dos passos, tranco
