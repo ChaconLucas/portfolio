@@ -40,12 +40,16 @@ export async function criarAstronauta(cena) {
   // houvesse arma (e na primeira pessoa a arma saia da tela).
   const CIMA = /^(Abdomen|Torso|Chest|Neck|Head|Shoulder|UpperArm|LowerArm|Wrist|Index|Middle|Ring|Pinky|Thumb)/;
   // (o giro do quadril vai com o tronco: andando de lado ele vira e levava a arma junto)
-  const deCima = (t) => { const [osso, prop] = t.name.split('.'); return CIMA.test(osso) || ((osso === 'Body' || osso === 'Hips') && prop === 'quaternion'); };   // (o osso raiz do modelo e o 'Body')
-  const soOs = (c, cima, nome) => { const k = c.clone(); k.name = nome; k.tracks = k.tracks.filter((t) => deCima(t) === cima); return k; };
-  CICLO.forEach((n) => { const c = clip(n); if (!c) return; const a = mixer.clipAction(soOs(c, false, 'P_' + n)); a.play(); a.setEffectiveWeight(0); acao['P_' + n] = a; peso['P_' + n] = 0; LOOP.push('P_' + n); });
-  { const c = clip('Idle_Gun_Pointing'); if (c) { const a = mixer.clipAction(soOs(c, true, 'TRONCO')); a.play(); a.setEffectiveWeight(0); acao.TRONCO = a; peso.TRONCO = 0; LOOP.push('TRONCO'); } }
+  // (o osso raiz do modelo e o 'Body'). Duas versoes: na PRIMEIRA PESSOA o giro
+  // do Body vai com o tronco (a arma fica parada na tela); na TERCEIRA vai com
+  // as pernas (sem ele o quadril nao acompanhava os passos e as pernas pareciam moles)
+  const deCima = (t, comBody) => { const [osso, prop] = t.name.split('.'); return CIMA.test(osso) || (comBody && (osso === 'Body' || osso === 'Hips') && prop === 'quaternion'); };
+  const soOs = (c, cima, nome, comBody) => { const k = c.clone(); k.name = nome; k.tracks = k.tracks.filter((t) => deCima(t, comBody) === cima); return k; };
+  const novaAcao = (c, nome) => { const a = mixer.clipAction(c); a.play(); a.setEffectiveWeight(0); acao[nome] = a; peso[nome] = 0; LOOP.push(nome); };
+  CICLO.forEach((n) => { const c = clip(n); if (!c) return; novaAcao(soOs(c, false, 'P_' + n, true), 'P_' + n); novaAcao(soOs(c, false, 'Q_' + n, false), 'Q_' + n); });
+  { const c = clip('Idle_Gun_Pointing'); if (c) { novaAcao(soOs(c, true, 'TRONCO', true), 'TRONCO'); novaAcao(soOs(c, true, 'TRONCO3', false), 'TRONCO3'); } }
   // ciclos de passo: o tempo e controlado a mao (fase comum)
-  CICLO.forEach((n) => { if (acao[n]) acao[n].timeScale = 0; if (acao['P_' + n]) acao['P_' + n].timeScale = 0; });
+  CICLO.forEach((n) => { for (const k of [n, 'P_' + n, 'Q_' + n]) if (acao[k]) acao[k].timeScale = 0; });
   ['Wave', 'Interact', 'Roll', 'Idle_Gun_Shoot', 'Gun_Shoot'].forEach((n) => { const c = clip(n); if (!c) return; const a = mixer.clipAction(c); a.setLoop(THREE.LoopOnce); a.clampWhenFinished = false; acao[n] = a; });
   let gesto = null;
 
@@ -345,11 +349,11 @@ export async function criarAstronauta(cena) {
       } else {
         const f = Math.max(0, frente) / v, b = Math.max(0, -frente) / v, l = Math.max(0, lado) / v, r = Math.max(0, -lado) / v;
         const corre = Math.min(1, Math.max(0, (v - 2.6) / 2.8)), anda = Math.min(1, v / 1.1);
-        const pre = armado ? 'P_' : '';   // armado: so as pernas andam; o tronco segue na mira
+        const vm = fp && fpVM, pre = armado ? (vm ? 'P_' : 'Q_') : '';   // armado: so as pernas andam; o tronco segue na mira
         alvo[pre + 'Walk'] = f * (1 - corre) * anda; alvo[pre + 'Run'] = f * corre * anda;
         alvo[pre + 'Run_Back'] = b * anda; alvo[pre + 'Run_Left'] = l * anda; alvo[pre + 'Run_Right'] = r * anda;
         alvo[armado ? 'Idle_Gun_Pointing' : 'Idle_Neutral'] = 1 - anda;
-        if (armado) alvo.TRONCO = anda;
+        if (armado) alvo[vm ? 'TRONCO' : 'TRONCO3'] = anda;
       }
       let g = 0;
       if (gesto) { if (gesto.isRunning()) g = Math.min(1, gesto.time * 10, (gesto.getClip().duration - gesto.time) * 8); else gesto = null; }
@@ -370,7 +374,7 @@ export async function criarAstronauta(cena) {
         const passada = (passadaW + (passadaR - passadaW) * kCorre) * (.55 + .45 * Math.min(1, v / 4));
         fase = (fase + dt * v / passada) % 1;
       }
-      for (const n of CICLO) for (const a of [acao[n], acao['P_' + n]]) if (a) a.time = fase * a.getClip().duration;
+      for (const n of CICLO) for (const a of [acao[n], acao['P_' + n], acao['Q_' + n]]) if (a) a.time = fase * a.getClip().duration;
       for (const [o, q] of repouso) o.quaternion.copy(q);
       mixer.update(dt);
       // no ar: inclina para onde voa (suave) e balanca de leve

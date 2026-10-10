@@ -1761,7 +1761,11 @@ export async function abrirJogo() {
     // mira de arma (a pe, armado): abre a cada tiro e fecha sozinha
     miraAbre *= Math.exp(-dt * 6);
     raiz.classList.toggle('mira-arma', !!(s.aPe && ARMAS[armaIdx].id && !ARMAS[armaIdx].corpo)); raiz.style.setProperty('--abre', (6 + miraAbre * 14).toFixed(1) + 'px');
-    let fov = s.aPe ? (s.fp ? 58 : 60) :   /* (vertical: em tela larga 58 ja da ~90 graus na horizontal; mais que isso estica) */ 62 + Math.min(1, veloc / 150) * 10 + s.dobra * 14 + (s.modo === 'entrando' ? tremor * 8 + (ent.gas || 0) * 10 : 0);
+    // FOV (vertical) contido: o do three.js e o vertical, e em tela larga ele
+    // abre muito na horizontal (62 + velocidade + dobra chegava a ~86 graus, mais
+    // de 120 na horizontal: tudo esticado). Teto: ~95 graus na horizontal
+    let fov = s.aPe ? 55 : 56 + Math.min(1, veloc / 150) * 5 + s.dobra * 8 + (s.modo === 'entrando' ? tremor * 4 + (ent.gas || 0) * 5 : 0);
+    fov = Math.min(fov, 2 * Math.atan(Math.tan(47.5 * Math.PI / 180) / Math.max(.5, camera.aspect)) * 180 / Math.PI);
     fov *= 1 - mirarK * (s.aPe ? .32 : .45);   // mirando: a pe aproxima um pouco, na nave da o zoom
     if (Math.abs(camera.fov - fov) > .05) { camera.fov += (fov - camera.fov) * (1 - Math.exp(-dt * 14)); camera.updateProjectionMatrix(); }
 

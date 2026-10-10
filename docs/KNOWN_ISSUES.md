@@ -1203,3 +1203,10 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - deslocamento da palma ajustado olhando de perto numa vitrine (`LADO_PALMA` ±0,02): com 0 a mão ficava de um lado do cabo, com 0,035 do outro;
   - os dedos fecham um pouco mais (1,35 / 1,4 / 1,3 rad).
 - **Planeta só entra com E (10/10):** bater no planeta não começa mais a entrada sozinho. A nave encosta e desliza pela borda (perde só a velocidade que ia para dentro, e a dobra cai). A entrada mantendo o embalo continua quando se aperta E em alta velocidade.
+- **Pernas moles em terceira pessoa:** a divisão pernas/tronco levava o giro do `Body` (quadril) para a pose da arma, e as pernas andavam soltas. Agora há duas versões dos clipes:
+  - na primeira pessoa (`P_*` + `TRONCO`), o giro vai com o tronco, para a arma não balançar;
+  - na terceira (`Q_*` + `TRONCO3`), o giro vai com as pernas.
+- **FOV mais contido em tudo** (o do three.js é vertical, e em tela larga abre demais na horizontal):
+  - a pé 55° (terceira e primeira pessoa);
+  - nave 56° + até 5° pela velocidade + 8° na dobra (antes 62 + 10 + 14, chegando a ~86°, mais de 120° na horizontal);
+  - teto de ~95° na horizontal para qualquer proporção de tela (ultrawide incluso).
