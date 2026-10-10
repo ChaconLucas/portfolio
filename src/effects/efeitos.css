@@ -319,11 +319,14 @@
   height:calc(460vh + var(--revelacao));
   scroll-margin-top:calc(-1 * var(--revelacao));
 }
-.capitulos-portal .project-chapter-gate{height:calc(460vh + 50vh)}
+/* o PRIMEIRO capitulo (hoje o Coworking) e revelado parado no topo: mais
+   meia tela de altura para a vinheta dele */
+.capitulos-portal .project-chapter:first-of-type{height:calc(460vh + 50vh)}
+/* na ordem da pagina: quem vem depois cobre quem veio antes */
 .capitulos-portal .project-chapter-wsl{z-index:2}
-.capitulos-portal .project-chapter-rare{z-index:3}
-.capitulos-portal .project-chapter-flash{z-index:4}
-.capitulos-portal .project-chapter-coworking{z-index:5}
+.capitulos-portal .project-chapter-gate{z-index:3}
+.capitulos-portal .project-chapter-rare{z-index:4}
+.capitulos-portal .project-chapter-flash{z-index:5}
 @media(max-width:900px){
   .capitulos-portal .project-chapter{--revelacao:60vh}
   .capitulos-portal .project-chapter + .project-chapter{height:calc(300vh + var(--revelacao))!important}
@@ -469,7 +472,7 @@
   box-shadow:0 0 12px 3px rgba(43,255,143,.8),0 0 60px 10px rgba(43,255,143,.35)}
 .g-cod{font:700 1.1vw/1 "Space Grotesk",system-ui,sans-serif;letter-spacing:.3em;color:rgba(255,255,255,.6)}
 @media (max-width:900px){
-  .capitulos-portal .project-chapter-gate{height:calc(300vh + 30vh)!important}
+  .capitulos-portal .project-chapter:first-of-type{height:calc(300vh + 30vh)!important}
   .g-corpo{right:34vw;padding:18vh 6vw 0}
   .g-canhoto{left:66vw}
   .g-selo{font-size:2.4vw}.g-evento{font-size:15vw}.g-info{flex-wrap:wrap;gap:2vw}.g-info b{font-size:2.6vw}

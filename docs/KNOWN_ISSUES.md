@@ -1260,3 +1260,10 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
   - O capítulo precisa de `z-index: 5` em `efeitos.css`, para cobrir o FLASH, que fica parado por baixo.
 - **No celular:** o "como funciona" e o rótulo da tela somem, porque texto e palco dividem a mesma tela.
 - Contagens passaram para `/ 05`. Também foram atualizados: ticker, descrições og/twitter, dicionário EN, projetos do terminal (`avatar-ascii.js`) e "projetos relacionados" do Node.js, Claude Code e Codex.
+- **Ordem dos projetos (10/10):** Coworking Agents, WSL Games, GateCheck, Rare7, FLASH.
+  - O Coworking chama mais atenção, o WSL tem a marca mais conhecida e o GateCheck não está no ar.
+  - A abertura especial do primeiro capítulo deixou de ser do GateCheck e vale para qualquer um que esteja em primeiro:
+    - `primeiro = capitulos[0]` em `transicao-capitulos.js`;
+    - a meia tela a mais de altura usa `.project-chapter:first-of-type` em `efeitos.css`.
+  - O ingresso do GateCheck virou uma vinheta comum, na saída do WSL.
+  - O `z-index` dos capítulos segue a ordem da página (quem vem depois cobre quem veio antes).

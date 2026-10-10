@@ -97,11 +97,11 @@ const STACK = {
   ai: ['Claude Code', 'OpenAI Codex', 'GitHub Copilot', 'Prompting', 'Code Review', 'Human-in-the-loop']
 };
 const PROJETOS = [
-  ['gatecheck', 'GateCheck', 'ingressos, QR Code e check-in em tempo real', '#project-gatecheck'],
+  ['coworking', 'Coworking Agents', 'escritório em pixel art para agentes de IA', '#project-coworking'],
   ['wsl', 'WSL Games', 'experiência interativa do campeonato de surf', '#project-wsl'],
+  ['gatecheck', 'GateCheck', 'ingressos, QR Code e check-in em tempo real', '#project-gatecheck'],
   ['rare7', 'Rare7', 'loja de moda esportiva premium', '#project-rare7'],
-  ['flash', 'FLASH', 'delivery de materiais de tatuagem', '#project-flash'],
-  ['coworking', 'Coworking Agents', 'escritório em pixel art para agentes de IA', '#project-coworking']
+  ['flash', 'FLASH', 'delivery de materiais de tatuagem', '#project-flash']
 ];
 const CONTATO = [
   ['email', 'lucaschacon79@gmail.com', 'mailto:lucaschacon79@gmail.com'],

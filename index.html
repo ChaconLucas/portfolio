@@ -13,7 +13,7 @@
 <meta content="website" property="og:type"/>
 <meta content="https://portfolio-delta-five-78.vercel.app/" property="og:url"/>
 <meta content="Lucas Chacon — Full Stack Developer" property="og:title"/>
-<meta content="Desenvolvedor full stack. Web, APIs, mobile, segurança e produtos em produção — GateCheck, WSL Games, Rare7, FLASH e Coworking Agents." property="og:description"/>
+<meta content="Desenvolvedor full stack. Web, APIs, mobile, segurança e produtos em produção — Coworking Agents, WSL Games, GateCheck, Rare7 e FLASH." property="og:description"/>
 <meta content="https://portfolio-delta-five-78.vercel.app/og.jpg" property="og:image"/>
 <meta content="1200" property="og:image:width"/>
 <meta content="630" property="og:image:height"/>
@@ -23,7 +23,7 @@
 <meta content="Lucas Chacon" property="og:site_name"/>
 <meta content="summary_large_image" name="twitter:card"/>
 <meta content="Lucas Chacon — Full Stack Developer" name="twitter:title"/>
-<meta content="Desenvolvedor full stack. Web, APIs, mobile, segurança e produtos em produção — GateCheck, WSL Games, Rare7, FLASH e Coworking Agents." name="twitter:description"/>
+<meta content="Desenvolvedor full stack. Web, APIs, mobile, segurança e produtos em produção — Coworking Agents, WSL Games, GateCheck, Rare7 e FLASH." name="twitter:description"/>
 <meta content="https://portfolio-delta-five-78.vercel.app/og.jpg" name="twitter:image"/>
 <style>
 
@@ -4972,7 +4972,7 @@ nav{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
   <div class="arq-pe">Construído com apoio de IA · Claude Code · Codex · Copilot</div>
 </div>
 <div class="hero-project-ticker">
-<div class="ticker-track"><div class="ticker-group"><span>01 GATECHECK</span><span>02 WSL GAMES</span><span>03 RARE7</span><span>04 FLASH</span><span>05 COWORKING AGENTS</span></div></div>
+<div class="ticker-track"><div class="ticker-group"><span>01 COWORKING AGENTS</span><span>02 WSL GAMES</span><span>03 GATECHECK</span><span>04 RARE7</span><span>05 FLASH</span></div></div>
 </div>
 </div>
 </div>
@@ -5136,33 +5136,36 @@ nav{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
 <h2 id="titulo-projetos">PROJETOS<br/><em>DE VERDADE.</em></h2>
 <p>Projetos apresentados como experiências reais: produto, interface, decisões técnicas e fluxo.</p>
 </div>
-<article class="project-chapter project-chapter-gate" data-project="gatecheck" id="project-gatecheck">
+<article class="project-chapter project-chapter-coworking" data-project="coworking" id="project-coworking">
 <div class="project-chapter-sticky">
-<div class="gate-scene" id="gateScene"></div>
+<div class="cw-scene" id="cwScene"></div>
 <div class="project-chapter-info">
 <div class="chapter-count">01 / 05</div>
-<div class="chapter-kicker">PLATAFORMA DE EVENTOS / FULL STACK</div>
-<h3>GateCheck</h3>
-<p>Venda de ingressos, lotes, pedidos, QR Code individual, check-in em tempo real, auditoria e operação de eventos.</p>
-<div class="chapter-detail"><div><h4>O DESAFIO</h4><p>Evento não perdoa fila. A portaria é o único momento em que o sistema é medido por segundo, e é onde ingresso repetido, lote errado e rede instável aparecem todos ao mesmo tempo.</p></div><div><h4>DENTRO DO PRODUTO</h4><ul><li>Cada ingresso tem QR Code próprio, e não um código por lote: toda entrada é única e rastreável.</li><li>Check-in em tempo real com auditoria — fica registrado quem validou o quê e quando.</li><li>Lotes, pedidos e preços na mesma base que a portaria lê, para venda e entrada nunca discordarem.</li></ul></div></div>
-<div class="chapter-stack">
-<span>Next.js</span><span>React</span><span>FastAPI</span><span>PostgreSQL</span><span>JWT</span>
+<div class="chapter-kicker">FERRAMENTA DEV / NODE · PIXEL ART · CLAUDE CODE</div>
+<h3>Coworking<br/>Agents</h3>
+<p>Um escritório em pixel art, ao vivo, para os seus agentes de IA. Cada sessão aberta do Claude Code ou do Codex vira uma pessoa numa mesa.</p>
+<div class="chapter-detail"><div><h4>O DESAFIO</h4><p>Com várias sessões de IA abertas ao mesmo tempo, você perde a conta de qual parou para perguntar algo, qual terminou e quais duas estão mexendo no mesmo repositório.</p></div><div><h4>COMO FUNCIONA</h4><ul><li>Um servidor Node, sem nenhuma dependência, lê os arquivos locais de cada sessão (registro e transcrições do Claude Code, sessões do Codex). Nada sai da máquina.</li><li>A cada segundo ele resume o estado de todas e manda para a página por SSE: editando, no terminal, pensando, delegando, esperando você.</li><li>O front desenha o escritório em canvas: uma sala por repositório, pessoas que andam até a cozinha quando é a sua vez e um "!" vermelho quando alguém precisa de você.</li></ul></div></div>
+<div class="chapter-stack"><span>Node.js</span><span>Zero dependências</span><span>SSE</span><span>Canvas</span><span>Pixel art</span><span>Plugin Claude Code</span></div>
+<div class="chapter-links"><a href="/demos/coworking/index.html" rel="noopener" target="_blank" aria-label="Abrir a demo do Coworking Agents em nova aba"><svg aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42 9.3-9.29H14V3ZM5 5h5v2H6v11h11v-4h2v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"/></svg>ABRIR DEMO AO VIVO</a><a href="https://github.com/ChaconLucas/coworking-agents" rel="noopener noreferrer" target="_blank" aria-label="Abrir o código do Coworking Agents no GitHub"><svg aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg>CÓDIGO NO GITHUB</a></div>
+<div class="chapter-screen-label"><b id="cwShotIndex">01</b><span id="cwShotLabel">O escritório</span></div>
 </div>
-<div class="chapter-screen-label"><b id="gateShotIndex">01</b><span id="gateShotLabel">Dashboard operacional</span></div>
+<div class="real-project-stage cw-stage">
+<div class="real-stage-glow cw-glow"></div>
+<div class="cw-browser">
+<div class="cw-browser-top"><i></i><i></i><i></i><span class="cw-url">127.0.0.1:4777<b id="cwRoute">/escritorio</b></span></div>
+<div class="cw-shot-stack">
+<figure class="cw-shot active"><img alt="O escritório de dia: uma sala por repositório, cada sessão de IA numa mesa" src="/assets/projects/coworking-1.webp"/></figure>
+<figure class="cw-shot"><img alt="Conversa com um agente que terminou e espera a próxima instrução" loading="lazy" src="/assets/projects/coworking-2.webp"/></figure>
+<figure class="cw-shot"><img alt="Painel do agente com estagiários, tokens, custo estimado e contexto" loading="lazy" src="/assets/projects/coworking-3.webp"/></figure>
+<figure class="cw-shot"><img alt="Relatório de uso com tokens por dia e limites de uso" loading="lazy" src="/assets/projects/coworking-4.webp"/></figure>
+<figure class="cw-shot"><img alt="Visão do prédio: cada andar como miniatura ao vivo" loading="lazy" src="/assets/projects/coworking-5.webp"/></figure>
+<figure class="cw-shot"><img alt="O escritório à noite, com monitores e luminárias acesos" loading="lazy" src="/assets/projects/coworking-6.webp"/></figure>
 </div>
-<div class="real-project-stage gate-real-stage">
-<div class="real-stage-glow"></div>
-<div class="real-browser">
-<div class="real-shot-stack">
-<figure class="real-shot active" data-shot="0"><img alt="GateCheck dashboard" src="/assets/projects/gatecheck-1.webp"/></figure>
-<figure class="real-shot" data-shot="1"><img alt="GateCheck event management" src="/assets/projects/gatecheck-2.webp"/></figure>
-<figure class="real-shot" data-shot="2"><img alt="GateCheck event creation" src="/assets/projects/gatecheck-3.webp"/></figure>
-<figure class="real-shot" data-shot="3"><img alt="GateCheck operations" src="/assets/projects/gatecheck-4.webp"/></figure>
+<div class="cw-vivo"></div>
 </div>
-<div class="real-scan-line"></div>
-</div>
+<button class="cw-ao-vivo" type="button" aria-pressed="false">▶ RODAR AQUI</button>
 <div class="chapter-progress"><i></i></div>
-<div class="chapter-hint">ROLE / EXPLORE O PRODUTO</div>
+<div class="chapter-hint">ROLE / OU APERTE ▶ E MEXA NO ESCRITÓRIO</div>
 </div>
 </div>
 </article>
@@ -5194,11 +5197,41 @@ nav{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
 </div>
 </div>
 </article>
+<article class="project-chapter project-chapter-gate" data-project="gatecheck" id="project-gatecheck">
+<div class="project-chapter-sticky">
+<div class="gate-scene" id="gateScene"></div>
+<div class="project-chapter-info">
+<div class="chapter-count">03 / 05</div>
+<div class="chapter-kicker">PLATAFORMA DE EVENTOS / FULL STACK</div>
+<h3>GateCheck</h3>
+<p>Venda de ingressos, lotes, pedidos, QR Code individual, check-in em tempo real, auditoria e operação de eventos.</p>
+<div class="chapter-detail"><div><h4>O DESAFIO</h4><p>Evento não perdoa fila. A portaria é o único momento em que o sistema é medido por segundo, e é onde ingresso repetido, lote errado e rede instável aparecem todos ao mesmo tempo.</p></div><div><h4>DENTRO DO PRODUTO</h4><ul><li>Cada ingresso tem QR Code próprio, e não um código por lote: toda entrada é única e rastreável.</li><li>Check-in em tempo real com auditoria — fica registrado quem validou o quê e quando.</li><li>Lotes, pedidos e preços na mesma base que a portaria lê, para venda e entrada nunca discordarem.</li></ul></div></div>
+<div class="chapter-stack">
+<span>Next.js</span><span>React</span><span>FastAPI</span><span>PostgreSQL</span><span>JWT</span>
+</div>
+<div class="chapter-screen-label"><b id="gateShotIndex">01</b><span id="gateShotLabel">Dashboard operacional</span></div>
+</div>
+<div class="real-project-stage gate-real-stage">
+<div class="real-stage-glow"></div>
+<div class="real-browser">
+<div class="real-shot-stack">
+<figure class="real-shot active" data-shot="0"><img alt="GateCheck dashboard" src="/assets/projects/gatecheck-1.webp"/></figure>
+<figure class="real-shot" data-shot="1"><img alt="GateCheck event management" src="/assets/projects/gatecheck-2.webp"/></figure>
+<figure class="real-shot" data-shot="2"><img alt="GateCheck event creation" src="/assets/projects/gatecheck-3.webp"/></figure>
+<figure class="real-shot" data-shot="3"><img alt="GateCheck operations" src="/assets/projects/gatecheck-4.webp"/></figure>
+</div>
+<div class="real-scan-line"></div>
+</div>
+<div class="chapter-progress"><i></i></div>
+<div class="chapter-hint">ROLE / EXPLORE O PRODUTO</div>
+</div>
+</div>
+</article>
 <article class="project-chapter project-chapter-rare" data-project="rare7" id="project-rare7">
 <div class="project-chapter-sticky">
 <div class="rare-scene" id="rareScene"></div>
 <div class="project-chapter-info">
-<div class="chapter-count">03 / 05</div>
+<div class="chapter-count">04 / 05</div>
 <div class="chapter-kicker">E-COMMERCE / FULL STACK</div>
 <h3>Rare7</h3>
 <p>Loja, catálogo, produto, checkout e administração integrados em uma única operação de comércio digital.</p>
@@ -5213,7 +5246,7 @@ nav{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
 <div class="project-chapter-sticky">
 <div class="flash-scene" id="flashScene"></div>
 <div class="project-chapter-info">
-<div class="chapter-count">04 / 05</div>
+<div class="chapter-count">05 / 05</div>
 <div class="chapter-kicker">MARKETPLACE / WEB · API · MOBILE</div>
 <h3>FLASH</h3>
 <p>Marketplace de materiais para tatuagem e body piercing, com entrega rápida por motoboy. Web, API e aplicativo compartilhando as mesmas regras.</p>
@@ -5223,39 +5256,6 @@ nav{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
 </div>
 <div class="real-project-stage flash-real-stage">
 <div class="chapter-progress"><i></i></div>
-</div>
-</div>
-</article>
-<article class="project-chapter project-chapter-coworking" data-project="coworking" id="project-coworking">
-<div class="project-chapter-sticky">
-<div class="cw-scene" id="cwScene"></div>
-<div class="project-chapter-info">
-<div class="chapter-count">05 / 05</div>
-<div class="chapter-kicker">FERRAMENTA DEV / NODE · PIXEL ART · CLAUDE CODE</div>
-<h3>Coworking<br/>Agents</h3>
-<p>Um escritório em pixel art, ao vivo, para os seus agentes de IA. Cada sessão aberta do Claude Code ou do Codex vira uma pessoa numa mesa.</p>
-<div class="chapter-detail"><div><h4>O DESAFIO</h4><p>Com várias sessões de IA abertas ao mesmo tempo, você perde a conta de qual parou para perguntar algo, qual terminou e quais duas estão mexendo no mesmo repositório.</p></div><div><h4>COMO FUNCIONA</h4><ul><li>Um servidor Node, sem nenhuma dependência, lê os arquivos locais de cada sessão (registro e transcrições do Claude Code, sessões do Codex). Nada sai da máquina.</li><li>A cada segundo ele resume o estado de todas e manda para a página por SSE: editando, no terminal, pensando, delegando, esperando você.</li><li>O front desenha o escritório em canvas: uma sala por repositório, pessoas que andam até a cozinha quando é a sua vez e um "!" vermelho quando alguém precisa de você.</li></ul></div></div>
-<div class="chapter-stack"><span>Node.js</span><span>Zero dependências</span><span>SSE</span><span>Canvas</span><span>Pixel art</span><span>Plugin Claude Code</span></div>
-<div class="chapter-links"><a href="/demos/coworking/index.html" rel="noopener" target="_blank" aria-label="Abrir a demo do Coworking Agents em nova aba"><svg aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42 9.3-9.29H14V3ZM5 5h5v2H6v11h11v-4h2v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"/></svg>ABRIR DEMO AO VIVO</a><a href="https://github.com/ChaconLucas/coworking-agents" rel="noopener noreferrer" target="_blank" aria-label="Abrir o código do Coworking Agents no GitHub"><svg aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg>CÓDIGO NO GITHUB</a></div>
-<div class="chapter-screen-label"><b id="cwShotIndex">01</b><span id="cwShotLabel">O escritório</span></div>
-</div>
-<div class="real-project-stage cw-stage">
-<div class="real-stage-glow cw-glow"></div>
-<div class="cw-browser">
-<div class="cw-browser-top"><i></i><i></i><i></i><span class="cw-url">127.0.0.1:4777<b id="cwRoute">/escritorio</b></span></div>
-<div class="cw-shot-stack">
-<figure class="cw-shot active"><img alt="O escritório de dia: uma sala por repositório, cada sessão de IA numa mesa" src="/assets/projects/coworking-1.webp"/></figure>
-<figure class="cw-shot"><img alt="Conversa com um agente que terminou e espera a próxima instrução" loading="lazy" src="/assets/projects/coworking-2.webp"/></figure>
-<figure class="cw-shot"><img alt="Painel do agente com estagiários, tokens, custo estimado e contexto" loading="lazy" src="/assets/projects/coworking-3.webp"/></figure>
-<figure class="cw-shot"><img alt="Relatório de uso com tokens por dia e limites de uso" loading="lazy" src="/assets/projects/coworking-4.webp"/></figure>
-<figure class="cw-shot"><img alt="Visão do prédio: cada andar como miniatura ao vivo" loading="lazy" src="/assets/projects/coworking-5.webp"/></figure>
-<figure class="cw-shot"><img alt="O escritório à noite, com monitores e luminárias acesos" loading="lazy" src="/assets/projects/coworking-6.webp"/></figure>
-</div>
-<div class="cw-vivo"></div>
-</div>
-<button class="cw-ao-vivo" type="button" aria-pressed="false">▶ RODAR AQUI</button>
-<div class="chapter-progress"><i></i></div>
-<div class="chapter-hint">ROLE / OU APERTE ▶ E MEXA NO ESCRITÓRIO</div>
 </div>
 </div>
 </article>

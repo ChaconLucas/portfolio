@@ -13,8 +13,7 @@
  *           a principal tem borda de onda quebrando, com espuma na crista;
  *  - Rare7: portas pretas com filete dourado fecham, a marca RARE7 brilha em
  *           ouro no meio, e elas abrem;
- *  - GateCheck (primeiro capitulo, nao tem anterior para segurar): um
- *           ingresso gigante cai cobrindo a tela, o leitor verde passa no QR,
+ *  - GateCheck: um ingresso gigante cai cobrindo a tela, o leitor verde passa no QR,
  *           carimba ACESSO LIBERADO e o ingresso rasga no picote — as duas
  *           metades saem girando e revelam a balada;
  *  - FLASH: veu vermelho que queima em ruido com borda incandescente (ref.
@@ -44,7 +43,9 @@ export function montarTransicaoCapitulos() {
     };
   }).filter((p) => p.sticky && p.antSticky);
 
-  const primeiro = capitulos[0].dataset.project === 'gatecheck' ? capitulos[0] : null;
+  // o primeiro capitulo nao tem anterior para segurar: a vinheta dele cobre
+  // enquanto ele sobe e revela ja parado no topo (hoje e o Coworking)
+  const primeiro = capitulos[0];
   const primeiroSticky = primeiro?.querySelector('.project-chapter-sticky');
   const raiz = document.createElement('div');
   raiz.className = 'vinhetas';
