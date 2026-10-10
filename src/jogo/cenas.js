@@ -534,39 +534,84 @@ export function criarEspaco(cena) {
   poeira.frustumCulled = false; cena.add(poeira);
   const _dir = new THREE.Vector3(), _v = new THREE.Vector3();
 
-  // camada de gas da atmosfera (so existe depois da primeira entrada)
-  let gas = null, gasK = 0, gasVel = 0, fiapos = null;
-  const corGas = new THREE.Color(), FI = 80, fiapoLocal = new Float32Array(FI * 3);
-  const texFiapo = guarda(texRadial([[0, 'rgba(255,255,255,.9)'], [.45, 'rgba(255,255,255,.35)'], [1, 'rgba(255,255,255,0)']]));
+  // camada de gas da atmosfera (so existe depois da primeira entrada): um
+  // TUNEL de nuvens em volta da camera (shader: faixas de nuvem correndo para
+  // tras, com vaos por onde se ve, mais claras em cima; abre na frente para a
+  // nave e o caminho aparecerem) e fiapos alongados no sentido da velocidade
+  let gas = null, gasK = 0, gasVel = 0, fiapos = null, gasT = 0;
+  const corGas = new THREE.Color(), FI = 36, fiapoLocal = new Float32Array(FI * 3);
+  let texFiapo = null;
+  function texFiapoLongo() {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 48; const x = c.getContext('2d');
+    for (let k = 0; k < 22; k++) {
+      const cy = 24 + (Math.random() - .5) * 18, l = 60 + Math.random() * 180, x0 = Math.random() * (256 - l), h = 2 + Math.random() * 7;
+      const g = x.createLinearGradient(x0, 0, x0 + l, 0); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(.5, `rgba(255,255,255,${.12 + Math.random() * .2})`); g.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = g; x.beginPath(); x.ellipse(x0 + l / 2, cy, l / 2, h, 0, 0, 6.3); x.fill();
+    }
+    const m = x.createLinearGradient(0, 0, 0, 48); m.addColorStop(0, 'rgba(0,0,0,1)'); m.addColorStop(.3, 'rgba(0,0,0,0)'); m.addColorStop(.7, 'rgba(0,0,0,0)'); m.addColorStop(1, 'rgba(0,0,0,1)');
+    x.globalCompositeOperation = 'destination-out'; x.fillStyle = m; x.fillRect(0, 0, 256, 48);
+    return new THREE.CanvasTexture(c);
+  }
+  const unGas = { uCor: { value: corGas }, uK: { value: 0 }, uT: { value: 0 }, uF: { value: new THREE.Vector3() }, uR: { value: new THREE.Vector3() }, uU: { value: new THREE.Vector3() }, uCima: { value: new THREE.Vector3(0, 1, 0) } };
   function criarGas(p) {
     corGas.set(`hsl(${p.cor},60%,62%)`);
-    gas = new THREE.Mesh(guarda(new THREE.SphereGeometry(75, 24, 16)), guarda(new THREE.MeshBasicMaterial({ color: corGas, transparent: true, opacity: 0, side: THREE.BackSide, depthWrite: false, fog: false })));
+    gas = new THREE.Mesh(guarda(new THREE.SphereGeometry(75, 48, 32)), guarda(new THREE.ShaderMaterial({
+      uniforms: unGas, transparent: true, depthWrite: false, depthTest: false, side: THREE.BackSide, fog: false,
+      vertexShader: 'varying vec3 vD; void main(){ vD = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }',
+      fragmentShader: `uniform vec3 uCor, uF, uR, uU, uCima; uniform float uK, uT; varying vec3 vD;
+        float h3(vec3 p){ p = fract(p * .3183 + .1); p *= 17.; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+        float r3(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
+          return mix(mix(mix(h3(i), h3(i + vec3(1,0,0)), f.x), mix(h3(i + vec3(0,1,0)), h3(i + vec3(1,1,0)), f.x), f.y),
+                     mix(mix(h3(i + vec3(0,0,1)), h3(i + vec3(1,0,1)), f.x), mix(h3(i + vec3(0,1,1)), h3(i + vec3(1,1,1)), f.x), f.y), f.z); }
+        float fbm(vec3 p){ float s = 0., a = .5; for (int i = 0; i < 4; i++) { s += a * r3(p); p = p * 2.07 + 3.1; a *= .5; } return s / .9375; }
+        void main(){
+          vec3 d = normalize(vD); float c = dot(d, uF);
+          vec2 q = vec2(dot(d, uR), dot(d, uU)); float sn = max(length(q), .04); vec2 an = q / sn;
+          // coordenada de tunel: o angulo em volta da frente e a "profundidade" (cot), que corre com o tempo
+          float prof = c / sn;
+          float n = fbm(vec3(an * 1.6, prof * .45 - uT * 2.2));
+          float fino = fbm(vec3(an * 5., prof * 1.3 - uT * 5.));
+          float dens = smoothstep(.3, .72, n * .75 + fino * .35);
+          float frente = smoothstep(.985, .94, c);                 // abre na frente (a nave e o caminho)
+          float a = dens * uK * frente * mix(.55, 1., smoothstep(-.3, .5, c));
+          vec3 claro = mix(uCor, vec3(1.), .55), escuro = uCor * .45;
+          vec3 col = mix(escuro, claro, n) + max(0., dot(d, uCima)) * .18 + vec3(1.) * pow(fino, 6.) * .5;
+          gl_FragColor = vec4(col, a * .92);
+        }`
+    })));
     gas.renderOrder = 10; gas.frustumCulled = false; cena.add(gas);
+    texFiapo = guarda(texFiapoLongo());
     fiapos = [];
     const r = rnd(13);
     for (let i = 0; i < FI; i++) {
-      const sp = new THREE.Sprite(guarda(new THREE.SpriteMaterial({ map: texFiapo, color: corGas.clone().lerp(new THREE.Color(1, 1, 1), .35), transparent: true, opacity: 0, depthWrite: false, fog: false })));
+      const sp = new THREE.Sprite(guarda(new THREE.SpriteMaterial({ map: texFiapo, color: corGas.clone().lerp(new THREE.Color(1, 1, 1), .5), transparent: true, opacity: 0, depthWrite: false, depthTest: false, fog: false })));
       sp.renderOrder = 11; sp.frustumCulled = false; cena.add(sp); fiapos.push(sp);
       novoFiapo(i, r, -40 - r() * 230);
     }
   }
   function novoFiapo(i, r = Math.random, z = -230 - Math.random() * 60) {
-    const a = r() * Math.PI * 2, d = 5 + Math.pow(r(), .7) * 70;
+    const a = r() * Math.PI * 2, d = 22 + Math.pow(r(), .7) * 55;
     fiapoLocal[i * 3] = Math.cos(a) * d; fiapoLocal[i * 3 + 1] = Math.sin(a) * d; fiapoLocal[i * 3 + 2] = z;
-    if (fiapos) fiapos[i].scale.set(14 + r() * 40, 8 + r() * 22, 1);
+    if (fiapos) { fiapos[i].scale.set(18 + r() * 26, 7 + r() * 9, 1); fiapos[i].material.rotation = a; }   // alongado no sentido de quem passa (radial)
   }
   function atualizarGas(dt, camera) {
     if (!gas) return;
-    gas.visible = gasK > .002; gas.position.copy(camera.position); gas.material.opacity = gasK * .86;
+    gas.visible = gasK > .002; gas.position.copy(camera.position);
+    if (gas.visible) {
+      gasT += dt * (gasVel / 600);
+      unGas.uK.value = gasK; unGas.uT.value = gasT;
+      camera.getWorldDirection(unGas.uF.value); unGas.uR.value.set(1, 0, 0).applyQuaternion(camera.quaternion); unGas.uU.value.set(0, 1, 0).applyQuaternion(camera.quaternion);
+    }
     for (let i = 0; i < FI; i++) {
       const sp = fiapos[i]; sp.visible = gas.visible; if (!sp.visible) continue;
       fiapoLocal[i * 3 + 2] += gasVel * dt;
       if (fiapoLocal[i * 3 + 2] > 8) novoFiapo(i);
       const z = fiapoLocal[i * 3 + 2];
       sp.position.set(fiapoLocal[i * 3], fiapoLocal[i * 3 + 1], z).applyQuaternion(camera.quaternion).add(camera.position);
-      sp.material.opacity = gasK * .55 * Math.min(1, (z + 290) / 80) * Math.min(1, (8 - z) / 20);
+      sp.material.opacity = gasK * .32 * Math.min(1, (z + 290) / 80) * Math.min(1, (8 - z) / 20);
     }
   }
+
 
   function porNoCeu(obj, orig, olho, verdadeiro, S, m) {
     // escala em volta do olho: mesma direcao e mesmo tamanho na tela. Cresce
@@ -640,7 +685,7 @@ export function criarEspaco(cena) {
       // a camada de gas: uma esfera em volta da camera (a nave fica dentro e
       // aparece) e fiapos passando rapido (ver atualizar)
       gasK = p.atmosfera ? o.gas : 0; gasVel = o.velGas || 0;
-      if (gasK > 0) { if (!gas) criarGas(p); gas.material.color.copy(corGas); }
+      if (gasK > 0) { if (!gas) criarGas(p); corGas.set(`hsl(${p.cor},60%,62%)`); }
       for (const x of planetas) if (x !== p) porNoCeu(x.grupo, x.orig, o.olho, o.verdadeiro, s, o.m);
       porNoCeu(sol, _dir.set(0, 0, 0), o.olho, o.verdadeiro, s, o.m); luzSol.position.copy(sol.position); luzSolSup.position.copy(sol.position);
       orbitas.forEach((l) => { l.material.opacity = .18 * (1 - o.kFora); l.visible = o.kFora < 1; });

@@ -1096,3 +1096,26 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
 - As luzes da cena ganham a camada 1 (uma vez por cena), e o fundo é desligado na segunda passada.
 - A cabeça e o jetpack somem na primeira pessoa.
 - Valores por arma ficam em `FP` (`index.js`), e no teste: `__jogo.ajustarFP(id, { r, c, x, y, ... })`.
+
+## Entrada no planeta, cabine nova com o piloto de verdade e granada segurada (09/10/2026)
+- **Camada de gás da entrada** (`cenas.js`). Antes era uma esfera lilás uniforme (86% opaca) com 80 manchas redondas borradas. Agora:
+  - **túnel de nuvens** em shader: faixas de nuvem (ruído 3D em coordenadas de túnel) correndo para trás, com vãos por onde se vê, mais claras em cima e abertas na frente para a nave e o caminho;
+  - 36 fiapos alongados no sentido da velocidade.
+- **Clarão do plasma:** menor. Na cabine, o brilho em volta da câmera some (`nave.vistaCabine()`).
+- **Entrada e saída do planeta em primeira pessoa:** com a visão da cabine ligada, a cinemática inteira é vista de dentro dela.
+- **Cabine refeita** (`cabine.js`):
+  - capô curvo, painel inclinado com três telas e consoles laterais com 64 botões acesos (alguns piscam);
+  - arcos do vidro em tubos curvos com frisos de neon, painel de teto e reflexo no vidro;
+  - **HUD holográfico** no vidro: mira, horizonte e escada de arfagem que inclinam com a nave, fitas de velocidade e altitude, e bússola.
+- **Piloto de verdade:**
+  - as luvas geométricas saíram; o próprio astronauta fica sentado (cabeça escondida), com os ombros fora da visão;
+  - as mãos vão por IK até o manche e o acelerador (`astro.pilotar()`; `maoNa()` serve para os dois braços);
+  - as armas somem enquanto pilota.
+- **Granada:** segurando o G, o braço fica armado lá atrás; ela só é jogada ao soltar (`astro.segurarGranada()`, `G_ARMADO`).
+- **Braço "furado" na primeira pessoa:** desenhar o traje dos dois lados fechava o corte, mas mostrava o interior do tronco. Foi desfeito; o corte fica fora da área visível com a câmera da arma ajustada.
+- **Inclinação do peito com a mira estava invertida** (o esqueleto é espelhado): olhando para cima a arma descia e olhando para baixo subia. Agora gira no sentido certo, 100% da mira, e a arma fica quase parada na tela.
+- **Empunhar** (`empunhar()` em `astronauta.js`): o meio do punho (7 cm à frente do pulso) vai até o ponto do cabo, e o pulso gira para a linha dos nós dos dedos (indicador → mínimo) ficar ao longo do cabo, com a mão apontando para a frente. É usado:
+  - no manche e no acelerador;
+  - na mão esquerda do rifle e do canhão (empunhadura vertical) e do sabre (eixo da lâmina);
+  - antes, só o pulso ia até o ponto, e a mão ficava virada como na pose parada.
+- **Na cabine** somem os quadros de velocidade, alvo e arma do HUD da tela, porque o painel e o vidro já mostram isso.

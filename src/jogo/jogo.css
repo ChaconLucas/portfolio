@@ -525,3 +525,6 @@ html.jogo-aberto body > *:not(.jogo){visibility:hidden}
 .jogo-pausa .jp-opcao.ligado{border-color:#ff6b6b!important;background:rgba(255,75,75,.2)!important}
 /* o ☰ so no toque (no computador o mouse fica preso; as opcoes estao no Esc) */
 .jogo:not(.toque) .jogo-menu-bt,.jogo:not(.toque) .jogo-menu{display:none!important}
+
+/* cabine (primeira pessoa na nave): o painel e o HUD do vidro ja mostram velocidade, alvo e arma */
+.jogo.cabine-on .jogo-vel, .jogo.cabine-on .jogo-alvo, .jogo.cabine-on .jogo-arma { opacity: 0; pointer-events: none; }

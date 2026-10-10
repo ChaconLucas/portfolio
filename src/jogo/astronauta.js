@@ -61,7 +61,7 @@ export async function criarAstronauta(cena) {
   const osso = (n) => modelo.getObjectByName(n);
   const braco = { clavicula: osso('ShoulderL'), ombro: osso('UpperArmL'), cotovelo: osso('LowerArmL'), pulso: osso('WristL') };
   const dedos = ['Index', 'Middle', 'Ring', 'Pinky'].flatMap((d) => ['1L', '2L', '3L', '1R', '2R', '3R'].map((n) => d + n)).map(osso).filter(Boolean);
-  const bracoR = { ombro: osso('UpperArmR'), cotovelo: osso('LowerArmR'), pulso: osso('WristR') };
+  const bracoR = { clavicula: osso('ShoulderR'), ombro: osso('UpperArmR'), cotovelo: osso('LowerArmR'), pulso: osso('WristR') };
   const polegares = ['Thumb1L', 'Thumb2L', 'Thumb1R', 'Thumb2R'].map(osso).filter(Boolean);
   // pose de repouso dos dedos: volta a ela antes da animacao (algumas animacoes
   // nao mexem nos dedos, e a curva se acumularia quadro a quadro)
@@ -80,7 +80,27 @@ export async function criarAstronauta(cena) {
     o.quaternion.premultiply(_qa);
     o.updateWorldMatrix(false, true);
   }
-  function maoEsquerdaNa(alvo, k) {
+  const maoEsquerdaNa = (alvo, k) => maoNa(braco, alvo, k);
+  // EMPUNHAR um cabo: o meio do punho fechado (~7 cm a frente do pulso) vai ate
+  // o ponto e o pulso gira para a mao envolver o cabo — a linha dos nos dos
+  // dedos (indicador -> minimo) fica ao longo do eixo do cabo e a mao aponta
+  // para "frente". (So mover o pulso deixava a mao virada como na pose parada.)
+  const dedosE = { raiz: osso('Middle1L'), a: osso('Index2L'), b: osso('Pinky2L') }, dedosD = { raiz: osso('Middle1R'), a: osso('Index2R'), b: osso('Pinky2R') };
+  const _ht = new THREE.Vector3(), _hw = new THREE.Vector3(), _h1 = new THREE.Vector3(), _h2 = new THREE.Vector3(), _hf = new THREE.Vector3(), _hs = new THREE.Vector3(), _he = new THREE.Vector3(), _hn = new THREE.Vector3();
+  function empunhar(br, dd, alvo, eixo, frente, k) {
+    if (!br.pulso || !dd.raiz || !dd.a || !dd.b || k < .01) return;
+    _hn.copy(frente).addScaledVector(eixo, -frente.dot(eixo)).normalize();       // frente perpendicular ao cabo
+    maoNa(br, _ht.copy(alvo).addScaledVector(_hn, -.07), k);
+    modelo.updateMatrixWorld(true);
+    br.pulso.getWorldPosition(_hw); dd.raiz.getWorldPosition(_h1); _hf.subVectors(_h1, _hw).normalize();
+    girar(br.pulso, _hf.clone(), _hn.clone(), k);
+    dd.a.getWorldPosition(_h1); dd.b.getWorldPosition(_h2); _hs.subVectors(_h1, _h2); _hs.addScaledVector(_hn, -_hs.dot(_hn));
+    if (_hs.lengthSq() < 1e-8) return;
+    _he.copy(eixo).addScaledVector(_hn, -eixo.dot(_hn));
+    girar(br.pulso, _hs.normalize().clone(), _he.normalize().clone(), k);
+  }
+  // IK de dois ossos (qualquer braco): o pulso vai ate o alvo
+  function maoNa(braco, alvo, k) {
     const { clavicula, ombro, cotovelo, pulso } = braco; if (!ombro || !cotovelo || !pulso || k < .01) return;
     ombro.getWorldPosition(_S); cotovelo.getWorldPosition(_E); pulso.getWorldPosition(_W); _T.copy(alvo);
     let a = _S.distanceTo(_E), b = _E.distanceTo(_W);
@@ -131,7 +151,7 @@ export async function criarAstronauta(cena) {
   // armas grandes descem na diagonal na frente do corpo, com as duas maos
   const pequena = (t) => t === 'blaster' || t === 'espada';
   // (na primeira pessoa a pose e mais contida, para a arma continuar na tela)
-  let fp = false;
+  let fp = false, fpVM = true, pilotandoAte = -1;
   const correrPequena = (k) => (fp ? bracoDireito([-.6, .7, -.05], [.7, .65, .2], k) : bracoDireito([-.85, .2, -.18], [.92, .3, .08], k));
   // armas longas (rifle, canhao): braco direito recolhido (arma perto do peito,
   // coronha no ombro) e o pulso corrige para a arma apontar para a mira; assim
@@ -155,12 +175,12 @@ export async function criarAstronauta(cena) {
     o.quaternion.premultiply(_qa.setFromAxisAngle(_up, ang)); o.updateWorldMatrix(false, true);
   }
   // arremesso: caminho da mao esquerda no espaco do corpo (x = esquerda, z = frente)
-  let arremT = -1;
+  let arremT = -1, arremSegura = false;
   const ARREM = [[0, .2, 1.05, .2], [.12, .28, .95, -.05], [.36, .34, 1.72, -.32], [.5, .18, 1.85, .38], [.72, -.02, 1.2, .5], [1, .2, 1.05, .25]];
   const granadaMao = new THREE.Mesh(new THREE.IcosahedronGeometry(.11, 1), new THREE.MeshStandardMaterial({ color: 0x2a2836, metalness: .7, roughness: .3, emissive: new THREE.Color(0xb36bff), emissiveIntensity: 1.6 }));
   const anelMao = new THREE.Mesh(new THREE.TorusGeometry(.13, .02, 6, 18), new THREE.MeshBasicMaterial({ color: 0xd9a6ff })); granadaMao.add(anelMao);
   granadaMao.visible = false; raiz.add(granadaMao);
-  const _ga = new THREE.Vector3();
+  const _ga = new THREE.Vector3(), _ga2 = new THREE.Vector3(), _eixoA = new THREE.Vector3(), _frA = new THREE.Vector3();
   function alvoArremesso(k, out) {
     let i = 1; while (i < ARREM.length - 1 && k > ARREM[i][0]) i++;
     const [k0, x0, y0, z0] = ARREM[i - 1], [k1, x1, y1, z1] = ARREM[i], u = Math.min(1, (k - k0) / (k1 - k0)), e = u * u * (3 - 2 * u);
@@ -220,7 +240,7 @@ export async function criarAstronauta(cena) {
     gesto(n) { const a = acao[n]; if (!a) return; a.reset(); a.setEffectiveWeight(1); a.fadeIn(.12); a.play(); gesto = a; },
     get gesticulando() { return !!(gesto && gesto.isRunning()); },
     /** arma na mao: null, 'blaster', 'rifle' ou 'canhao' */
-    arma(t) { armaAtual = t && armas[t] ? t : null; for (const k in armas) armas[k].visible = k === armaAtual; },
+    arma(t) { armaAtual = t && armas[t] ? t : null; for (const k in armas) armas[k].visible = k === armaAtual && tempo >= pilotandoAte; },
     get armaAtual() { return armaAtual; },
     /** posicao da boca da arma no mundo (de onde sai o tiro) */
     boca(out) { const a = armas[armaAtual]; if (!a) return out.copy(raiz.position).setY(raiz.position.y + 1.3); raiz.updateMatrixWorld(true); return a.userData.boca.getWorldPosition(out); },
@@ -234,8 +254,19 @@ export async function criarAstronauta(cena) {
     /** arremesso da granada com a mao esquerda (pega no cinto, leva para tras
      *  do ombro, joga por cima e o braco acompanha); solta em ~0,3 s */
     arremessar() { arremT = 0; granadaMao.visible = true; },
+    /** segurando o G: o braco para la atras (armado) ate soltar */
+    segurarGranada(v) { arremSegura = v; },
     /** onde esta a mao esquerda agora (de onde a granada sai) */
     maoEsqPos(out) { return (braco.pulso ? braco.pulso.getWorldPosition(out) : out.copy(raiz.position).setY(raiz.position.y + 1.6)); },
+    /** na cabine (chamar depois de atualizar, com raiz ja no assento): as maos
+     *  seguram o acelerador (esquerda) e o manche (direita), punhos fechados */
+    pilotar(esqW, dirW) {
+      pilotandoAte = tempo + .15;
+      for (const k in armas) armas[k].visible = false;
+      raiz.updateMatrixWorld(true); fecharDedos(1); modelo.updateMatrixWorld(true);
+      _eixoA.set(0, 1, 0).transformDirection(raiz.matrixWorld); _frA.set(0, 0, 1).transformDirection(raiz.matrixWorld);   // cabos em pe, maos para a frente
+      empunhar(braco, dedosE, esqW, _eixoA, _frA, 1); empunhar(bracoR, dedosD, dirW, _eixoA, _frA, 1);
+    },
     /** o modelo da arma na mao (para o rastro do sabre) */
     armaObj(t) { return armas[t] || null; },
     atirou() {
@@ -249,13 +280,16 @@ export async function criarAstronauta(cena) {
     /** primeira pessoa: esconde a cabeca (a camera fica dentro do capacete) */
     /** primeira pessoa: esconde a cabeca e o jetpack e passa o astronauta para a
      *  camada 1 (desenhada na passada da arma, ver desenhar() no index) */
-    primeiraPessoa(on) {
-      if (on === fp) return; fp = on;
+    primeiraPessoa(on, vm = true) {
+      if (on === fp && vm === fpVM) return; fp = on; fpVM = vm;
       if (cabeca) cabeca.visible = !on; jet.visible = !on;
-      raiz.traverse((o) => { if (o.userData.cabecaAdm) o.visible = !on; o.layers.set(on ? 1 : 0); });
+      raiz.traverse((o) => {
+        if (o.userData.cabecaAdm) o.visible = !on; o.layers.set(on && vm ? 1 : 0);
+      });
     },
     atualizar(dt, { frente = 0, lado = 0, noChao = true, jet: j = 0, mira = 0, corrida = 0 }) {
       tempo += dt;
+      if (pilotandoAte > 0 && tempo >= pilotandoAte) { pilotandoAte = -1; for (const k in armas) armas[k].visible = k === armaAtual; }   // saiu da cabine: a arma volta
       if (claraoT > 0) { claraoT -= dt; if (claraoT <= 0) for (const k in armas) armas[k].userData.clarao.material.opacity = 0; }
       // sabre tambem usa a pose armada: as duas maos no cabo, lamina em guarda
       // correndo com arma pequena: corpo de corrida normal (braco esquerdo solto)
@@ -312,7 +346,7 @@ export async function criarAstronauta(cena) {
       const rolando = gesto === acao.Roll && gesto?.isRunning();
       ikPeso += ((armado && !rolando && !(corrida > .3 && pequena(armaAtual)) ? 1 : 0) - ikPeso) * (1 - Math.exp(-dt * 10));
       // o peito inclina com a mira (so armado): olhar para cima levanta a arma
-      if (peito && Math.abs(mira) > .01) { modelo.updateMatrixWorld(true); torcer(peito, -mira * .85, _lat.set(1, 0, 0).transformDirection(raiz.matrixWorld)); }
+      if (peito && Math.abs(mira) > .01) { modelo.updateMatrixWorld(true); torcer(peito, mira, _lat.set(1, 0, 0).transformDirection(raiz.matrixWorld)); }
       guardaPeso += ((armaAtual === 'espada' && !rolando ? 1 : 0) - guardaPeso) * (1 - Math.exp(-dt * 10));
       if (guardaPeso > .01) { modelo.updateMatrixWorld(true); guardaSabre(guardaPeso); }
       if (longa(armaAtual) && !rolando && armado) { const k = ikPeso * (1 - corrida); segurarLonga(k); apontarArma(k, mira); }
@@ -331,11 +365,19 @@ export async function criarAstronauta(cena) {
       for (const k in recarga) armas[k]?.userData.recarga(recarga[k]);
       if (ikPeso > .01 && armas[armaAtual]) {
         fecharDedos(ikPeso); modelo.updateMatrixWorld(true);
-        maoEsquerdaNa(armas[armaAtual].userData.maoEsq.getWorldPosition(_T), ikPeso);
+        const ar = armas[armaAtual];
+        if (armaAtual === 'blaster') maoEsquerdaNa(ar.userData.maoEsq.getWorldPosition(_T), ikPeso);   // a esquerda apoia por baixo do cabo
+        else {
+          // rifle/canhao: empunhadura da frente (vertical); sabre: o cabo (eixo da lamina)
+          ar.userData.maoEsq.getWorldPosition(_ga2);
+          if (armaAtual === 'espada') { _eixoA.set(0, 1, 0).transformDirection(ar.userData.cabo.matrixWorld); _frA.set(0, 0, 1).transformDirection(ar.matrixWorld); }
+          else { _eixoA.set(0, 1, 0).transformDirection(ar.matrixWorld); _frA.set(0, 0, 1).transformDirection(ar.matrixWorld); }
+          empunhar(braco, dedosE, _ga2, _eixoA, _frA, ikPeso);
+        }
       }
       // arremesso da granada: o tronco gira (carrega para tras, joga para a frente) e o braco esquerdo segue o caminho
       if (arremT >= 0) {
-        arremT += dt / .6;
+        arremT = arremSegura && arremT >= .36 ? .36 : Math.min(arremSegura ? .36 : 1, arremT + dt / .6);
         if (arremT >= 1) { arremT = -1; granadaMao.visible = false; }
         else {
           const k = arremT, peso = Math.min(1, k * 8, (1 - k) * 6);

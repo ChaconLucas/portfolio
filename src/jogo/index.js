@@ -299,7 +299,7 @@ export async function abrirJogo() {
     if (e.code === 'KeyN' && !e.repeat) alternarSom();
     if (e.code === 'KeyP' && !e.repeat) alternarPvp();
     if (e.code === 'KeyH' && !e.repeat) alternarAjuda();
-    if (e.code === 'KeyG' && !e.repeat) lancarGranada();
+    if (e.code === 'KeyG' && !e.repeat) { granadaSegura = true; lancarGranada(); }
     if (e.code === 'KeyR' && !e.repeat) recarregar();
     if (e.code === 'KeyQ' && !e.repeat) ligarEscudo();
     // voz: T segurado fala para quem esta perto; Y segurado fala no radio (todos)
@@ -312,6 +312,7 @@ export async function abrirJogo() {
     tecla.delete(e.code);
     // TAB segurado e solto: equipa o que esta apontado (um toque rapido deixa a roda aberta)
     if (e.code === 'Tab') mostrarTab(false);
+    if (e.code === 'KeyG') granadaSegura = false;   // soltou o G: joga (segurando, o braco fica la atras esperando)
     if ((e.code === 'KeyT' && voz?.falando === 'perto') || (e.code === 'KeyY' && voz?.falando === 'geral')) voz.falar(null);
     if (e.code === 'KeyI' && roda.aberta && performance.now() - rodaDesde > 220) fecharRoda(true);
   };
@@ -768,7 +769,8 @@ export async function abrirJogo() {
   // cabine da nave (V pilotando): painel, manche e acelerador na frente da camera
   const cabine = criarCabine(0x9f7bff), _qCab = new THREE.Quaternion();
   const CABINE_OFF = new THREE.Vector3(0, .25, .1);   // assento do piloto, no espaco do corpo da nave
-  let cabineOn = false;
+  const ASSENTO = { y: -1.81, z: .2 };   // pes do piloto em relacao a camera (no espaco da nave)
+  let cabineOn = false; const _pA = new THREE.Vector3(), _pM = new THREE.Vector3();
 
   // a mira: o primeiro ponto (chao, predio ou parede) no raio do centro da tela
   const _mira = new THREE.Vector3(), _dirC = new THREE.Vector3(), _bc = new THREE.Vector3();
@@ -934,8 +936,10 @@ export async function abrirJogo() {
   const matGranada = new THREE.MeshStandardMaterial({ color: 0x2a2836, metalness: .7, roughness: .3, emissive: new THREE.Color(0xb36bff), emissiveIntensity: 1 });
   const geoGranada = new THREE.IcosahedronGeometry(.13, 1), geoAnelG = new THREE.TorusGeometry(.15, .025, 6, 20);
   // G: o astronauta pega a granada no cinto, leva o braco para tras e joga por
-  // cima (a granada sai da MAO, ~0,3 s depois)
-  let granadaSolta = -1;
+  // cima (a granada sai da MAO, ~0,3 s depois). Com o G apertado, o braco fica
+  // armado la atras e so joga quando soltar
+  let granadaSolta = -1, granadaSegura = false;
+  const G_ARMADO = .084;   // o que falta para soltar quando o braco chega atras (k .36 de .6 s; solta em .5)
   function lancarGranada() {
     if (!s.aPe || s.dentro || morto || granadaCd > 0 || painelAberto || granadaSolta >= 0) return;
     granadaCd = 3.5; granadaSolta = .3;
@@ -952,7 +956,10 @@ export async function abrirJogo() {
   const _dirG = new THREE.Vector3();
   function atualizarGranadas(dt) {
     granadaCd = Math.max(0, granadaCd - dt); escudoCd = Math.max(0, escudoCd - dt);
-    if (granadaSolta >= 0) { granadaSolta -= dt; if (granadaSolta < 0) { if (s.aPe && !morto) soltarGranada(); granadaSolta = -1; } }
+    if (granadaSolta >= 0) {
+      const segura = granadaSegura && granadaSolta <= G_ARMADO + 1e-4; astro.segurarGranada(segura);
+      if (!segura) { granadaSolta -= dt; if (granadaSolta < 0) { if (s.aPe && !morto) soltarGranada(); granadaSolta = -1; } }
+    }
     for (let i = granadas.length - 1; i >= 0; i--) {
       const gr = granadas[i], p = gr.m.position;
       gr.vida -= dt; gr.v.y -= 16 * dt; p.addScaledVector(gr.v, dt);
@@ -1575,7 +1582,7 @@ export async function abrirJogo() {
     nave.raiz.position.copy(s.pos);
     nave.raiz.rotation.order = 'YXZ';
     const cinema = s.modo === 'entrando' || s.modo === 'saindo';
-    cabineOn = !!(s.fp && !s.aPe && !cinema && !morto && (s.modo === 'espaco' || s.modo === 'superficie'));
+    cabineOn = !!(s.fp && !s.aPe && !morto);   // tambem na entrada e na saida do planeta: tudo visto da cabine
     if (cinema) nave.raiz.quaternion.copy(ent.qN);
     else { nave.raiz.rotation.y = s.rumo; nave.raiz.rotation.x = -s.mira; nave.raiz.rotation.z = 0; }
     nave.corpo.rotation.z = -s.banco; nave.corpo.rotation.x = s.arfagem;
@@ -1613,7 +1620,14 @@ export async function abrirJogo() {
     const veloc = s.aPe ? Math.hypot(pe.vel.x, pe.vel.z) : s.vel.length();
     const cmv = Math.cos(s.alvoMira);
     FRENTE.set(Math.sin(s.alvoRumo) * cmv, Math.sin(s.alvoMira), Math.cos(s.alvoRumo) * cmv);
-    if (cinema) {
+    if (cabineOn) {
+      // cabine: a camera no assento do piloto, olhando para onde o nariz aponta
+      nave.corpo.updateMatrixWorld(true);
+      camPos.copy(CABINE_OFF); nave.corpo.localToWorld(camPos);
+      _m.set(0, 0, 40).applyQuaternion(nave.corpo.getWorldQuaternion(_qCab)).add(camPos);
+      camRel.subVectors(camPos, s.pos); olhaRel.subVectors(_m, s.pos);
+      if (cinema) camOlha.copy(_m);
+    } else if (cinema) {
       // cinematica: orientacao e deslocamento da camera vem da entrada
       camPos.copy(ent.off).applyQuaternion(ent.qC).add(s.pos);
       camOlha.set(0, 0, -40).applyQuaternion(ent.qC).add(camPos);
@@ -1664,12 +1678,6 @@ export async function abrirJogo() {
       }
       camPos.lerp(_v, 1 - Math.exp(-dt * 10));
       if (armado) _m.addScaledVector(FRENTE, 12); else { _m.x += Math.sin(s.alvoRumo) * 1.5; _m.z += Math.cos(s.alvoRumo) * 1.5; }
-    } else if (cabineOn) {
-      // cabine: a camera no assento do piloto, olhando para onde o nariz aponta
-      nave.corpo.updateMatrixWorld(true);
-      camPos.copy(CABINE_OFF); nave.corpo.localToWorld(camPos);
-      _m.set(0, 0, 40).applyQuaternion(nave.corpo.getWorldQuaternion(_qCab)).add(camPos);
-      camRel.subVectors(camPos, s.pos); olhaRel.subVectors(_m, s.pos);
     } else if (s.pousado) {
       const R = 22 * zoom, el = Math.max(.05, .25 - s.alvoMira);
       _v.set(s.pos.x - Math.sin(s.alvoRumo) * Math.cos(el) * R, s.pos.y + 3 + Math.sin(el) * R, s.pos.z - Math.cos(s.alvoRumo) * Math.cos(el) * R);
@@ -1692,19 +1700,28 @@ export async function abrirJogo() {
     abalo *= Math.exp(-dt * 3.5); tremor += abalo * 1.4;
     if (tremor) camera.position.add(_v.set(Math.random() - .5, Math.random() - .5, Math.random() - .5).multiplyScalar(tremor * .45));
     if (s.aPe && s.fp) camOlha.copy(_m);
-    if (cinema) camera.quaternion.copy(ent.qC); else if (cabineOn) camera.quaternion.copy(_qCab).multiply(_qGiro); else camera.lookAt(camOlha);
+    if (cabineOn) camera.quaternion.copy(_qCab).multiply(_qGiro); else if (cinema) camera.quaternion.copy(ent.qC); else camera.lookAt(camOlha);
     // cabine: o modelo da nave some (a camera esta dentro) e o painel aparece
-    nave.modelo.visible = !cabineOn;
+    nave.modelo.visible = !cabineOn; nave.vistaCabine(cabineOn);
     const pertoCam = cabineOn || (s.aPe && s.fp); if ((camera.near < .1) !== pertoCam) { camera.near = pertoCam ? .05 : .4; camera.updateProjectionMatrix(); }
     cabine.grupo.visible = cabineOn;
+    raiz.classList.toggle('cabine-on', cabineOn);   // na cabine, velocidade/alvo/arma ja aparecem no painel e no vidro
     if (cabineOn) {
       cabine.grupo.position.copy(camera.position); cabine.grupo.quaternion.copy(camera.quaternion).multiply(_qGiro);
       const dR = Math.atan2(Math.sin(s.alvoRumo - s.rumo), Math.cos(s.alvoRumo - s.rumo));
       cabine.atualizar(dt, { vira: Math.max(-1, Math.min(1, dR * 2.5)), sobe: Math.max(-1, Math.min(1, (s.alvoMira - s.mira) * 3)), empuxo, vel: veloc,
-        alt: mundo.planetas ? null : s.pos.y - mundo.alturaChao(s.pos.x, s.pos.z), arma: NAVE_ARMAS[navArmaIdx].nome, escudo: escudoT > 0 });
+        alt: mundo.planetas ? null : s.pos.y - mundo.alturaChao(s.pos.x, s.pos.z), arma: NAVE_ARMAS[navArmaIdx].nome, escudo: escudoT > 0, banco: s.banco || 0, mira: s.mira || 0, rumo: s.rumo || 0 });
     }
-    astro.raiz.visible = !!s.aPe;
-    astro.primeiraPessoa(!!(s.aPe && s.fp));
+    astro.raiz.visible = !!s.aPe || cabineOn;
+    astro.primeiraPessoa(!!(s.aPe && s.fp) || cabineOn, !cabineOn);
+    if (cabineOn) {
+      // o piloto: o proprio astronauta no assento (cabeca escondida) com as maos
+      // de verdade no acelerador e no manche
+      astro.raiz.quaternion.copy(_qCab);
+      astro.raiz.position.set(0, ASSENTO.y, ASSENTO.z).applyQuaternion(_qCab).add(camera.position);   // ombros ~40 cm abaixo e 20 cm a frente da camera: fora da visao, e os bracos (curtos) alcancam os controles
+      cabine.grupo.updateMatrixWorld(true);
+      astro.pilotar(cabine.pegaAcel.getWorldPosition(_pA), cabine.pegaManche.getWorldPosition(_pM));
+    }
     // mira de arma (a pe, armado): abre a cada tiro e fecha sozinha
     miraAbre *= Math.exp(-dt * 6);
     raiz.classList.toggle('mira-arma', !!(s.aPe && ARMAS[armaIdx].id && !ARMAS[armaIdx].corpo)); raiz.style.setProperty('--abre', (6 + miraAbre * 14).toFixed(1) + 'px');
@@ -1763,7 +1780,7 @@ export async function abrirJogo() {
       renderer.autoClear = false; renderer.render(fotoCena, posCam); renderer.autoClear = true;
       dissolve = Math.max(0, dissolve - dt / .9);
     }
-    desenharArma3D(dt, cinema);
+    if (!cabineOn) desenharArma3D(dt, cinema);   // na cabine a arma ja aparece na tela do painel
   }
 
   /* Arma atual em 3D no canto (girando): uma cena pequena desenhada por cima,
@@ -2090,7 +2107,7 @@ export async function abrirJogo() {
   raf(quadro);
   // modo de teste (?debugjogo): avanca a simulacao sem depender do rAF
   if (/debugjogo/.test(location.search)) { semTrava = true; raiz.classList.add('sem-trava'); }   // teste: sem convite de clique
-  if (/debugjogo/.test(location.search)) window.__jogo = { s, pe, tecla, mouse: (x, y) => { mdx += x; mdy += y; }, passo: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) passo(dt); }, interagir, get alvo() { return alvoPerto; }, get mundo() { return mundo; }, get predioPerto() { return predioPerto; }, get mapaInfo() { return mapaInfo; }, get destino() { return destino; }, get tiros() { return tiros; }, camera, get nave() { return nave; }, get voz() { return voz; }, get rede() { return rede; }, renderer, cena, get astro() { return astro; }, cabine: (v) => { s.fp = v; }, granada: () => lancarGranada(), golpear: () => golpear(), recarregar: () => recarregar(), atirar: () => atirarAPe(), escolherArma: (i) => escolherArma(i), alternarPrimeiraPessoa, ajustarFP: (id, o) => { FP[id] = { ...FP[id], ...o }; } };
+  if (/debugjogo/.test(location.search)) window.__jogo = { s, pe, tecla, mouse: (x, y) => { mdx += x; mdy += y; }, passo: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) passo(dt); }, interagir, get alvo() { return alvoPerto; }, get mundo() { return mundo; }, get predioPerto() { return predioPerto; }, get mapaInfo() { return mapaInfo; }, get destino() { return destino; }, get tiros() { return tiros; }, camera, get nave() { return nave; }, get voz() { return voz; }, get rede() { return rede; }, renderer, cena, get astro() { return astro; }, cabine: (v) => { s.fp = v; }, granada: () => lancarGranada(), golpear: () => golpear(), recarregar: () => recarregar(), atirar: () => atirarAPe(), escolherArma: (i) => escolherArma(i), alternarPrimeiraPessoa, ASSENTO, cabine3d: cabine, ajustarFP: (id, o) => { FP[id] = { ...FP[id], ...o }; } };
 
   function fechar() {
     rodando = false;

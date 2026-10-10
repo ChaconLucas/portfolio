@@ -109,6 +109,8 @@ export async function criarNave(cena) {
     get empuxo() { return empuxo; },
     /** 0..1: intensidade da reentrada (plasma no nariz, faiscas laranja) */
     reentrada(k) { reentra = k; },
+    /** vista da cabine: o brilho do plasma (que fica em volta da camera) some; a concha de fogo continua na frente */
+    vistaCabine(on) { fogo.visible = !on; halo.visible = !on; },
     /**
      * @param dt segundos
      * @param alvo 0..1 (acelerador), turbo boolean
@@ -131,7 +133,7 @@ export async function criarNave(cena) {
         concha.material.opacity = reentra * .42;
         concha.material.color.setRGB(1, .35 + reentra * .3, .1 + reentra * .15);
         concha.scale.set(f, f, (1.2 + reentra * 1.4) * f);
-        fogo.material.opacity = reentra * .75; fogo.scale.setScalar((2.6 + reentra * 3.4) * f);
+        fogo.material.opacity = reentra * .5; fogo.scale.setScalar((1.6 + reentra * 1.8) * f);   // brilho do plasma (antes cobria a nave de branco)
       }
       rastro.material.uniforms.calor.value += (reentra - rastro.material.uniforms.calor.value) * .1;
 
