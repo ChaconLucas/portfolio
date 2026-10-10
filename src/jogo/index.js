@@ -199,7 +199,7 @@ export async function abrirJogo() {
   // maos e arma, bem a frente na tela (o truque das armas de jogo de tiro)
   const camVM = new THREE.PerspectiveCamera(); camVM.layers.set(1);
   let FOV_ARMA = 54;
-  const _pVM = new THREE.Vector3(), _fVM = new THREE.Vector3(), _oVM = new THREE.Vector3(), _v2VM = new THREE.Vector3(), _vY1 = new THREE.Vector3(0, 1, 0), _qY = new THREE.Quaternion();
+  const _eVM = new THREE.Vector3(), _pVM = new THREE.Vector3(), _fVM = new THREE.Vector3(), _oVM = new THREE.Vector3(), _v2VM = new THREE.Vector3(), _vY1 = new THREE.Vector3(0, 1, 0), _qY = new THREE.Quaternion();
     function desenhar(c, cam) {
     CURVA.k.value = c.userData.superficie ? K_CURVA : 0; CURVA.c.value.copy(camera.position);
     renderer.render(c, cam);
@@ -213,7 +213,9 @@ export async function abrirJogo() {
     // y: cima (a arma desce), r: recuo
     astro.peitoPos(_pVM); camera.getWorldDirection(_fVM);
     _qY.setFromAxisAngle(_vY1, Math.atan2(-_fVM.x, -_fVM.z));
-    _oVM.subVectors(camera.position, _pVM).applyQuaternion(_qY.invert()).add(_v2VM.set(-(vm.x || 0), vm.y || 0, vm.r));
+    // o olho pela posicao ATUAL do corpo (a camera do mundo foi posta antes do passo e, andando, ficava ~10 cm atrasada: a arma escorregava na tela)
+    _eVM.set(pe.pos.x + Math.sin(s.alvoRumo) * vm.f + Math.cos(s.alvoRumo) * vm.l, pe.pos.y + vm.a, pe.pos.z + Math.cos(s.alvoRumo) * vm.f - Math.sin(s.alvoRumo) * vm.l);
+    _oVM.subVectors(_eVM, _pVM).applyQuaternion(_qY.invert()).add(_v2VM.set(-(vm.x || 0), vm.y || 0, vm.r));
     camVM.position.copy(_oVM.applyQuaternion(camera.quaternion)).add(_pVM); camVM.quaternion.copy(camera.quaternion); camVM.updateMatrixWorld();
     const fundo = c.background; c.background = null; renderer.autoClear = false; renderer.clearDepth();
     renderer.render(c, camVM);
@@ -770,11 +772,11 @@ export async function abrirJogo() {
   // (o que fica a menos de r + c dela some); x/y = a camera da arma vai para a
   // esquerda/cima (a arma desce para o canto). Ajuste no teste: __jogo.ajustarFP(id, { ... })
   const FP = {
-    nada: { g: 0, f: .1, a: 1.66, l: 0, r: .25, c: .05, x: .04, y: .02 },
-    espada: { g: .1, f: .1, a: 1.66, l: 0, r: .3, c: .05, x: .06, y: -.08 },
-    blaster: { g: .16, f: .1, a: 1.66, l: 0, r: .42, c: .05, x: .05, y: .03 },
-    rifle: { g: .1, f: .1, a: 1.62, l: .04, r: .25, c: .05, x: .04, y: .02 },
-    canhao: { g: .12, f: .1, a: 1.66, l: .03, r: .25, c: .05, x: .04, y: .03 }
+    nada: { g: 0, f: .1, a: 1.66, l: 0, r: .1, c: .05, x: .04, y: -.1 },
+    espada: { g: .1, f: .1, a: 1.66, l: 0, r: .18, c: .05, x: .06, y: -.13 },
+    blaster: { g: .16, f: .1, a: 1.66, l: 0, r: .1, c: .05, x: -.07, y: -.16 },
+    rifle: { g: .1, f: .1, a: 1.62, l: .04, r: .14, c: .05, x: .04, y: -.1 },
+    canhao: { g: .12, f: .1, a: 1.66, l: .03, r: .2, c: .05, x: .04, y: -.12 }
   };
   const fpDe = () => FP[ARMAS[armaIdx].id] || FP.nada;
   // correndo (Shift) armado: pose de corrida (0..1); balanco dos passos, tranco
@@ -2133,7 +2135,7 @@ export async function abrirJogo() {
   raf(quadro);
   // modo de teste (?debugjogo): avanca a simulacao sem depender do rAF
   if (/debugjogo/.test(location.search)) { semTrava = true; raiz.classList.add('sem-trava'); }   // teste: sem convite de clique
-  if (/debugjogo/.test(location.search)) window.__jogo = { s, pe, tecla, mouse: (x, y) => { mdx += x; mdy += y; }, passo: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) passo(dt); }, interagir, get alvo() { return alvoPerto; }, get mundo() { return mundo; }, get predioPerto() { return predioPerto; }, get mapaInfo() { return mapaInfo; }, get destino() { return destino; }, get tiros() { return tiros; }, camera, get nave() { return nave; }, get voz() { return voz; }, get rede() { return rede; }, renderer, cena, get astro() { return astro; }, cabine: (v) => { s.fp = v; }, granada: () => lancarGranada(), golpear: () => golpear(), recarregar: () => recarregar(), atirar: () => atirarAPe(), atirarNave: () => atirarNave(), escolherArma: (i) => escolherArma(i), alternarPrimeiraPessoa, fovArma: (v) => { FOV_ARMA = v; }, ASSENTO, cabine3d: cabine, ajustarFP: (id, o) => { FP[id] = { ...FP[id], ...o }; } };
+  if (/debugjogo/.test(location.search)) window.__jogo = { s, pe, tecla, mouse: (x, y) => { mdx += x; mdy += y; }, passo: (n, dt = 1 / 60) => { for (let i = 0; i < n; i++) passo(dt); }, interagir, get alvo() { return alvoPerto; }, get mundo() { return mundo; }, get predioPerto() { return predioPerto; }, get mapaInfo() { return mapaInfo; }, get destino() { return destino; }, get tiros() { return tiros; }, camera, get nave() { return nave; }, get voz() { return voz; }, get rede() { return rede; }, renderer, cena, get astro() { return astro; }, cabine: (v) => { s.fp = v; }, granada: () => lancarGranada(), golpear: () => golpear(), recarregar: () => recarregar(), atirar: () => atirarAPe(), atirarNave: () => atirarNave(), escolherArma: (i) => escolherArma(i), alternarPrimeiraPessoa, camVM, fovArma: (v) => { FOV_ARMA = v; }, ASSENTO, cabine3d: cabine, ajustarFP: (id, o) => { FP[id] = { ...FP[id], ...o }; } };
 
   function fechar() {
     rodando = false;

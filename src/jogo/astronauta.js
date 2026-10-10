@@ -39,7 +39,9 @@ export async function criarAstronauta(cena) {
   // pose de mira. Antes, de costas e de lado os bracos balancavam como se nao
   // houvesse arma (e na primeira pessoa a arma saia da tela).
   const CIMA = /^(Abdomen|Torso|Chest|Neck|Head|Shoulder|UpperArm|LowerArm|Wrist|Index|Middle|Ring|Pinky|Thumb)/;
-  const soOs = (c, cima, nome) => { const k = c.clone(); k.name = nome; k.tracks = k.tracks.filter((t) => CIMA.test(t.name.split('.')[0]) === cima); return k; };
+  // (o giro do quadril vai com o tronco: andando de lado ele vira e levava a arma junto)
+  const deCima = (t) => { const [osso, prop] = t.name.split('.'); return CIMA.test(osso) || ((osso === 'Body' || osso === 'Hips') && prop === 'quaternion'); };   // (o osso raiz do modelo e o 'Body')
+  const soOs = (c, cima, nome) => { const k = c.clone(); k.name = nome; k.tracks = k.tracks.filter((t) => deCima(t) === cima); return k; };
   CICLO.forEach((n) => { const c = clip(n); if (!c) return; const a = mixer.clipAction(soOs(c, false, 'P_' + n)); a.play(); a.setEffectiveWeight(0); acao['P_' + n] = a; peso['P_' + n] = 0; LOOP.push('P_' + n); });
   { const c = clip('Idle_Gun_Pointing'); if (c) { const a = mixer.clipAction(soOs(c, true, 'TRONCO')); a.play(); a.setEffectiveWeight(0); acao.TRONCO = a; peso.TRONCO = 0; LOOP.push('TRONCO'); } }
   // ciclos de passo: o tempo e controlado a mao (fase comum)

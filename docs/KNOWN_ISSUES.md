@@ -1173,3 +1173,7 @@ Medido no Safari do Lucas, desligando um efeito por vez enquanto mexia o mouse. 
 - **Fogo da reentrada** (`nave.js`): o cone liso virou chamas em shader (ruído correndo da ponta para trás), branco-amarelo na frente e laranja-rosa na cauda. Só aparece na parte do ar, junto com os riscos de luz.
 - A camada de nuvens do planeta durante a entrada caiu para 30% (fazia uma faixa pálida grossa no horizonte).
 - O brilho do motor ficou menor (visto de trás, virava uma bola branca em cima da nave).
+- **Primeira pessoa andando (10/10):**
+  - o osso raiz do modelo é o `Body` (não `Hips`), e o giro dele (de lado o corpo vira) agora vem da pose de mira, não dos ciclos de passo. Antes a pistola saía da tela andando de lado e de costas;
+  - a câmera da arma usa a posição atual do corpo, porque a do mundo foi posta antes do passo e ficava ~10 cm atrás andando;
+  - posições por arma recalculadas com a pose já acomodada (as primeiras medições pegavam a troca de arma ainda em andamento) e mais perto da câmera.
